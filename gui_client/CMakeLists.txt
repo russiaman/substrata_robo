@@ -8,6 +8,8 @@ endif()
 
 include(../cmake/shared_settings.cmake)
 include(../cmake/shared_cxx_settings.cmake)
+include(gaussian_splats/third_party/libwebp/libwebp_decode.cmake) # Defines webp_decode_sources, used to decode SOG (.sog) Gaussian Splat files.
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/gaussian_splats/third_party/libwebp") # libwebp's own sources use "src/dec/x.h"-style includes relative to its own root.
 
 if(NOT EMSCRIPTEN)
 	include(../cmake/winter.cmake)
@@ -175,6 +177,12 @@ ${CMAKE_SOURCE_DIR}/gui_client/GestureUI.cpp
 ${CMAKE_SOURCE_DIR}/gui_client/GestureUI.h
 ${CMAKE_SOURCE_DIR}/gui_client/GUIClient.cpp
 ${CMAKE_SOURCE_DIR}/gui_client/GUIClient.h
+${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatData.h
+${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatLoader.cpp
+${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatLoader.h
+${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatZipReader.cpp
+${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatZipReader.h
+${webp_decode_sources}
 ${CMAKE_SOURCE_DIR}/gui_client/HashedObGrid.h
 ${CMAKE_SOURCE_DIR}/gui_client/HeadUpDisplayUI.cpp
 ${CMAKE_SOURCE_DIR}/gui_client/HeadUpDisplayUI.h
