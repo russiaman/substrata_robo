@@ -383,7 +383,9 @@ int main(int argc, char *argv[])
 		updateMapTiles(*server.world_state);
 
 		// updateToUseImageCubeMeshes(*server.world_state);
-		
+
+		WorldCreation::ensurePurpleTestCubeExists(server.world_state);
+
 		server.world_state->denormaliseData();
 
 

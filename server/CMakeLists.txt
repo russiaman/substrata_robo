@@ -302,6 +302,8 @@ ${tracy_files}
 ${ai}
 )
 
+set_target_properties(${CURRENT_TARGET} PROPERTIES OUTPUT_NAME "substrata_serv")
+
 
 #include(../cmake/shared_target_settings.cmake) # This has too much stuff we don't want.  Cherry-pick stuff from it instead.
 include(../cmake/ssl.cmake)

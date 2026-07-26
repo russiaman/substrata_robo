@@ -780,7 +780,8 @@ void WebServerRequestHandler::handleRequest(const web::RequestInfo& request, web
 					std::string contents;
 					FileUtils::readEntireFile(data_store->webclient_dir + "/" + path_relative_to_webclient_dir, contents);
 					const std::string content_type = web::ResponseUtils::getContentTypeForPath(path_relative_to_webclient_dir);
-					web::ResponseUtils::writeHTTPOKHeaderAndData(reply_info, contents.data(), contents.length(), content_type);
+					// Use the variant that sets Cross-Origin-Opener-Policy/Cross-Origin-Embedder-Policy: Chrome requires COEP on worker scripts too (gui_client.js is loaded as a pthread worker), or the worker fails to load with ERR_BLOCKED_BY_RESPONSE.
+					web::ResponseUtils::writeHTTPOKHeaderAndDataWithCacheControl(reply_info, contents.data(), contents.length(), content_type, "max-age=0");
 				}
 				catch(FileUtils::FileUtilsExcep& e)
 				{

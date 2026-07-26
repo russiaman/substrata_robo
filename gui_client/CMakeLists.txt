@@ -559,19 +559,26 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/webserver/Escaping.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/webserver/Escaping.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/webserver/ResponseUtils.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/webserver/ResponseUtils.h
-# Files needed to run the local MCP HTTP endpoint (see MCPClientHandler):
-${GLARE_CORE_TRUNK_DIR_ENV}/webserver/WebListenerThread.cpp
-${GLARE_CORE_TRUNK_DIR_ENV}/webserver/WebListenerThread.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/webserver/RequestInfo.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/webserver/RequestInfo.h
-${GLARE_CORE_TRUNK_DIR_ENV}/webserver/WebWorkerThread.cpp
-${GLARE_CORE_TRUNK_DIR_ENV}/webserver/WebWorkerThread.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/webserver/RequestHandler.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/webserver/RequestHandler.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/webserver/UnsafeString.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/webserver/UnsafeString.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/webserver/WebsiteExcep.h
 )
+
+if(NOT EMSCRIPTEN)
+	# WebListenerThread/WebWorkerThread implement a raw TCP listener (used to run the local MCP HTTP endpoint, see MCPClientHandler) and require LibreSSL/OpenSSL headers.
+	# Not usable (or buildable) in the browser/Emscripten build: raw listening sockets aren't available there, and no Emscripten LibreSSL build is provided.
+	set(webserver_files
+	${webserver_files}
+	${GLARE_CORE_TRUNK_DIR_ENV}/webserver/WebListenerThread.cpp
+	${GLARE_CORE_TRUNK_DIR_ENV}/webserver/WebListenerThread.h
+	${GLARE_CORE_TRUNK_DIR_ENV}/webserver/WebWorkerThread.cpp
+	${GLARE_CORE_TRUNK_DIR_ENV}/webserver/WebWorkerThread.h
+	)
+endif()
 
 SET(direct3d
 ${GLARE_CORE_TRUNK_DIR_ENV}/direct3d/Direct3DUtils.cpp

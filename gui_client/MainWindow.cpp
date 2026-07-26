@@ -78,7 +78,9 @@ Copyright Glare Technologies Limited 2024 -
 #include "../utils/BufferOutStream.h"
 #include "../utils/IndigoXMLDoc.h"
 #include "MCPClientHandler.h"
+#ifndef EMSCRIPTEN
 #include <webserver/WebListenerThread.h>
+#endif
 #include "../utils/LimitedAllocator.h"
 #include "../networking/MySocket.h"
 #include "../graphics/ImageMap.h"
@@ -3458,6 +3460,9 @@ void MainWindow::processMCPRenderRequests()
 
 void MainWindow::startMCPClientServerIfEnabled()
 {
+#ifdef EMSCRIPTEN
+	return; // Local MCP endpoint uses a raw TCP listener (WebListenerThread), not available in the browser/Emscripten build.
+#else
 	if(!settings->value(MainOptionsDialog::MCPEnabledKey(), /*default=*/false).toBool())
 		return;
 
@@ -3488,6 +3493,7 @@ void MainWindow::startMCPClientServerIfEnabled()
 	{
 		showErrorNotification("Failed to start local MCP endpoint: " + e.what());
 	}
+#endif // EMSCRIPTEN
 }
 
 

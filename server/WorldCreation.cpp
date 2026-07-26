@@ -1311,6 +1311,45 @@ void WorldCreation::createParcelsAndRoads(Reference<ServerAllWorldsState> world_
 }
 
 
+void WorldCreation::ensurePurpleTestCubeExists(Reference<ServerAllWorldsState> world_state)
+{
+	const std::string marker = "purple_test_cube";
+
+	WorldStateLock lock(world_state->mutex);
+
+	for(auto it = world_state->getRootWorldState()->getObjects(lock).begin(); it != world_state->getRootWorldState()->getObjects(lock).end(); ++it)
+		if(it->second->content == marker)
+			return; // Already exists, nothing to do.
+
+	conPrint("Creating purple test cube near spawn...");
+
+	WorldObjectRef ob = new WorldObject();
+	ob->creator_id = UserID(0);
+	ob->created_time = TimeStamp::currentTime();
+	ob->last_modified_time = TimeStamp::currentTime();
+	ob->state = WorldObject::State_Alive;
+	ob->uid = world_state->getNextObjectUID();
+	ob->object_type = WorldObject::ObjectType_VoxelGroup;
+	ob->content = marker;
+	ob->pos = Vec3d(2.1, 1.6, 0.0); // A few metres in front of the default spawn point (2.1, -1.4, 1.67), facing heading 90 deg (+y).
+	ob->axis = Vec3f(0, 0, 1);
+	ob->angle = 0;
+	ob->scale = Vec3f(1.0f); // 1m cube.
+	ob->materials.resize(1);
+	ob->materials[0] = new WorldMaterial();
+	ob->materials[0]->colour_rgb = Colour3f(0.55f, 0.0f, 0.85f); // Purple.
+	ob->getDecompressedVoxels().push_back(Voxel(Vec3<int>(0, 0, 0), 0));
+	ob->compressVoxels();
+	ob->setAABBOS(ob->getDecompressedVoxelGroup().getAABB());
+
+	world_state->getRootWorldState()->getObjects(lock)[ob->uid] = ob;
+	world_state->getRootWorldState()->addWorldObjectAsDBDirty(ob, lock);
+	world_state->markAsChanged();
+
+	conPrint("Purple test cube created with UID " + ob->uid.toString());
+}
+
+
 void WorldCreation::createPhysicsTest(ServerAllWorldsState& all_worlds_state)
 {
 	conPrint("creating blocks...");

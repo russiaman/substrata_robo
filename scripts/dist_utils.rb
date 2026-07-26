@@ -144,7 +144,7 @@ def copyCEFRedistLinux(target_dir, strip_symbols)
 	# The rpath is set to look in lib, so put the CEF files there.
 	target_lib_dir = target_dir + "/lib"
 
-	FileUtils.mkdir_p(target_lib_dir, :verbose => true) if !File.exists?(target_lib_dir) # Make target_lib_dir if it doesn't exist already.
+	FileUtils.mkdir_p(target_lib_dir, :verbose => true) if !File.exist?(target_lib_dir) # Make target_lib_dir if it doesn't exist already.
 	
 	# Get CEF binary distibution path.
 	cef_bin_distrib_dir = getAndCheckEnvVar('CEF_BINARY_DISTRIB_DIR')
@@ -183,7 +183,7 @@ def copyCEFRedistMac(cyb_output_dir, appdir)
     
     cef_binary_distrib_dir = getAndCheckEnvVar('CEF_BINARY_DISTRIB_DIR')
 
-    FileUtils.mkdir(appdir + "/Contents/Frameworks", {:verbose=>true}) if !File.exists?(appdir + "/Contents/Frameworks") # Make frameworks dir if not existing.
+    FileUtils.mkdir(appdir + "/Contents/Frameworks", {:verbose=>true}) if !File.exist?(appdir + "/Contents/Frameworks") # Make frameworks dir if not existing.
 
     FileUtils.cp_r(cef_binary_distrib_dir + "/Release/Chromium Embedded Framework.framework", appdir + "/Contents/Frameworks", {:verbose=>true})
 
