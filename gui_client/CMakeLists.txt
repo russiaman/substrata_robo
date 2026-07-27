@@ -180,6 +180,8 @@ ${CMAKE_SOURCE_DIR}/gui_client/GUIClient.h
 ${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatData.h
 ${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatLoader.cpp
 ${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatLoader.h
+${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatRenderer.cpp
+${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatRenderer.h
 ${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatZipReader.cpp
 ${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatZipReader.h
 ${webp_decode_sources}
@@ -916,6 +918,8 @@ endif() # end if not emscripten.
 include(${GLARE_CORE_TRUNK_DIR_ENV}/opengl/opengl.cmake)
 
 set(substrata_shaders
+../shaders/gaussian_splat_frag_shader.glsl
+../shaders/gaussian_splat_vert_shader.glsl
 ../shaders/parcel_frag_shader.glsl
 ../shaders/parcel_vert_shader.glsl
 ../shaders/portal_frag_shader.glsl
