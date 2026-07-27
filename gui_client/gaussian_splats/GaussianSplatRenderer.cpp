@@ -15,11 +15,13 @@ Generated at Mon Jul 27 06:16:15 2026
 #include <opengl/VAO.h>
 #include <opengl/VertexBufferAllocator.h>
 #include <maths/mathstypes.h>
+#include <maths/Matrix4f.h>
 #include <utils/ArrayRef.h>
 #include <utils/ConPrint.h>
 #include <utils/Exception.h>
 #include <utils/StringUtils.h>
 #include <assert.h>
+#include <algorithm>
 
 
 namespace
@@ -227,7 +229,13 @@ GLObjectRef GaussianSplatRenderer::createObject(const GaussianSplatDataRef& spla
 	mat.user_uniform_vals.resize(3); // viewport_dims_px, focal_len_px, splat_tex_width - set by think().
 	mat.user_uniform_vals[2].intval = (int)splat_tex_width;
 
-	managed_objects.push_back(ob);
+	ManagedObject managed_ob;
+	managed_ob.ob = ob;
+	managed_ob.splat_data = splat_data;
+	managed_ob.instance_index_vbo = instance_index_vbo;
+	managed_ob.depth_scratch.resize(num_splats);
+	managed_ob.index_scratch.resize(num_splats);
+	managed_objects.push_back(managed_ob);
 	return ob;
 }
 
@@ -254,10 +262,40 @@ void GaussianSplatRenderer::think(OpenGLEngine& opengl_engine)
 
 	for(size_t i = 0; i < managed_objects.size(); ++i)
 	{
-		OpenGLMaterial& mat = managed_objects[i]->materials[0];
+		ManagedObject& managed_ob = managed_objects[i];
+		OpenGLMaterial& mat = managed_ob.ob->materials[0];
 		mat.user_uniform_vals[0].vec2 = Vec2f((float)viewport_dims.x, (float)viewport_dims.y);
 		mat.user_uniform_vals[1].vec2 = Vec2f(focal_x, focal_y);
 		// user_uniform_vals[2] (splat_tex_width) is constant, set once in createObject().
+
+		// TEMP, UNOPTIMISED depth-sort (architecture contract task #7 - back-to-front painter's-algorithm sort of the instance-index VBO, done fully on the main thread, every frame, with std::sort).
+		// This is a quick-and-dirty first cut to unblock visual testing, NOT the final implementation. Known problems to fix before this is "done":
+		//  - Runs synchronously on the main/render thread every single frame - will not scale to ~1M splats without hurting frame time. Should move to a worker thread (pthread; the Emscripten build already
+		//    links PTHREAD_POOL_SIZE, see architecture contract §2.E) and/or only re-sort when the camera has moved past some threshold, not unconditionally every frame.
+		//  - Uses std::sort on floats rather than the project's own Sort::radixSort32BitKey (mentioned in the architecture contract as the intended approach) - fine for correctness and for the
+		//    ~140k-splat test scene, but slower than a radix sort at the ~1M-splat scale target in the brief.
+		// Do not use this loop as a model for other performance-sensitive code - it is deliberately the simplest thing that works, to test the depth-sort hypothesis.
+		{
+			Matrix4f world_to_cam;
+			scene->cam_to_world.getInverseForAffine3Matrix(world_to_cam); // world_to_camera_space_matrix itself is private to OpenGLScene; cam_to_world (its inverse, public) is available instead.
+			const Matrix4f ob_to_cam = world_to_cam * managed_ob.ob->ob_to_world_matrix;
+			const std::vector<Vec3f>& positions = managed_ob.splat_data->positions;
+			const size_t num_splats = positions.size();
+
+			std::vector<float>& depth = managed_ob.depth_scratch;
+			std::vector<uint32>& indices = managed_ob.index_scratch;
+			for(size_t s = 0; s < num_splats; ++s)
+			{
+				const Vec4f pos_cs = ob_to_cam * Vec4f(positions[s].x, positions[s].y, positions[s].z, 1.f);
+				depth[s] = pos_cs.x[1]; // Camera space here is y-forwards (see gaussian_splat_vert_shader.glsl's comment on world_to_camera_space_matrix) - this is "depth" from the camera.
+				indices[s] = (uint32)s;
+			}
+
+			// Sort back-to-front (farthest/largest depth first) for correct premultiplied-alpha "over" blending (GL_ONE, GL_ONE_MINUS_SRC_ALPHA, no depth write - see architecture contract §2.G).
+			std::sort(indices.begin(), indices.end(), [&depth](uint32 a, uint32 b) { return depth[a] > depth[b]; });
+
+			managed_ob.instance_index_vbo->updateData(indices.data(), indices.size() * sizeof(uint32));
+		}
 	}
 }
 

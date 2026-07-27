@@ -73,5 +73,14 @@ private:
 
 	Reference<OpenGLProgram> shader_prog;
 
-	std::vector<GLObjectRef> managed_objects; // Objects created by createObject(), refreshed each frame by think().
+	// One managed splat cloud: the GL object plus what think() needs to re-sort its instance-index VBO every frame (see think()'s TEMP NOTE).
+	struct ManagedObject
+	{
+		GLObjectRef ob;
+		GaussianSplatDataRef splat_data;
+		Reference<VBO> instance_index_vbo;
+		std::vector<float> depth_scratch; // Reused across frames to avoid a per-frame allocation.
+		std::vector<uint32> index_scratch;
+	};
+	std::vector<ManagedObject> managed_objects; // Objects created by createObject(), refreshed each frame by think().
 };

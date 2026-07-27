@@ -45,8 +45,16 @@ void main()
 
 	vec4 pos_vs = view_matrix * (model_matrix * vec4(pos_os, 1.0));
 
-	// Camera space here is (x = right, y = forwards, z = up) - depth is pos_vs.y, not pos_vs.z.
-	if(pos_vs.y < 0.1)
+	// IMPORTANT, found while debugging task #9: the "view_matrix" uniform the engine actually sends is NOT this engine's own (y=forwards, z=up) convention
+	// (that's only true of the raw OpenGLScene::world_to_camera_space_matrix). OpenGLEngine.cpp's main render loop builds the view_matrix uniform as
+	// indigo_to_opengl_cam_matrix * world_to_camera_space_matrix, which additionally converts into the standard OpenGL camera space: x = right, y = up, -z = forwards
+	// (see OpenGLEngine.cpp's comment "Indigo/Substrata camera convention is z=up, y=forwards, x=right. OpenGL is y=up, x=right, -z=forwards."). So pos_vs here is
+	// in that *standard* convention, not the engine's own one - depth (distance in front of the camera) is -pos_vs.z, not pos_vs.y. (This previously caused splats to
+	// be culled/distorted whenever pos_vs.y, which is actually the vertical screen-space axis, dropped below the threshold below - i.e. exactly at screen-centre
+	// height, regardless of true depth. proj_matrix (a standard OpenGL projection matrix) already expects this same standard convention, so proj_matrix * pos_vs
+	// below is fine as-is and didn't need changing.)
+	const float near_epsilon = 0.1;
+	if(-pos_vs.z < near_epsilon)
 	{
 		gl_Position = vec4(2.0, 2.0, 2.0, 1.0); // Cull behind-camera splats.
 		frag_local = vec2(0.0);
@@ -54,7 +62,8 @@ void main()
 	}
 
 	const float fixed_world_radius = 0.01; // A small, constant world-space radius - just enough to see the point cloud's shape, no per-splat scale/rotation/covariance involved at all.
-	float radius_px = clamp(fixed_world_radius * focal_len_px.x / pos_vs.y, 1.0, 40.0);
+	float cam_dist = length(pos_vs.xyz); // True camera distance - convention-independent, so unaffected by the axis mix-up above.
+	float radius_px = clamp(fixed_world_radius * focal_len_px.x / cam_dist, 1.0, 40.0);
 
 	vec2 screen_offset_px = position_in.xy * radius_px;
 
