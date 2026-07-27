@@ -176,29 +176,6 @@ GLObjectRef GaussianSplatRenderer::createObject(const GaussianSplatDataRef& spla
 
 	const size_t num_splats = splat_data->numSplats();
 
-	// TEMP DIAGNOSTIC (architecture contract task #9, first real .sog test - remove once the shader math is verified working):
-	{
-		Vec3f min_scale(1.0e30f), max_scale(-1.0e30f), min_pos(1.0e30f), max_pos(-1.0e30f);
-		size_t num_nonfinite = 0;
-		for(size_t i = 0; i < num_splats; ++i)
-		{
-			const Vec3f& p = splat_data->positions[i];
-			const Vec3f& s = splat_data->scales[i];
-			if(!isFinite(p.x) || !isFinite(p.y) || !isFinite(p.z) || !isFinite(s.x) || !isFinite(s.y) || !isFinite(s.z))
-			{
-				num_nonfinite++;
-				continue;
-			}
-			min_scale = Vec3f(myMin(min_scale.x, s.x), myMin(min_scale.y, s.y), myMin(min_scale.z, s.z));
-			max_scale = Vec3f(myMax(max_scale.x, s.x), myMax(max_scale.y, s.y), myMax(max_scale.z, s.z));
-			min_pos = Vec3f(myMin(min_pos.x, p.x), myMin(min_pos.y, p.y), myMin(min_pos.z, p.z));
-			max_pos = Vec3f(myMax(max_pos.x, p.x), myMax(max_pos.y, p.y), myMax(max_pos.z, p.z));
-		}
-		conPrint("GaussianSplatRenderer::createObject(): num_splats=" + toString(num_splats) + ", num_nonfinite=" + toString(num_nonfinite));
-		conPrint("  pos range: (" + toString(min_pos.x) + ", " + toString(min_pos.y) + ", " + toString(min_pos.z) + ") to (" + toString(max_pos.x) + ", " + toString(max_pos.y) + ", " + toString(max_pos.z) + ")");
-		conPrint("  scale range: (" + toString(min_scale.x) + ", " + toString(min_scale.y) + ", " + toString(min_scale.z) + ") to (" + toString(max_scale.x) + ", " + toString(max_scale.y) + ", " + toString(max_scale.z) + ")");
-	}
-
 	GLObjectRef ob = new GLObject();
 	ob->mesh_data = makeInstancedQuadMeshData(*opengl_engine.vert_buf_allocator, splat_data->aabb_os);
 	ob->num_instances_to_draw = (int)num_splats;
@@ -250,15 +227,6 @@ void GaussianSplatRenderer::think(OpenGLEngine& opengl_engine)
 	// Focal length in pixels, derived the same way as OpenGLEngine's own screen-space projections (see e.g. OpenGLEngine::getPixelForPoint()/l_over_w, l_over_h): focal_px = viewport_px * (lens_sensor_dist / sensor_size).
 	const float focal_x = (float)viewport_dims.x * scene->lens_sensor_dist / scene->use_sensor_width;
 	const float focal_y = (float)viewport_dims.y * scene->lens_sensor_dist / scene->use_sensor_height;
-
-	// TEMP DIAGNOSTIC (architecture contract task #9 - remove once the shader math is verified working):
-	static bool printed_once = false;
-	if(!printed_once)
-	{
-		printed_once = true;
-		conPrint("GaussianSplatRenderer::think(): viewport_dims=(" + toString(viewport_dims.x) + ", " + toString(viewport_dims.y) + "), lens_sensor_dist=" + toString(scene->lens_sensor_dist) +
-			", use_sensor_width=" + toString(scene->use_sensor_width) + ", use_sensor_height=" + toString(scene->use_sensor_height) + ", focal_len_px=(" + toString(focal_x) + ", " + toString(focal_y) + ")");
-	}
 
 	for(size_t i = 0; i < managed_objects.size(); ++i)
 	{
