@@ -11,6 +11,20 @@ Generated at Mon Jul 27 06:16:15 2026
 #include <cstring>
 
 
+// Deliberately NOT defining WUFFS_IMPLEMENTATION here: graphics/PNGDecoder.cpp already includes this same amalgamated file with WUFFS_IMPLEMENTATION and
+// WUFFS_CONFIG__MODULE__DEFLATE (needed for PNG's zlib-wrapped deflate streams) elsewhere in this same gui_client/server binary - the actual wuffs_deflate__decoder__*
+// function bodies and error-message globals it emits have external linkage (there's no STATIC_FUNCTIONS opt-in that also covers those globals), so defining
+// WUFFS_IMPLEMENTATION a second time in this TU produced duplicate-symbol link errors. Omitting it here just pulls in the *declarations* (prototypes, the
+// wuffs_deflate__decoder type, and the alloc()-based C++ convenience wrapper - see its "#if !defined(WUFFS_IMPLEMENTATION)" branch) and links against the
+// definitions PNGDecoder.cpp's translation unit already provides - the ordinary declare-in-many-places / define-in-one-place split, just achieved by a macro
+// rather than a separate header, because wuffs ships as a single amalgamated .c file. This only works because WUFFS_SUPPORT=1 (and hence PNGDecoder.cpp's
+// wuffs_deflate__decoder definitions) is unconditionally on for every translation unit in this project (see shared_cxx_settings.cmake).
+#define WUFFS_CONFIG__MODULES
+#define WUFFS_CONFIG__MODULE__BASE
+#define WUFFS_CONFIG__MODULE__DEFLATE
+#include <graphics/wuffs/wuffs-v0.3.c>
+
+
 namespace
 {
 
@@ -25,6 +39,45 @@ const uint32_t LOCAL_FILE_HDR_SIG        = 0x04034b50;
 
 const uint16_t COMPRESSION_STORE   = 0;
 const uint16_t COMPRESSION_DEFLATE = 8;
+
+
+// Raw DEFLATE (RFC 1951), not zlib (RFC 1950) - ZIP entries store the deflate stream directly, with no zlib header/Adler-32 trailer.
+std::vector<uint8_t> inflateRaw(const uint8_t* compressed_data, size_t compressed_size, size_t uncompressed_size, const std::string& filename_for_error_msg)
+{
+	// alloc() heap-allocates using the *real* struct size (known only in PNGDecoder.cpp's translation unit, where WUFFS_IMPLEMENTATION is defined) and already
+	// calls initialize() internally - see wuffs_deflate__decoder__alloc()'s definition. This TU's own (WUFFS_IMPLEMENTATION-less) view of the struct's size is
+	// deliberately not the real one (see the "dead_weight" comment in wuffs-v0.3.c), which is exactly why alloc() rather than a stack/local instance is used here.
+	wuffs_deflate__decoder::unique_ptr decoder = wuffs_deflate__decoder::alloc();
+	if(!decoder)
+		throw glare::Exception("GaussianSplatZipReader: failed to allocate DEFLATE decoder for '" + filename_for_error_msg + "'.");
+
+	wuffs_base__io_buffer src = wuffs_base__ptr_u8__reader(const_cast<uint8_t*>(compressed_data), compressed_size, /*closed=*/true);
+
+	std::vector<uint8_t> dst_buf(uncompressed_size);
+	wuffs_base__io_buffer dst = wuffs_base__ptr_u8__writer(dst_buf.data(), dst_buf.size());
+
+	const wuffs_base__range_ii_u64 workbuf_range = decoder->workbuf_len();
+	std::vector<uint8_t> workbuf(workbuf_range.max_incl);
+	const wuffs_base__slice_u8 workbuf_slice = wuffs_base__make_slice_u8(workbuf.data(), workbuf.size());
+
+	// Closed, fully-buffered source and an exactly-sized destination should complete in one transform_io call in practice, but loop on suspensions rather than assume that,
+	// matching Wuffs' general usage pattern (see e.g. PNGDecoder.cpp's decode_frame loop).
+	wuffs_base__status status;
+	for(;;)
+	{
+		status = decoder->transform_io(&dst, &src, workbuf_slice);
+		if(status.is_ok())
+			break;
+		if(!status.is_suspension())
+			throw glare::Exception("GaussianSplatZipReader: DEFLATE decode error in '" + filename_for_error_msg + "': " + std::string(status.message()));
+	}
+
+	if(dst.meta.wi != uncompressed_size)
+		throw glare::Exception("GaussianSplatZipReader: DEFLATE-decoded size mismatch for '" + filename_for_error_msg + "' (expected " +
+			std::to_string(uncompressed_size) + " bytes, got " + std::to_string(dst.meta.wi) + ").");
+
+	return dst_buf;
+}
 
 
 } // end anonymous namespace
@@ -111,15 +164,12 @@ std::map<std::string, std::vector<uint8_t>> GaussianSplatZipReader::readEntries(
 		}
 		else if(compression_method == COMPRESSION_DEFLATE)
 		{
-			// See class comment in the header: DEFLATE entries aren't handled yet.
-			throw glare::Exception("GaussianSplatZipReader: entry '" + filename + "' uses DEFLATE compression, which isn't supported yet (only STORE is currently handled).");
+			result[filename] = inflateRaw(data + data_offset, compressed_size, uncompressed_size, filename);
 		}
 		else
 		{
 			throw glare::Exception("GaussianSplatZipReader: entry '" + filename + "' uses unsupported compression method " + std::to_string(compression_method) + ".");
 		}
-
-		(void)uncompressed_size;
 	}
 
 	return result;

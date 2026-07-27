@@ -1471,6 +1471,71 @@ void WorldCreation::ensureTestGaussianSplatObjectExists(Reference<ServerAllWorld
 			++it;
 	}
 
+	// A second, independent test .sog object (dev/test-only, same conventions as above): only runs if SUBSTRATA_TEST_SOG_PATH_2 is set. Separate marker/object/env var from the one
+	// above - the two are unrelated test scenes, not replicated copies of each other, so this doesn't go through the replicate_count machinery.
+	std::string local_sog_path_2;
+	try
+	{
+		local_sog_path_2 = PlatformUtils::getEnvironmentVariable("SUBSTRATA_TEST_SOG_PATH_2");
+	}
+	catch(glare::Exception&)
+	{
+		local_sog_path_2.clear();
+	}
+
+	if(!local_sog_path_2.empty())
+	{
+		const URLString model_url_2 = world_state->resource_manager->copyLocalFileToResourceDirAndReturnURL(local_sog_path_2);
+		const std::string marker_2 = "test_gaussian_splat_object_2";
+
+		// Pose tuned by eye in the browser (same approach as the first test object, session5) - identity rotation showed the scene tipped over sideways (visible horizon/ground
+		// tilted ~90 degrees). Owner confirmed the tilt axis matches the gizmo's red (X) axis - trying the same fix that worked for the first test object (rotate -90 degrees
+		// around local X, i.e. swap Y<->Z, for a Y-up capture in our Z-up world) as the first guess here too.
+		const Vec3d test_pos_2(-4.5, 1.6, 1.0);
+		const Vec3f test_axis_2(1, 0, 0);
+		const float test_angle_2 = -Maths::pi_2<float>();
+		const Vec3f test_scale_2(1.f);
+
+		bool found_existing_2 = false;
+		for(auto it = world_state->getRootWorldState()->getObjects(lock).begin(); it != world_state->getRootWorldState()->getObjects(lock).end(); ++it)
+			if(it->second->content == marker_2)
+			{
+				WorldObject* ob = it->second.ptr();
+				ob->pos = test_pos_2;
+				ob->axis = test_axis_2;
+				ob->angle = test_angle_2;
+				ob->scale = test_scale_2;
+				world_state->getRootWorldState()->addWorldObjectAsDBDirty(ob, lock);
+				found_existing_2 = true;
+				break;
+			}
+
+		if(!found_existing_2)
+		{
+			conPrint("Creating second test Gaussian splat object near spawn, from local file '" + local_sog_path_2 + "'...");
+
+			WorldObjectRef ob = new WorldObject();
+			ob->creator_id = UserID(0);
+			ob->created_time = TimeStamp::currentTime();
+			ob->last_modified_time = TimeStamp::currentTime();
+			ob->state = WorldObject::State_Alive;
+			ob->uid = world_state->getNextObjectUID();
+			ob->object_type = WorldObject::ObjectType_Generic;
+			ob->content = marker_2;
+			ob->model_url = model_url_2;
+			ob->pos = test_pos_2;
+			ob->axis = test_axis_2;
+			ob->angle = test_angle_2;
+			ob->scale = test_scale_2;
+			ob->setAABBOS(js::AABBox(Vec4f(-1,-1,-1,1), Vec4f(1,1,1,1))); // Placeholder - see comment on the first test object's AABB above.
+
+			world_state->getRootWorldState()->getObjects(lock)[ob->uid] = ob;
+			world_state->getRootWorldState()->addWorldObjectAsDBDirty(ob, lock);
+
+			conPrint("Second test Gaussian splat object created with UID " + ob->uid.toString());
+		}
+	}
+
 	world_state->markAsChanged();
 }
 

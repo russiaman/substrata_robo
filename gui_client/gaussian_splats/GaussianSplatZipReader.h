@@ -21,15 +21,17 @@ is just a ZIP of meta.json + several .webp files, per the PlayCanvas SOG spec:
 https://developer.playcanvas.com/user-manual/gaussian-splatting/formats/sog/).
 
 Not a general-purpose ZIP implementation - just enough to read the flat file
-list out of a SOG bundle. Supports the STORE (uncompressed) method fully.
-DEFLATE-compressed entries currently throw (see readEntries()) - re-compressing
-already-compressed WebP payloads with DEFLATE saves essentially nothing, so
-STORE is what SOG-writing tools are expected to use in practice, but this is
-a known gap, not a silent limitation. If we hit real-world .sog files using
-DEFLATE, the fix is to reuse the already-vendored wuffs DEFLATE module
-(glare-core/graphics/wuffs/wuffs-v0.3.c) from this translation unit with its
-own WUFFS_CONFIG__MODULE__DEFLATE define, following the pattern in
-graphics/PNGDecoder.cpp.
+list out of a SOG bundle. Supports both STORE (uncompressed) and DEFLATE
+entries - some real-world SOG-writing tools do use DEFLATE (e.g. LichtFeld
+Studio), even though it buys little for already-compressed WebP payloads.
+DEFLATE decoding reuses the already-vendored wuffs DEFLATE module
+(glare-core/graphics/wuffs/wuffs-v0.3.c, see GaussianSplatZipReader.cpp),
+included from this translation unit with its own WUFFS_CONFIG__MODULE__DEFLATE
+define and WUFFS_CONFIG__STATIC_FUNCTIONS (so its symbols stay local to this
+TU rather than clashing with graphics/PNGDecoder.cpp's own separate inclusion
+of the same amalgamated file for PNG/zlib decoding) - the same general
+approach PNGDecoder.cpp uses, just with a different, independently-configured
+module set and linkage.
 =====================================================================*/
 class GaussianSplatZipReader
 {
