@@ -1166,6 +1166,27 @@ PhysicsShape PhysicsWorld::createScaledAndTranslatedShapeForShape(const PhysicsS
 }
 
 
+PhysicsShape PhysicsWorld::createAABBoxShape(const js::AABBox& aabb_os)
+{
+	const Vec4f half_extent = (aabb_os.max_ - aabb_os.min_) * 0.5f;
+	const Vec4f centre      = (aabb_os.max_ + aabb_os.min_) * 0.5f;
+
+	JPH::Ref<JPH::BoxShapeSettings> box_shape_settings = new JPH::BoxShapeSettings(JPH::Vec3(half_extent[0], half_extent[1], half_extent[2]));
+
+	JPH::Result<JPH::Ref<JPH::Shape>> result = box_shape_settings->Create();
+	if(result.HasError())
+		throw glare::Exception(std::string("Error building Jolt shape: ") + result.GetError().c_str());
+
+	PhysicsShape box_shape;
+	box_shape.jolt_shape = result.Get();
+	box_shape.size_B = computeSizeBForShape(box_shape.jolt_shape);
+
+	// The AABB isn't necessarily centred at the origin (e.g. a Gaussian splat cloud's local (0,0,0) is wherever the capture tool put it, not the AABB centre) -
+	// bake that offset into the shape itself via the existing translate helper, so it moves/rotates rigidly with the object without any extra bookkeeping.
+	return createScaledAndTranslatedShapeForShape(box_shape, Vec3f(centre[0], centre[1], centre[2]), Vec3f(1.f));
+}
+
+
 void PhysicsWorld::addObject(const Reference<PhysicsObject>& object)
 {
 	assert(object->pos.isFinite());

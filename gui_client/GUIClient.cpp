@@ -906,7 +906,26 @@ void GUIClient::makeShaders()
 		opengl_engine->addProgram(parcel_shader_prog);
 		// Let any glare::Exception thrown fall through to below.
 	}
-	
+
+	// Make shader for the invisible-but-collidable dev/test ground platform (see server/WorldCreation.cpp::ensureTestGroundPlatformExists()).
+	// Just discards every fragment - simpler and more complete than using opacity=0 on the standard phong material, which still lets
+	// Fresnel/specular reflection terms through regardless of alpha (see invisible_frag_shader.glsl's header comment).
+	{
+		const std::string use_shader_dir = base_dir_path + "/data/shaders";
+		const std::string version_directive    = opengl_engine->getVersionDirective();
+		const std::string preprocessor_defines = opengl_engine->getPreprocessorDefines();
+
+		invisible_shader_prog = new OpenGLProgram(
+			"invisible prog",
+			new OpenGLShader(use_shader_dir + "/invisible_vert_shader.glsl", version_directive, preprocessor_defines, GL_VERTEX_SHADER),
+			new OpenGLShader(use_shader_dir + "/invisible_frag_shader.glsl", version_directive, preprocessor_defines, GL_FRAGMENT_SHADER),
+			opengl_engine->getAndIncrNextProgramIndex(),
+			/*wait for build to complete=*/!opengl_engine->parallel_shader_compile_support
+		);
+		opengl_engine->addProgram(invisible_shader_prog);
+		// Let any glare::Exception thrown fall through to below.
+	}
+
 	// Make shader for portal
 	{
 		std::string use_shader_dir = base_dir_path + "/data/shaders";
@@ -2727,6 +2746,24 @@ void GUIClient::loadModelForObject(WorldObject* ob, WorldStateLock& world_state_
 					// If the mesh wasn't loaded onto the GPU yet, add this object to the wait list, for when the mesh is loaded.
 					if(!added_opengl_ob)
 						this->loading_model_URL_to_world_ob_UID_map[ModelProcessingKey(pseudo_lod_model_url, ob->isDynamic())].insert(ob->uid);
+				}
+
+				// Dev/test-only: make the "test_ground_platform" object (see server/WorldCreation.cpp::ensureTestGroundPlatformExists()) fully invisible,
+				// using our own custom shader (discards every fragment) instead of opacity=0 on the standard material - see invisible_frag_shader.glsl's
+				// header comment for why opacity alone doesn't fully hide it. Physics/collision is untouched, so it's still walkable.
+				if(added_opengl_ob && ob->content == "test_ground_platform" && ob->opengl_engine_ob.nonNull() && invisible_shader_prog.nonNull())
+				{
+					for(size_t z=0; z<ob->opengl_engine_ob->materials.size(); ++z)
+					{
+						ob->opengl_engine_ob->materials[z].shader_prog = invisible_shader_prog;
+						ob->opengl_engine_ob->materials[z].auto_assign_shader = false;
+					}
+					// The object was already added to the OpenGL engine above (added_opengl_ob), which bakes each batch's shader program index into
+					// cached per-batch draw info. Changing shader_prog afterwards without this call left that cache stale, tripping an assertion in
+					// OpenGLEngine::drawNonTransparentMaterialBatches() (program_index mismatch) and crashing the whole client. objectMaterialsUpdated()
+					// is the engine's own supported hook for exactly this - reassigning materials/shaders on an object already in the scene (see e.g.
+					// its other call sites in this file, such as BrowserVidPlayer.cpp and the voxel-edit-marker code below).
+					opengl_engine->objectMaterialsUpdated(*ob->opengl_engine_ob);
 				}
 			}
 			else
@@ -4663,7 +4700,7 @@ void GUIClient::handleUploadedGaussianSplat(const URLString& lod_model_url, int 
 							if(!isFinite(ob->angle) || !ob->axis.isFinite())
 								throw glare::Exception("Invalid angle or axis");
 
-							removeAndDeleteGLObjectsForOb(*ob); // Remove any existing (e.g. placeholder) OpenGL model.
+							removeAndDeleteGLAndPhysicsObjectsForOb(*ob); // Remove any existing (e.g. placeholder) OpenGL model and physics object.
 
 							GLObjectRef splat_ob = gaussian_splat_renderer.createObject(splat_data, *opengl_engine);
 							splat_ob->ob_to_world_matrix = obToWorldMatrix(*ob);
@@ -4672,7 +4709,22 @@ void GUIClient::handleUploadedGaussianSplat(const URLString& lod_model_url, int 
 
 							ob->loading_or_loaded_model_lod_level = ob_model_lod_level;
 
-							// NOTE: unlike loadPresentObjectGraphicsAndPhysicsModels(), no PhysicsObject is created here - Gaussian splat clouds have no collision shape yet (documented limitation, see architecture contract task list).
+							// Gaussian splat clouds still have no real collision geometry (documented limitation) - avatars should be able to walk straight through
+							// them. But with no PhysicsObject at all, mousePressed()'s selection raycast (physics_world->traceRay()) never hits them, so they
+							// couldn't be clicked/selected/moved via the transform gizmo either. Fix: give them a non-collidable ("sensor"-layer, see
+							// PhysicsObject::collidable / Layers::NON_MOVING_NON_COLLIDABLE in PhysicsWorld.cpp) box matching the splat cloud's AABB - Jolt's
+							// raycast still reports hits against non-collidable bodies (confirmed in PhysicsWorld::traceRay(), no layer filtering there), but
+							// the object layer means it never physically collides with the player, so walk-through behaviour is unaffected.
+							PhysicsObjectRef splat_physics_ob = new PhysicsObject(/*collidable=*/false);
+							splat_physics_ob->shape = PhysicsWorld::createAABBoxShape(splat_data->aabb_os);
+							splat_physics_ob->userdata = ob;
+							splat_physics_ob->userdata_type = 0;
+							splat_physics_ob->ob_uid = ob->uid;
+							splat_physics_ob->pos = ob->pos.toVec4fPoint();
+							splat_physics_ob->rot = Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle);
+							splat_physics_ob->scale = useScaleForWorldOb(ob->scale);
+							ob->physics_object = splat_physics_ob;
+							physics_world->addObject(ob->physics_object);
 						}
 						catch(glare::Exception& e)
 						{
@@ -14381,6 +14433,51 @@ void GUIClient::rotateObject(WorldObjectRef ob, const Vec4f& axis, float angle)
 		//ob->flags |= WorldObject::LIGHTMAP_NEEDS_COMPUTING_FLAG;
 		//objs_with_lightmap_rebuild_needed.insert(ob);
 		//lightmap_flag_timer->start(/*msec=*/2000); 
+	}
+}
+
+
+// Used by the ImGui "Selected object" scale editor (SDLClient.cpp). TransformGizmo (glare-core/opengl/TransformGizmo.h) only has translate/rotate
+// handles, no scale handles - adding those would be a bigger engine-level change (new handle geometry, hit-testing, drag math). This gives an immediate
+// way to adjust scale on a selected object without editing WorldCreation.cpp/rebuilding the server each time, at the cost of a UI editing pass instead
+// of a 3D gizmo drag. Modelled directly on rotateObject() above - same pattern of updating the OpenGL object, physics object, and marking the WorldObject
+// dirty so the existing from_local_transform_dirty network sync path picks it up (no protocol changes needed, scale is already part of WorldObject).
+void GUIClient::scaleObject(WorldObjectRef ob, const Vec3f& new_scale)
+{
+	const bool allow_modification = objectModificationAllowedWithMsg(*ob, "scale");
+	if(allow_modification)
+	{
+		ob->scale = new_scale;
+
+		const Matrix4f new_ob_to_world = obToWorldMatrix(*ob);
+
+		// Update in opengl engine.
+		GLObjectRef opengl_ob = ob->opengl_engine_ob;
+		if(!opengl_ob)
+			return;
+
+		opengl_ob->ob_to_world_matrix = new_ob_to_world;
+		opengl_engine->updateObjectTransformData(*opengl_ob);
+
+		// Update physics object
+		if(ob->physics_object)
+			physics_world->setNewObToWorldTransform(*ob->physics_object, ob->pos.toVec4fVector(), Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle), useScaleForWorldOb(ob->scale).toVec4fVector());
+
+		ui_interface->startObEditorTimerIfNotActive();
+
+		ob->transformChanged();
+
+		ob->last_modified_time = TimeStamp::currentTime();
+
+		// Mark as from-local-dirty to send an object updated message to the server.
+		{
+			Lock lock(world_state->mutex);
+			ob->from_local_transform_dirty = true;
+			this->world_state->dirty_from_local_objects.insert(ob);
+		}
+
+		if(this->terrain_system.nonNull() && ::hasPrefix(ob->content, "biome:"))
+			this->terrain_system->invalidateVegetationMap(ob->getAABBWS());
 	}
 }
 

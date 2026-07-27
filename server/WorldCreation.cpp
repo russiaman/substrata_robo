@@ -1352,6 +1352,81 @@ void WorldCreation::ensurePurpleTestCubeExists(Reference<ServerAllWorldsState> w
 }
 
 
+void WorldCreation::ensureTestGroundPlatformExists(Reference<ServerAllWorldsState> world_state)
+{
+	const std::string marker = "test_ground_platform";
+
+	WorldStateLock lock(world_state->mutex);
+
+	// Always (re-)apply the default spawn point, on every startup, regardless of whether the platform object below already exists - avatars were
+	// spawning at the engine's default height (near world z=0), which is now buried inside the middle of our platform (z spans [0,10]), trapping
+	// them inside its solid collision volume with no way to walk out. Force new visitors to spawn just above the platform's top surface (z=10) instead.
+	Reference<ServerWorldState> root_world_state = world_state->getRootWorldState();
+	root_world_state->world_settings.spawn_point = Vec3d(2.1, -1.4, 11.67); // Same x/y as the engine's usual default spawn area, z = 10m (platform top) + ~1.67m (default eye height).
+	root_world_state->world_settings.flags |= WorldSettings::USE_SPAWN_POINT_FLAG;
+	root_world_state->world_settings.db_dirty = true;
+
+	// Canonical pose/shape, reapplied unconditionally below (both for a freshly created object and an already-existing one). A single voxel at (0,0,0)
+	// has object-space AABB [0,0,0] to [1,1,1] (see VoxelGroup::getAABB()), i.e. pos is the box's corner, not its centre. scale = (200, 200, 10) turns
+	// that unit cube into a 200x200m slab, 10m thick. pos.z = 0 puts its bottom at world z=0 and top at world z=10 - i.e. this is a new "virtual ground
+	// level" 10m above the engine's built-in z=0, so we can hide the built-in terrain grid (which we didn't want to touch client rendering code for)
+	// just by standing 10m above it instead.
+	const Vec3d platform_pos(-100.0, -100.0, 0.0); // Box spans x:[-100,100], y:[-100,100], z:[0,10] in world space.
+	const Vec3f platform_axis(0, 0, 1);
+	const float platform_angle = 0;
+	const Vec3f platform_scale(200.f, 200.f, 10.f);
+
+	for(auto it = world_state->getRootWorldState()->getObjects(lock).begin(); it != world_state->getRootWorldState()->getObjects(lock).end(); ++it)
+		if(it->second->content == marker)
+		{
+			// Platform object already exists. Force its pose and voxel data back to the canonical values every startup - it's invisible but collidable
+			// (a normal WorldObject, clickable via the same physics raycast as any other solid object, see PhysicsWorld::traceRay()), so it's easy to
+			// accidentally grab and drag via the transform gizmo (or add/remove voxels via Ctrl/Alt+click voxel-editing) without any visual feedback that
+			// it happened. Unlike the test Gaussian splat objects (which already got this treatment), this reapply was missing until now - found via a
+			// one-off diagnostic print after the owner reported falling through a supposedly-solid platform: the object had drifted to pos=(-100, 56.5, 0)
+			// and accumulated 21 voxels instead of 1.
+			WorldObject* ob = it->second.ptr();
+			ob->pos = platform_pos;
+			ob->axis = platform_axis;
+			ob->angle = platform_angle;
+			ob->scale = platform_scale;
+			ob->getDecompressedVoxels().resize(0);
+			ob->getDecompressedVoxels().push_back(Voxel(Vec3<int>(0, 0, 0), 0));
+			ob->compressVoxels();
+			ob->setAABBOS(ob->getDecompressedVoxelGroup().getAABB());
+			world_state->getRootWorldState()->addWorldObjectAsDBDirty(ob, lock);
+			return;
+		}
+
+	conPrint("Creating test ground platform (invisible, collidable)...");
+
+	WorldObjectRef ob = new WorldObject();
+	ob->creator_id = UserID(0);
+	ob->created_time = TimeStamp::currentTime();
+	ob->last_modified_time = TimeStamp::currentTime();
+	ob->state = WorldObject::State_Alive;
+	ob->uid = world_state->getNextObjectUID();
+	ob->object_type = WorldObject::ObjectType_VoxelGroup;
+	ob->content = marker;
+	ob->pos = platform_pos;
+	ob->axis = platform_axis;
+	ob->angle = platform_angle;
+	ob->scale = platform_scale;
+	ob->materials.resize(1);
+	ob->materials[0] = new WorldMaterial();
+	ob->materials[0]->opacity = ScalarVal(0.0f); // Fully transparent - invisible, but collidable defaults to true (WorldObject::COLLIDABLE_FLAG is set for all new objects), so it's still walkable.
+	ob->getDecompressedVoxels().push_back(Voxel(Vec3<int>(0, 0, 0), 0));
+	ob->compressVoxels();
+	ob->setAABBOS(ob->getDecompressedVoxelGroup().getAABB());
+
+	world_state->getRootWorldState()->getObjects(lock)[ob->uid] = ob;
+	world_state->getRootWorldState()->addWorldObjectAsDBDirty(ob, lock);
+	world_state->markAsChanged();
+
+	conPrint("Test ground platform created with UID " + ob->uid.toString());
+}
+
+
 void WorldCreation::ensureTestGaussianSplatObjectExists(Reference<ServerAllWorldsState> world_state)
 {
 	// Dev/test-only (architecture contract task #9): only runs if SUBSTRATA_TEST_SOG_PATH points at a local .sog file.
@@ -1387,7 +1462,7 @@ void WorldCreation::ensureTestGaussianSplatObjectExists(Reference<ServerAllWorld
 
 	// Pose is still being tuned by hand while checking orientation in the browser (architecture contract task #9) - kept as a single spot so re-running always applies the latest guess,
 	// even to objects that already exist from a previous run (see below).
-	const Vec3d test_pos(4.5, 1.6, 1.0); // Near the purple test cube, a few metres in front of the default spawn point (2.1, -1.4, 1.67). Raised a bit (was 0.5) - at scale 1 she sank about halfway into the floor.
+	const Vec3d test_pos(4.5, 1.6, 11.2); // Near the purple test cube, a few metres in front of the default spawn point (2.1, -1.4, 1.67). Z is relative to the built-in ground (was 1.2) plus 10m for the new invisible test ground platform (see ensureTestGroundPlatformExists()) - its top surface is at world z=10.
 	// First guess (rotating around Y) just spun her around her own long axis - confirms local Y is her head-to-feet/up axis (capture is Y-up), and our world is Z-up, so what's needed is
 	// swapping Y and Z: rotate around X instead.
 	const Vec3f test_axis(1, 0, 0);
@@ -1491,7 +1566,7 @@ void WorldCreation::ensureTestGaussianSplatObjectExists(Reference<ServerAllWorld
 		// Pose tuned by eye in the browser (same approach as the first test object, session5) - identity rotation showed the scene tipped over sideways (visible horizon/ground
 		// tilted ~90 degrees). Owner confirmed the tilt axis matches the gizmo's red (X) axis - trying the same fix that worked for the first test object (rotate -90 degrees
 		// around local X, i.e. swap Y<->Z, for a Y-up capture in our Z-up world) as the first guess here too.
-		const Vec3d test_pos_2(-4.5, 1.6, 1.0);
+		const Vec3d test_pos_2(-4.5, 1.6, 15.0); // Trial value while eyeballing this in the browser - 10.0 was still buried, 20.1 was floating. See snapshot notes: not landed on a final value yet.
 		const Vec3f test_axis_2(1, 0, 0);
 		const float test_angle_2 = -Maths::pi_2<float>();
 		const Vec3f test_scale_2(1.f);
@@ -1501,6 +1576,7 @@ void WorldCreation::ensureTestGaussianSplatObjectExists(Reference<ServerAllWorld
 			if(it->second->content == marker_2)
 			{
 				WorldObject* ob = it->second.ptr();
+				ob->model_url = model_url_2; // Re-apply in case SUBSTRATA_TEST_SOG_PATH_2 now points at a different local file than when this object was first created.
 				ob->pos = test_pos_2;
 				ob->axis = test_axis_2;
 				ob->angle = test_angle_2;

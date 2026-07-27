@@ -385,6 +385,7 @@ int main(int argc, char *argv[])
 		// updateToUseImageCubeMeshes(*server.world_state);
 
 		WorldCreation::ensurePurpleTestCubeExists(server.world_state);
+		WorldCreation::ensureTestGroundPlatformExists(server.world_state);
 		WorldCreation::ensureTestGaussianSplatObjectExists(server.world_state);
 
 		server.world_state->denormaliseData();

@@ -270,6 +270,7 @@ public:
 	void applyWorldSettingsToOpenGLEngine();
 public:
 	void rotateObject(WorldObjectRef ob, const Vec4f& axis, float angle);
+	void scaleObject(WorldObjectRef ob, const Vec3f& new_scale); // Used by the ImGui "Selected object" scale editor (SDLClient.cpp) - TransformGizmo has no scale handles, see architecture snapshot notes.
 	void selectObject(const WorldObjectRef& ob, int selected_mat_index);
 	void deleteSelectedObject();
 	void deselectObject();
@@ -598,6 +599,7 @@ public:
 
 	Reference<OpenGLProgram> parcel_shader_prog;
 	Reference<OpenGLProgram> portal_shader_prog;
+	Reference<OpenGLProgram> invisible_shader_prog; // Discards every fragment - used for the dev/test-only "test_ground_platform" object, see loadModelForObject().
 
 	GaussianSplatRenderer gaussian_splat_renderer;
 

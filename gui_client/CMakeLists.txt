@@ -920,6 +920,8 @@ include(${GLARE_CORE_TRUNK_DIR_ENV}/opengl/opengl.cmake)
 set(substrata_shaders
 ../shaders/gaussian_splat_frag_shader.glsl
 ../shaders/gaussian_splat_vert_shader.glsl
+../shaders/invisible_frag_shader.glsl
+../shaders/invisible_vert_shader.glsl
 ../shaders/parcel_frag_shader.glsl
 ../shaders/parcel_vert_shader.glsl
 ../shaders/portal_frag_shader.glsl

@@ -1268,6 +1268,32 @@ static void doOneMainLoopIter()
 
 				ImGui::TextUnformatted(last_diagnostics.c_str());
 			}
+
+			// Uniform-scale editor for the selected object. TransformGizmo (glare-core) only has translate/rotate handles, no scale handles - this is
+			// the quickest way to adjust scale without editing WorldCreation.cpp + rebuilding the server each time. Uniform only (not per-axis x/y/z):
+			// Gaussian splat rendering (gui_client/gaussian_splats/) assumes model_matrix has no non-uniform scale/shear when projecting covariance -
+			// a per-axis editor here would make it trivial to accidentally break splat rendering with a stray non-uniform drag.
+			if(gui_client->selected_ob.nonNull())
+			{
+				ImGui::SetNextItemOpen(true, ImGuiCond_FirstUseEver);
+				if(ImGui::CollapsingHeader("Selected object"))
+				{
+					WorldObjectRef ob = gui_client->selected_ob;
+
+					float uniform_scale = ob->scale.x;
+					ImGui::DragFloat("scale (uniform)", &uniform_scale, /*speed=*/uniform_scale * 0.01f, 0.0001f, 1000.f, "%.4f");
+					if(ImGui::IsItemActivated())
+						gui_client->undo_buffer.startWorldObjectEdit(*ob);
+					if(ImGui::IsItemEdited())
+						gui_client->scaleObject(ob, Vec3f(uniform_scale));
+					if(ImGui::IsItemDeactivatedAfterEdit())
+						gui_client->undo_buffer.finishWorldObjectEdit(*ob);
+
+					if((ob->scale.x != ob->scale.y) || (ob->scale.x != ob->scale.z))
+						ImGui::TextColored(ImVec4(1,0.6f,0,1), "Non-uniform scale (%.4f, %.4f, %.4f) - dragging above will reset it to uniform.",
+							ob->scale.x, ob->scale.y, ob->scale.z);
+				}
+			}
 		}
 		ImGui::End();
 		

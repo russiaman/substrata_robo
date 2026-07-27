@@ -132,6 +132,10 @@ public:
 
 	static PhysicsShape createScaledAndTranslatedShapeForShape(const PhysicsShape& shape, const Vec3f& translation, const Vec3f& scale);
 
+	// Box shape matching an object-space AABB (which may not be centred at the origin) - e.g. for a pick/selection-only shape covering an object's bounds,
+	// see gaussian_splats (Gaussian splat clouds have no real collision geometry, but need something for mouse-picking - see GUIClient::handleUploadedGaussianSplat()).
+	static PhysicsShape createAABBoxShape(const js::AABBox& aabb_os);
+
 	void think(double dt);
 
 #if USE_JOLT
