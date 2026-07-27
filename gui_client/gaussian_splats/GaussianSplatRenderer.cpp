@@ -20,8 +20,18 @@ Generated at Mon Jul 27 06:16:15 2026
 #include <utils/ConPrint.h>
 #include <utils/Exception.h>
 #include <utils/StringUtils.h>
+#include <utils/Sort.h>
+#include <utils/Task.h>
+#include <utils/TaskManager.h>
+#include <utils/Timer.h>
 #include <assert.h>
 #include <algorithm>
+
+
+// Camera position must move at least this far (in world-space metres) since an object's last kicked-off depth-sort before another one is worth kicking off - avoids
+// resorting every single frame for a static or near-static viewpoint. See class comment in GaussianSplatRenderer.h for why this is a reasonable simplification
+// (rotation-only viewpoint changes can also affect back-to-front order, but a pure position threshold is the standard, cheap approximation used elsewhere for this).
+static const float resort_move_threshold_ws = 0.1f;
 
 
 namespace
@@ -133,10 +143,82 @@ Reference<OpenGLMeshRenderData> makeInstancedQuadMeshData(VertexBufferAllocator&
 }
 
 
+// Result of a background depth-sort, handed from the worker thread (GaussianSplatSortTask::run()) back to the main thread via GaussianSplatRenderer::sort_result_queue.
+// Matched back up to a ManagedObject by "object_id" (a stable id, not a raw pointer - managed_objects is a std::vector, so element addresses move on push_back) in think();
+// if the object no longer exists (removed) or a newer sort has since superseded this one, think() just drops it - see class comment in GaussianSplatRenderer.h.
+class GaussianSplatSortResultMsg : public ThreadMessage
+{
+public:
+	uint64 object_id;
+	std::vector<uint32> sorted_indices; // Back-to-front (farthest first) instance order, ready to write directly into the object's instance-index VBO.
+	double sort_duration_s;
+};
+
+
+// Sorts one splat cloud's instances back-to-front by camera distance, entirely on a worker thread (glare::TaskManager) - no GL calls here, see class comment in GaussianSplatRenderer.h.
+class GaussianSplatSortTask : public glare::Task
+{
+public:
+	GaussianSplatSortTask(uint64 object_id_, const GaussianSplatDataRef& splat_data_, const Matrix4f& ob_to_cam_, ThreadSafeQueue<Reference<ThreadMessage> >* result_queue_)
+	:	object_id(object_id_), splat_data(splat_data_), ob_to_cam(ob_to_cam_), result_queue(result_queue_)
+	{}
+
+	virtual void run(size_t /*thread_index*/) override
+	{
+		Timer timer;
+
+		const std::vector<Vec3f>& positions = splat_data->positions;
+		const size_t num_splats = positions.size();
+
+		// Sort key: farthest splat first (back-to-front, for correct premultiplied-alpha "over" blending - see architecture contract §2.G).
+		// Sort::flippedKey() maps a (possibly negative) float to a uint32 that sorts in the same order as the float itself; negating from UINT32_MAX before that gives us descending-depth-first
+		// out of an ascending radix sort, the same trick OpenGLEngine.cpp's sortBatchDrawInfoWithDists() uses for its own back-to-front object sort (see its "distval = max - dist_i").
+		struct SortItem
+		{
+			uint32 key;
+			uint32 splat_index;
+		};
+		struct SortItemGetKey { inline uint32 operator () (const SortItem& item) const { return item.key; } };
+
+		std::vector<SortItem> items(num_splats);
+		for(size_t i = 0; i < num_splats; ++i)
+		{
+			const Vec3f& p = positions[i];
+			const Vec4f pos_cs = ob_to_cam * Vec4f(p.x, p.y, p.z, 1.f);
+			// Camera space here is the engine's raw (unconverted) convention, y-forwards (see OpenGLScene::world_to_camera_space_matrix's doc comment) - this is genuine forward depth,
+			// unaffected by the indigo_to_opengl_cam_matrix conversion the *shader's* view_matrix uniform gets (see snapshots/2026-07-27-session6-depth-sort-and-axis-convention-fix.md).
+			const float depth = pos_cs[1];
+			items[i].key = std::numeric_limits<uint32>::max() - Sort::flippedKey(depth);
+			items[i].splat_index = (uint32)i;
+		}
+
+		std::vector<SortItem> scratch(num_splats);
+		std::vector<uint32> temp_counts(6144); // Required size for Sort::radixSort32BitKey(), see its doc comment in Sort.h.
+		Sort::radixSort32BitKey(items.data(), scratch.data(), num_splats, SortItemGetKey(), temp_counts.data(), temp_counts.size());
+
+		Reference<GaussianSplatSortResultMsg> msg = new GaussianSplatSortResultMsg();
+		msg->object_id = object_id;
+		msg->sorted_indices.resize(num_splats);
+		for(size_t i = 0; i < num_splats; ++i)
+			msg->sorted_indices[i] = items[i].splat_index;
+		msg->sort_duration_s = timer.elapsed();
+
+		result_queue->enqueue(msg);
+	}
+
+private:
+	uint64 object_id;
+	GaussianSplatDataRef splat_data; // Keeps the splat position data alive while this task runs on a worker thread, independent of whether the main thread still has it referenced.
+	Matrix4f ob_to_cam;
+	ThreadSafeQueue<Reference<ThreadMessage> >* result_queue;
+};
+
+
 } // end anonymous namespace
 
 
 GaussianSplatRenderer::GaussianSplatRenderer()
+:	next_object_id(1)
 {}
 
 
@@ -207,26 +289,59 @@ GLObjectRef GaussianSplatRenderer::createObject(const GaussianSplatDataRef& spla
 	mat.user_uniform_vals[2].intval = (int)splat_tex_width;
 
 	ManagedObject managed_ob;
+	managed_ob.id = next_object_id++;
 	managed_ob.ob = ob;
 	managed_ob.splat_data = splat_data;
 	managed_ob.instance_index_vbo = instance_index_vbo;
-	managed_ob.depth_scratch.resize(num_splats);
-	managed_ob.index_scratch.resize(num_splats);
+	managed_ob.sort_in_flight = false;
+	managed_ob.have_last_sort_cam_pos = false;
+	managed_ob.last_sort_duration_s = -1.0;
+	managed_ob.num_sorts_completed = 0;
 	managed_objects.push_back(managed_ob);
 	return ob;
 }
 
 
-void GaussianSplatRenderer::think(OpenGLEngine& opengl_engine)
+void GaussianSplatRenderer::think(OpenGLEngine& opengl_engine, glare::TaskManager& task_manager)
 {
 	if(managed_objects.empty())
 		return;
+
+	// Drain any completed background sort results (non-blocking) and write them straight to each object's instance-index VBO - the only GL call in this whole depth-sort
+	// pipeline, which is why it has to happen here on the main/GL thread rather than in the worker task itself (see VBO::updateData()/VBO.cpp - no thread-safety of its own).
+	{
+		js::Vector<Reference<ThreadMessage>, 16> completed_msgs;
+		sort_result_queue.dequeueAnyQueuedItems(completed_msgs);
+		for(size_t i = 0; i < completed_msgs.size(); ++i)
+		{
+			const GaussianSplatSortResultMsg* msg = static_cast<const GaussianSplatSortResultMsg*>(completed_msgs[i].ptr());
+
+			// Find the managed object this result belongs to, by stable id (not index - createObject()'s push_back can reallocate managed_objects and move elements around).
+			// If not found, the object has since been removed - just drop the (now-meaningless) result, per the class comment in GaussianSplatRenderer.h.
+			for(size_t q = 0; q < managed_objects.size(); ++q)
+			{
+				ManagedObject& managed_ob = managed_objects[q];
+				if(managed_ob.id == msg->object_id)
+				{
+					managed_ob.sort_in_flight = false;
+					managed_ob.last_sort_duration_s = msg->sort_duration_s;
+					managed_ob.num_sorts_completed++;
+					// NOTE: if the object's splat count somehow changed since the sort was kicked off (it can't currently - GaussianSplatData is immutable after loading), a size
+					// mismatch here would corrupt the VBO. Left unguarded because that precondition can't occur with the current, load-once splat pipeline.
+					managed_ob.instance_index_vbo->updateData(msg->sorted_indices.data(), msg->sorted_indices.size() * sizeof(uint32));
+					break;
+				}
+			}
+		}
+	}
 
 	const Vec2i viewport_dims = opengl_engine.getViewportDims();
 	const OpenGLScene* scene = opengl_engine.getCurrentScene();
 	// Focal length in pixels, derived the same way as OpenGLEngine's own screen-space projections (see e.g. OpenGLEngine::getPixelForPoint()/l_over_w, l_over_h): focal_px = viewport_px * (lens_sensor_dist / sensor_size).
 	const float focal_x = (float)viewport_dims.x * scene->lens_sensor_dist / scene->use_sensor_width;
 	const float focal_y = (float)viewport_dims.y * scene->lens_sensor_dist / scene->use_sensor_height;
+
+	const Vec4f cam_pos_ws = scene->cam_to_world.getColumn(3);
 
 	for(size_t i = 0; i < managed_objects.size(); ++i)
 	{
@@ -236,34 +351,34 @@ void GaussianSplatRenderer::think(OpenGLEngine& opengl_engine)
 		mat.user_uniform_vals[1].vec2 = Vec2f(focal_x, focal_y);
 		// user_uniform_vals[2] (splat_tex_width) is constant, set once in createObject().
 
-		// TEMP, UNOPTIMISED depth-sort (architecture contract task #7 - back-to-front painter's-algorithm sort of the instance-index VBO, done fully on the main thread, every frame, with std::sort).
-		// This is a quick-and-dirty first cut to unblock visual testing, NOT the final implementation. Known problems to fix before this is "done":
-		//  - Runs synchronously on the main/render thread every single frame - will not scale to ~1M splats without hurting frame time. Should move to a worker thread (pthread; the Emscripten build already
-		//    links PTHREAD_POOL_SIZE, see architecture contract §2.E) and/or only re-sort when the camera has moved past some threshold, not unconditionally every frame.
-		//  - Uses std::sort on floats rather than the project's own Sort::radixSort32BitKey (mentioned in the architecture contract as the intended approach) - fine for correctness and for the
-		//    ~140k-splat test scene, but slower than a radix sort at the ~1M-splat scale target in the brief.
-		// Do not use this loop as a model for other performance-sensitive code - it is deliberately the simplest thing that works, to test the depth-sort hypothesis.
+		// Depth-sort (architecture contract task #7): kick off a background re-sort only if one isn't already in flight for this object, and the camera has moved far enough
+		// since the last one was kicked off to be worth it - see resort_move_threshold_ws's comment above and the class comment in GaussianSplatRenderer.h for why a plain
+		// world-space position threshold (not also tracking rotation) is an accepted simplification here.
+		const bool moved_enough = !managed_ob.have_last_sort_cam_pos || cam_pos_ws.getDist(managed_ob.last_sort_cam_pos_ws) >= resort_move_threshold_ws;
+		if(!managed_ob.sort_in_flight && moved_enough)
 		{
 			Matrix4f world_to_cam;
 			scene->cam_to_world.getInverseForAffine3Matrix(world_to_cam); // world_to_camera_space_matrix itself is private to OpenGLScene; cam_to_world (its inverse, public) is available instead.
 			const Matrix4f ob_to_cam = world_to_cam * managed_ob.ob->ob_to_world_matrix;
-			const std::vector<Vec3f>& positions = managed_ob.splat_data->positions;
-			const size_t num_splats = positions.size();
 
-			std::vector<float>& depth = managed_ob.depth_scratch;
-			std::vector<uint32>& indices = managed_ob.index_scratch;
-			for(size_t s = 0; s < num_splats; ++s)
-			{
-				const Vec4f pos_cs = ob_to_cam * Vec4f(positions[s].x, positions[s].y, positions[s].z, 1.f);
-				depth[s] = pos_cs.x[1]; // Camera space here is y-forwards (see gaussian_splat_vert_shader.glsl's comment on world_to_camera_space_matrix) - this is "depth" from the camera.
-				indices[s] = (uint32)s;
-			}
+			managed_ob.sort_in_flight = true;
+			managed_ob.have_last_sort_cam_pos = true;
+			managed_ob.last_sort_cam_pos_ws = cam_pos_ws;
 
-			// Sort back-to-front (farthest/largest depth first) for correct premultiplied-alpha "over" blending (GL_ONE, GL_ONE_MINUS_SRC_ALPHA, no depth write - see architecture contract §2.G).
-			std::sort(indices.begin(), indices.end(), [&depth](uint32 a, uint32 b) { return depth[a] > depth[b]; });
-
-			managed_ob.instance_index_vbo->updateData(indices.data(), indices.size() * sizeof(uint32));
+			task_manager.addTask(new GaussianSplatSortTask(managed_ob.id, managed_ob.splat_data, ob_to_cam, &sort_result_queue));
 		}
+	}
+}
+
+
+void GaussianSplatRenderer::getPerfStats(std::vector<PerfStats>& stats_out) const
+{
+	stats_out.resize(managed_objects.size());
+	for(size_t i = 0; i < managed_objects.size(); ++i)
+	{
+		stats_out[i].num_splats = managed_objects[i].splat_data->numSplats();
+		stats_out[i].last_sort_duration_s = managed_objects[i].last_sort_duration_s;
+		stats_out[i].num_sorts_completed = managed_objects[i].num_sorts_completed;
 	}
 }
 
