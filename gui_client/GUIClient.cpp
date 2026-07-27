@@ -940,6 +940,12 @@ void GUIClient::makeShaders()
 		portal_shader_prog->uses_vert_uniform_buf_obs = true;
 		opengl_engine->bindCommonVertUniformBlocksToProgram(portal_shader_prog);
 	}
+
+	// Make shader for Gaussian splats
+	{
+		const std::string use_shader_dir = base_dir_path + "/data/shaders";
+		gaussian_splat_renderer.makeShaders(*opengl_engine, use_shader_dir);
+	}
 }
 
 
@@ -960,6 +966,8 @@ void GUIClient::shutdown()
 	texture_loaded_messages_to_process.clear();
 	async_model_loaded_messages_to_process.clear();
 	async_texture_loaded_messages_to_process.clear();
+
+	gaussian_splat_renderer.shutdown();
 
 
 	// Clear web_view_obs - will close QWebEngineViews
@@ -4617,6 +4625,69 @@ void GUIClient::handleUploadedMeshData(const URLString& lod_model_url, int loade
 }
 
 
+// Gaussian splat (.sog) counterpart of handleUploadedMeshData() above. Splats have no mesh/physics geometry and aren't shared via mesh_manager (each waiting object gets its own GLObject/texture -
+// see class comment in gui_client/gaussian_splats/GaussianSplatRenderer.h), so this is considerably simpler: just assign the loaded splat cloud to any objects waiting on this URL.
+void GUIClient::handleUploadedGaussianSplat(const URLString& lod_model_url, int loaded_model_lod_level, bool dynamic_physics_shape, const GaussianSplatDataRef& splat_data)
+{
+	ZoneScoped; // Tracy profiler
+
+	// Now that this model is loaded, remove from models_processing set.
+	ModelProcessingKey key(lod_model_url, dynamic_physics_shape);
+	models_processing.erase(key);
+
+	WorldStateLock lock(this->world_state->mutex);
+
+	const ModelProcessingKey model_loading_key(lod_model_url, dynamic_physics_shape);
+	auto res = this->loading_model_URL_to_world_ob_UID_map.find(model_loading_key);
+	if(res != this->loading_model_URL_to_world_ob_UID_map.end())
+	{
+		std::set<UID>& waiting_obs = res->second;
+		for(auto it = waiting_obs.begin(); it != waiting_obs.end(); ++it)
+		{
+			const UID waiting_uid = *it;
+
+			auto res2 = this->world_state->objects.find(waiting_uid);
+			if(res2 != this->world_state->objects.end())
+			{
+				WorldObject* ob = res2.getValue().ptr();
+
+				if(ob->in_proximity)
+				{
+					const int ob_lod_level = ob->getLODLevel(cam_controller.getPosition());
+					const int ob_model_lod_level = myClamp(ob_lod_level, 0, ob->max_model_lod_level);
+
+					if((ob_model_lod_level == loaded_model_lod_level) && (ob->isDynamic() == dynamic_physics_shape))
+					{
+						try
+						{
+							if(!isFinite(ob->angle) || !ob->axis.isFinite())
+								throw glare::Exception("Invalid angle or axis");
+
+							removeAndDeleteGLObjectsForOb(*ob); // Remove any existing (e.g. placeholder) OpenGL model.
+
+							GLObjectRef splat_ob = gaussian_splat_renderer.createObject(splat_data, *opengl_engine);
+							splat_ob->ob_to_world_matrix = obToWorldMatrix(*ob);
+							ob->opengl_engine_ob = splat_ob;
+							opengl_engine->addObject(ob->opengl_engine_ob);
+
+							ob->loading_or_loaded_model_lod_level = ob_model_lod_level;
+
+							// NOTE: unlike loadPresentObjectGraphicsAndPhysicsModels(), no PhysicsObject is created here - Gaussian splat clouds have no collision shape yet (documented limitation, see architecture contract task list).
+						}
+						catch(glare::Exception& e)
+						{
+							print("Error while creating Gaussian splat object: " + e.what());
+						}
+					}
+				}
+			}
+		}
+
+		loading_model_URL_to_world_ob_UID_map.erase(res);
+	}
+}
+
+
 void GUIClient::handleUploadedTexture(const OpenGLTextureKey& path, const URLString& URL, const OpenGLTextureRef& opengl_tex, const TextureDataRef& tex_data, const Map2DRef& terrain_map)
 {
 	ZoneScoped; // Tracy profiler
@@ -6093,7 +6164,9 @@ void GUIClient::timerEvent(const MouseCursorState& mouse_cursor_state)
 	}
 
 	handleMessages(global_time, cur_time);
-	
+
+	gaussian_splat_renderer.think(*opengl_engine); // Refresh per-frame viewport/focal-length uniforms for any loaded Gaussian splat objects.
+
 	// Evaluate scripts on objects
 	{
 		ZoneScopedN("script eval"); // Tracy profiler
@@ -8692,7 +8765,12 @@ void GUIClient::handleMessages(double global_time, double cur_time)
 		{
 			ModelLoadedThreadMessage* loaded_msg = checkedDowncastPtr<ModelLoadedThreadMessage>(msg);
 
-			if(vbo_pool && (loaded_msg->total_geom_size_B <= vbo_pool->getLargestVBOSize()))
+			if(loaded_msg->splat_data.nonNull())
+			{
+				// Gaussian splat objects have no mesh/physics geometry and don't go through the VBO-pool streaming path below - handle immediately here on the main thread.
+				handleUploadedGaussianSplat(loaded_msg->lod_model_url, loaded_msg->model_lod_level, loaded_msg->built_dynamic_physics_ob, loaded_msg->splat_data);
+			}
+			else if(vbo_pool && (loaded_msg->total_geom_size_B <= vbo_pool->getLargestVBOSize()))
 				async_model_loaded_messages_to_process.push_back(loaded_msg);
 			else
 				model_loaded_messages_to_process.push_back(loaded_msg);

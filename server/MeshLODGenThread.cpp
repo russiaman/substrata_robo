@@ -142,11 +142,20 @@ static void checkObjectSpaceAABB(ServerAllWorldsState* world_state, ServerWorldS
 			// Try and load mesh, get AABB from it.
 			if(!ob->model_url.empty())
 			{
-				const std::string model_abs_path = world_state->resource_manager->pathForURL(ob->model_url);
+				if(hasExtension(ob->model_url, "sog"))
+				{
+					// Gaussian splat cloud - no server-side decoder for this format yet (the SOG/WebP decoder currently only exists in gui_client, not shared/server code), so use a placeholder AABB instead of throwing.
+					// TODO: compute a real object-space AABB once a server-side (or shared) SOG parser exists - see architecture contract task list.
+					aabb_os = js::AABBox(Vec4f(-1,-1,-1,1), Vec4f(1,1,1,1));
+				}
+				else
+				{
+					const std::string model_abs_path = world_state->resource_manager->pathForURL(ob->model_url);
 
-				BatchedMeshRef batched_mesh = LODGeneration::loadModel(model_abs_path);
-					
-				aabb_os = batched_mesh->aabb_os;
+					BatchedMeshRef batched_mesh = LODGeneration::loadModel(model_abs_path);
+
+					aabb_os = batched_mesh->aabb_os;
+				}
 			}
 		}
 		else
@@ -186,7 +195,7 @@ static void checkForLODMeshesToGenerate(ServerAllWorldsState* world_state, Serve
 	{
 		if(ob->object_type == WorldObject::ObjectType_Generic)
 		{
-			if(!ob->model_url.empty())
+			if(!ob->model_url.empty() && !hasExtension(ob->model_url, "sog")) // Gaussian splat clouds have no server-side LOD generation support (see checkObjectSpaceAABB() above for why).
 			{
 				ResourceRef base_resource = world_state->resource_manager->getExistingResourceForURL(ob->model_url);
 				if(base_resource && base_resource->isPresent()) // Base resource needs to be fully present before we start processing it.
@@ -288,7 +297,7 @@ static void checkForOptimisedMeshesToGenerate(ServerAllWorldsState* world_state,
 	{
 		if(ob->object_type == WorldObject::ObjectType_Generic)
 		{
-			if(!ob->model_url.empty())
+			if(!ob->model_url.empty() && !hasExtension(ob->model_url, "sog")) // Gaussian splat clouds aren't meshes, so there's nothing to optimise here.
 			{
 				//if(StringUtils::containsString(ob->model_url, "bad_apple_gds"))
 				//	return; // TEMP HACK DON'T PROCESS SLOW MESH

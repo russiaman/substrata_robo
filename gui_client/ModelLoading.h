@@ -118,7 +118,8 @@ bool ModelLoading::isSupportedModelExtension(string_view extension)
 		StringUtils::equalCaseInsensitive(extension, "glb") ||
 		StringUtils::equalCaseInsensitive(extension, "vrm") ||
 		StringUtils::equalCaseInsensitive(extension, "igmesh") ||
-		StringUtils::equalCaseInsensitive(extension, "subvox");
+		StringUtils::equalCaseInsensitive(extension, "subvox") ||
+		StringUtils::equalCaseInsensitive(extension, "sog"); // Gaussian splat cloud (PlayCanvas SOG format) - see gui_client/gaussian_splats/.
 }
 
 

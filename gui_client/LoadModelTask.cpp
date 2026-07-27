@@ -9,6 +9,7 @@ Copyright Glare Technologies Limited 2025 -
 #include "LoadTextureTask.h"
 #include "ThreadMessages.h"
 #include "ModelLoading.h"
+#include "gaussian_splats/GaussianSplatLoader.h"
 #include "../shared/ResourceManager.h"
 #include <opengl/OpenGLEngine.h>
 #include <opengl/OpenGLMeshRenderData.h>
@@ -103,6 +104,19 @@ void LoadModelTask::run(size_t thread_index)
 				file.set(new MemMappedFile(lod_model_path));
 				model_buffer = ArrayRef<uint8>((const uint8*)file->fileData(), file->fileSize());
 #endif
+
+				if(hasExtension(lod_model_path, "sog"))
+				{
+					// Gaussian splat cloud: just decode it (CPU-only work, no GL calls) and send it straight back - no mesh/physics geometry to build, so skip the rest of the pipeline below
+					// (vert/index data extraction, upload_thread/VBO-pool path) entirely. See GUIClient::handleUploadedGaussianSplat() for the consuming side.
+					Reference<ModelLoadedThreadMessage> msg = new ModelLoadedThreadMessage();
+					msg->splat_data = GaussianSplatLoader::loadFromBuffer(model_buffer.data(), model_buffer.size());
+					msg->lod_model_url = lod_model_url;
+					msg->model_lod_level = model_lod_level;
+					msg->built_dynamic_physics_ob = this->build_dynamic_physics_ob;
+					result_msg_queue->enqueue(msg);
+					return;
+				}
 
 				if(hasExtension(lod_model_path, "subvox"))
 				{

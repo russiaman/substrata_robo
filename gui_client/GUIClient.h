@@ -26,6 +26,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "URLWhitelist.h"
 #include "EmscriptenResourceDownloader.h"
 #include "UploadResourceThread.h"
+#include "gaussian_splats/GaussianSplatRenderer.h"
 #include "ScriptedObjectProximityChecker.h"
 #include "ObjectMoveToController.h"
 #include "../shared/WorldSettings.h"
@@ -438,8 +439,9 @@ public:
 
 	void assignLoadedOpenGLTexturesToMats(WorldObject* ob);
 
-	void handleUploadedMeshData(const URLString& lod_model_url, int loaded_model_lod_level, bool dynamic_physics_shape, OpenGLMeshRenderDataRef mesh_data, PhysicsShape& physics_shape, 
+	void handleUploadedMeshData(const URLString& lod_model_url, int loaded_model_lod_level, bool dynamic_physics_shape, OpenGLMeshRenderDataRef mesh_data, PhysicsShape& physics_shape,
 		int voxel_subsample_factor, uint64 voxel_hash);
+	void handleUploadedGaussianSplat(const URLString& lod_model_url, int loaded_model_lod_level, bool dynamic_physics_shape, const GaussianSplatDataRef& splat_data);
 	void handleUploadedTexture(const OpenGLTextureKey& path, const URLString& URL, const OpenGLTextureRef& opengl_tex, const TextureDataRef& tex_data, const Map2DRef& terrain_map);
 
 	void updateOurAvatarModel(BatchedMeshRef loaded_mesh, const std::string& local_model_path, const Matrix4f& pre_ob_to_world_matrix, const std::vector<WorldMaterialRef>& materials);
@@ -596,6 +598,8 @@ public:
 
 	Reference<OpenGLProgram> parcel_shader_prog;
 	Reference<OpenGLProgram> portal_shader_prog;
+
+	GaussianSplatRenderer gaussian_splat_renderer;
 
 	StandardPrintOutput print_output;
 	//glare::TaskManager* task_manager; // General purpose task manager, for quick/blocking multithreaded builds of stuff. Currently just used for LODGeneration::generateLODTexturesForMaterialsIfNotPresent(). Lazily created.

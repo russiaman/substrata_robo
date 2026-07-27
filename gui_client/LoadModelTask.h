@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2025 -
 
 #include "ThreadMessages.h"
 #include "PhysicsObject.h"
+#include "gaussian_splats/GaussianSplatData.h"
 #include "../shared/Resource.h"
 #include "../shared/URLString.h"
 #include <opengl/OpenGLEngine.h>
@@ -30,7 +31,9 @@ public:
 	
 	Reference<OpenGLMeshRenderData> gl_meshdata;
 	PhysicsShape physics_shape;
-	
+
+	GaussianSplatDataRef splat_data; // Non-null if this was a Gaussian splat (.sog) load - in that case gl_meshdata/physics_shape above are unused, see GUIClient::handleUploadedGaussianSplat().
+
 	URLString lod_model_url; // URL of the model we loaded.  Empty when loaded voxel object.
 	int model_lod_level; // LOD level of the model we loaded.
 	bool built_dynamic_physics_ob;
