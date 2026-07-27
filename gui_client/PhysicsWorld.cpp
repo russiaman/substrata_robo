@@ -1675,15 +1675,48 @@ static const JPH::MeshShape* getInnerMeshShape(const JPH::Shape* shape)
 }
 
 
-void PhysicsWorld::traceRay(const Vec4f& origin, const Vec4f& dir, float max_t, JPH::BodyID ignore_body_id, RayTraceResult& results_out) const
+// Ignores a single body (e.g. the interaction character), and optionally also ignores any body whose PhysicsObject::collidable is false
+// (holograms, shrubs, Gaussian splat pick-boxes etc.) - see PhysicsWorld::traceRay()'s ignore_non_collidable parameter for why.
+class IgnoreBodyAndNonCollidableFilter : public JPH::BodyFilter
+{
+public:
+	IgnoreBodyAndNonCollidableFilter(JPH::BodyID ignore_body_id_, bool ignore_non_collidable_) : ignore_body_id(ignore_body_id_), ignore_non_collidable(ignore_non_collidable_) {}
+
+	virtual bool ShouldCollide(const JPH::BodyID& inBodyID) const override
+	{
+		return inBodyID != ignore_body_id;
+	}
+
+	virtual bool ShouldCollideLocked(const JPH::Body& inBody) const override
+	{
+		if(ignore_non_collidable)
+		{
+			const uint64 user_data = inBody.GetUserData();
+			if(user_data != 0)
+			{
+				const PhysicsObject* ob = (const PhysicsObject*)user_data;
+				if(!ob->collidable)
+					return false;
+			}
+		}
+		return true;
+	}
+
+private:
+	JPH::BodyID ignore_body_id;
+	bool ignore_non_collidable;
+};
+
+
+void PhysicsWorld::traceRay(const Vec4f& origin, const Vec4f& dir, float max_t, JPH::BodyID ignore_body_id, RayTraceResult& results_out, bool ignore_non_collidable) const
 {
 	results_out.hit_object = NULL;
 
-	JPH::IgnoreSingleBodyFilter player_physics_body_filter(ignore_body_id); // Don't collide with the interaction character
+	IgnoreBodyAndNonCollidableFilter body_filter(ignore_body_id, ignore_non_collidable); // Don't collide with the interaction character (and optionally non-collidable objects)
 
 	const JPH::RRayCast ray(toJoltVec3(origin), toJoltVec3(dir * max_t));
 	JPH::RayCastResult hit_result;
-	const bool found_hit = this->physics_system->GetNarrowPhaseQuery().CastRay(ray, hit_result, {}, {}, player_physics_body_filter);
+	const bool found_hit = this->physics_system->GetNarrowPhaseQuery().CastRay(ray, hit_result, {}, {}, body_filter);
 	if(found_hit)
 	{
 		// Lock the body.  Use locking interface so we can call body->GetWorldSpaceSurfaceNormal().

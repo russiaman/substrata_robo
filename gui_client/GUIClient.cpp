@@ -8747,8 +8747,10 @@ void GUIClient::setThirdPersonCameraPosition(double dt)
 		// So trace a ray backwards, and position the camera on the ray path before it hits the wall.
 		RayTraceResult trace_results;
 		if(physics_world)
-			physics_world->traceRay(/*origin=*/use_target_pos + normalise(cam_back_dir) * initial_ignore_dist, 
-				/*dir=*/normalise(cam_back_dir), /*max_t=*/cam_back_dir.length() - initial_ignore_dist + 1.f, /*ignore body id=*/JPH::BodyID(), trace_results);
+			// ignore_non_collidable=true: non-collidable objects (holograms, shrubs, Gaussian splat pick-boxes etc.) shouldn't pull the 3rd-person
+			// camera in as if they were solid walls, since the avatar walks straight through them (see session012 snapshot for the full rationale).
+			physics_world->traceRay(/*origin=*/use_target_pos + normalise(cam_back_dir) * initial_ignore_dist,
+				/*dir=*/normalise(cam_back_dir), /*max_t=*/cam_back_dir.length() - initial_ignore_dist + 1.f, /*ignore body id=*/JPH::BodyID(), trace_results, /*ignore_non_collidable=*/true);
 		else
 			trace_results.hit_object = NULL;
 

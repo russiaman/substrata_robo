@@ -179,7 +179,11 @@ public:
 	size_t getNumObjects() const;
 	//----------------------------------------------------------------------------------------
 
-	void traceRay(const Vec4f& origin, const Vec4f& dir, float max_t, JPH::BodyID ignore_body_id, RayTraceResult& results_out) const;
+	// ignore_non_collidable: if true, bodies with PhysicsObject::collidable == false (holograms, shrubs, Gaussian splat pick-boxes etc.) are skipped,
+	// as if they weren't there at all - the ray passes through them to whatever is behind. Used by the 3rd-person camera occlusion trace
+	// (GUIClient::setThirdPersonCameraPosition()) so such objects don't cause the camera to pull in as if they were solid walls.
+	// Default (false) preserves old behaviour, e.g. for the mouse-click selection raycast, which should still hit non-collidable objects.
+	void traceRay(const Vec4f& origin, const Vec4f& dir, float max_t, JPH::BodyID ignore_body_id, RayTraceResult& results_out, bool ignore_non_collidable = false) const;
 
 	bool doesRayHitAnything(const Vec4f& origin, const Vec4f& dir, float max_t) const;
 
