@@ -386,7 +386,9 @@ int main(int argc, char *argv[])
 
 		WorldCreation::ensurePurpleTestCubeExists(server.world_state);
 		WorldCreation::ensureTestGroundPlatformExists(server.world_state);
-		WorldCreation::ensureTestGaussianSplatObjectExists(server.world_state);
+		// WorldCreation::ensureTestGaussianSplatObjectExists() removed - Gaussian splat objects are now added interactively from the web client
+		// (GUIClient::createGaussianSplatObjectFromLocalFile(), see the "Gaussian splats" ImGui panel in SDLClient.cpp), so their pose lives in the
+		// DB like any other object's rather than being re-applied from a hardcoded pose on every server start.
 
 		server.world_state->denormaliseData();
 

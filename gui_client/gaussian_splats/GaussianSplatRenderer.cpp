@@ -251,7 +251,18 @@ void GaussianSplatRenderer::makeShaders(OpenGLEngine& opengl_engine, const std::
 }
 
 
-GLObjectRef GaussianSplatRenderer::createObject(const GaussianSplatDataRef& splat_data, OpenGLEngine& opengl_engine)
+size_t GaussianSplatRenderer::maxSupportedSplats(int gl_max_texture_size)
+{
+	// Texture width is fixed at splat_tex_width regardless of gl_max_texture_size (true for any conformant WebGL2/desktop GL implementation, which guarantees
+	// GL_MAX_TEXTURE_SIZE >= 2048 - see splat_tex_width's own comment). Height is capped at the real driver limit, not the guaranteed minimum, since real
+	// hardware/drivers commonly support much larger textures than the spec minimum (e.g. the ~5M-splat Copiapo_park2.sog test file rendered fine, well past
+	// what a 2048-height cap would allow) - see packSplatDataToTexels() for the packing this mirrors.
+	const size_t max_tex_h = (size_t)myMax(1, gl_max_texture_size);
+	return (splat_tex_width * max_tex_h) / texels_per_splat;
+}
+
+
+GLObjectRef GaussianSplatRenderer::createObject(const GaussianSplatDataRef& splat_data, OpenGLEngine& opengl_engine, const std::string& source_name)
 {
 	if(shader_prog.isNull())
 		throw glare::Exception("GaussianSplatRenderer::createObject(): makeShaders() must be called first.");
@@ -290,6 +301,7 @@ GLObjectRef GaussianSplatRenderer::createObject(const GaussianSplatDataRef& spla
 
 	ManagedObject managed_ob;
 	managed_ob.id = next_object_id++;
+	managed_ob.source_name = source_name;
 	managed_ob.ob = ob;
 	managed_ob.splat_data = splat_data;
 	managed_ob.instance_index_vbo = instance_index_vbo;
@@ -376,9 +388,23 @@ void GaussianSplatRenderer::getPerfStats(std::vector<PerfStats>& stats_out) cons
 	stats_out.resize(managed_objects.size());
 	for(size_t i = 0; i < managed_objects.size(); ++i)
 	{
+		stats_out[i].source_name = managed_objects[i].source_name;
 		stats_out[i].num_splats = managed_objects[i].splat_data->numSplats();
 		stats_out[i].last_sort_duration_s = managed_objects[i].last_sort_duration_s;
 		stats_out[i].num_sorts_completed = managed_objects[i].num_sorts_completed;
+	}
+}
+
+
+void GaussianSplatRenderer::removeObject(const GLObjectRef& ob)
+{
+	for(size_t i = 0; i < managed_objects.size(); ++i)
+	{
+		if(managed_objects[i].ob.ptr() == ob.ptr())
+		{
+			managed_objects.erase(managed_objects.begin() + i);
+			return;
+		}
 	}
 }
 

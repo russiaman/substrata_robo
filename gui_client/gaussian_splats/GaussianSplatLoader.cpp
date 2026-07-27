@@ -207,3 +207,36 @@ GaussianSplatDataRef GaussianSplatLoader::loadFromBuffer(const uint8_t* data, si
 
 	return result;
 }
+
+
+GaussianSplatLoader::SplatMetaSummary GaussianSplatLoader::readMetaSummaryFromBuffer(const uint8_t* data, size_t size)
+{
+	const std::vector<uint8_t> meta_json_data = GaussianSplatZipReader::readEntry(data, size, "meta.json");
+
+	JSONParser json;
+	json.parseBuffer((const char*)meta_json_data.data(), meta_json_data.size());
+	const JSONNode& root = json.nodes[0];
+
+	const JSONNode& means_node = root.getChildObject(json, "means");
+	const std::vector<double> means_mins = getChildDoubleArray(json, means_node, "mins");
+	const std::vector<double> means_maxs = getChildDoubleArray(json, means_node, "maxs");
+	if(means_mins.size() != 3 || means_maxs.size() != 3)
+		throw glare::Exception("GaussianSplatLoader: malformed 'means' entry in meta.json.");
+
+	// unlog() is monotonically increasing over all reals (see its definition above), so [unlog(mins_i), unlog(maxs_i)]
+	// is the exact per-axis range that loadFromBuffer()'s full decode would enlarge its aabb_os to *if* some splat's
+	// quantised coordinate actually reached 0 or 65535 on every axis. In practice this is a very slightly looser
+	// (never tighter) bound than the real one - fine for placement/proximity purposes, and much cheaper than decoding
+	// the means_l/means_u WebP images just to compute it exactly.
+	GaussianSplatLoader::SplatMetaSummary summary;
+	summary.aabb_os = js::AABBox(
+		Vec4f(unlog((float)means_mins[0]), unlog((float)means_mins[1]), unlog((float)means_mins[2]), 1.f),
+		Vec4f(unlog((float)means_maxs[0]), unlog((float)means_maxs[1]), unlog((float)means_maxs[2]), 1.f));
+
+	// "count" isn't required by the SOG spec (it defaults to the pixel count of the means images, which we're not
+	// decoding here), so treat it as best-effort - 0 means "unknown", and callers should fall back to some other
+	// size signal (e.g. the .sog file's byte size) if they need a hard number.
+	summary.num_splats = root.hasChild("count") ? root.getChildUIntValue(json, "count") : 0;
+
+	return summary;
+}

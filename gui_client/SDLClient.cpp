@@ -1269,6 +1269,51 @@ static void doOneMainLoopIter()
 				ImGui::TextUnformatted(last_diagnostics.c_str());
 			}
 
+#if EMSCRIPTEN
+			// Lets the user add a new Gaussian splat object from a local .sog file, without needing a server restart or rebuild - replaces the old
+			// SUBSTRATA_TEST_SOG_PATH env-var seeding (WorldCreation::ensureTestGaussianSplatObjectExists(), removed). #if EMSCRIPTEN because
+			// SDLUIInterface::showOpenFileDialog() has no native-SDL implementation yet (just shows an error notification, see SDLUIInterface.cpp).
+			ImGui::SetNextItemOpen(true, ImGuiCond_FirstUseEver);
+			if(ImGui::CollapsingHeader("Gaussian splats"))
+			{
+				if(ImGui::Button("Add splat from .sog file..."))
+				{
+					std::vector<UIInterface::FileTypeFilter> filters(1);
+					filters[0].description = "Gaussian splat";
+					filters[0].file_types.push_back("sog");
+					gui_client->ui_interface->showOpenFileDialog("Add Gaussian splat", filters, "GaussianSplat/add", UIInterface::PICK_GAUSSIAN_SPLAT);
+					// Result arrives asynchronously via processFilePickerFile() below - the browser file picker is async under Emscripten, so the
+					// returned path (always empty here) isn't the one to use.
+				}
+				ImGui::TextUnformatted("Uploaded to the server as a normal world object.");
+				ImGui::TextUnformatted("Click it, then use the gizmo / scale slider below to pose it.");
+
+				ImGui::Separator();
+
+				// Dev/test tool: wipe the scene back to what a brand new server starts with (purple test cube + invisible ground platform -
+				// see GUIClient::resetSceneToDefault()). Two-step confirm since this is destructive and irreversible from the UI (no undo for
+				// objects created by other sessions/clients).
+				static bool confirm_reset_scene = false;
+				if(!confirm_reset_scene)
+				{
+					if(ImGui::Button("Reset scene to default (delete all objects)..."))
+						confirm_reset_scene = true;
+				}
+				else
+				{
+					ImGui::TextColored(ImVec4(1.f, 0.4f, 0.4f, 1.f), "Really delete ALL objects except the test cube/platform?");
+					if(ImGui::Button("Yes, delete everything"))
+					{
+						gui_client->resetSceneToDefault();
+						confirm_reset_scene = false;
+					}
+					ImGui::SameLine();
+					if(ImGui::Button("Cancel"))
+						confirm_reset_scene = false;
+				}
+			}
+#endif
+
 			// Uniform-scale editor for the selected object. TransformGizmo (glare-core) only has translate/rotate handles, no scale handles - this is
 			// the quickest way to adjust scale without editing WorldCreation.cpp + rebuilding the server each time. Uniform only (not per-axis x/y/z):
 			// Gaussian splat rendering (gui_client/gaussian_splats/) assumes model_matrix has no non-uniform scale/shear when projecting covariance -
@@ -1441,6 +1486,21 @@ void processFilePickerFile(unsigned char* data, int length, const char* filename
 			// conPrint("processAvatarModelFile(): pre_ob_to_world_matrix: " + pre_ob_to_world_matrix.toString());
 
 			gui_client->updateOurAvatarModel(results.batched_mesh, model_path, pre_ob_to_world_matrix, results.materials);
+		}
+		else if(pick_type_id == UIInterface::PICK_GAUSSIAN_SPLAT)
+		{
+			if(filename.empty())
+				gui_client->showErrorNotification("Please choose a .sog file");
+			else
+			{
+				// Save to a temporary file. NOTE: deliberately not deleted afterwards - createGaussianSplatObjectFromLocalFile() registers this path as
+				// an external resource (ResourceManager::addExternalResource()), so it needs to keep existing as the backing store for the new object's
+				// model_url for as long as this session has it loaded (e.g. so LoadModelTask/UploadResourceThread can still read it).
+				const std::string local_temp_path = "/tmp/" + sanitiseString(removeDotAndExtension(filename)) + "." + getExtension(filename);
+				FileUtils::writeEntireFile(local_temp_path, (const char*)data, length);
+
+				gui_client->createGaussianSplatObjectFromLocalFile(local_temp_path, (const uint8*)data, (size_t)length);
+			}
 		}
 		else
 			throw glare::Exception("processFilePickerFile(): Invalid/unhandled pick_type_id: " + toString(pick_type_id));

@@ -163,6 +163,7 @@ public:
 	// file_picker_ids:
 	static const int PICK_ANIMATION_FILE = 0;
 	static const int PICK_AVATAR_MODEL   = 1;
+	static const int PICK_GAUSSIAN_SPLAT = 2;
 
 	virtual std::string showOpenFileDialog(const std::string& caption, const std::vector<FileTypeFilter>& file_type_filters, const std::string& settings_key, int file_picker_id) = 0; // Returns path to file selected or empty string if cancelled.
 };

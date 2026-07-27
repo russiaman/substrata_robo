@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "ClientThread.h"
 #include "ModelLoading.h"
 #include "MeshBuilding.h"
+#include "gaussian_splats/GaussianSplatLoader.h"
 #include "ThreadMessages.h"
 #include "TerrainSystem.h"
 #include "TerrainDecalManager.h"
@@ -1460,6 +1461,7 @@ void GUIClient::removeAndDeleteGLObjectsForOb(WorldObject& ob)
 	if(ob.opengl_engine_ob)
 	{
 		removeAnimatedTextureUse(*ob.opengl_engine_ob, *animated_texture_manager);
+		gaussian_splat_renderer.removeObject(ob.opengl_engine_ob); // No-op if this isn't a Gaussian splat object - see GaussianSplatRenderer::removeObject().
 		opengl_engine->removeObject(ob.opengl_engine_ob);
 	}
 
@@ -4662,6 +4664,32 @@ void GUIClient::handleUploadedMeshData(const URLString& lod_model_url, int loade
 }
 
 
+// Resource URLs are content-addressed - ResourceManager::URLForPathAndHash() etc. append "_<hash>" before the extension, e.g.
+// "Smile_Gril_sog_1090480646407043859.sog". Strip that suffix for display purposes only (e.g. the Gaussian splat perf-diagnostics overlay
+// below) - never use the result as an actual URL/resource key. Returns the input unchanged if it doesn't end in "_<digits>.<ext>".
+static std::string stripResourceHashSuffixForDisplay(const std::string& url)
+{
+	const size_t dot_pos = url.find_last_of('.');
+	if(dot_pos == std::string::npos)
+		return url;
+	const std::string base = url.substr(0, dot_pos);
+	const std::string ext = url.substr(dot_pos); // includes the dot
+
+	const size_t underscore_pos = base.find_last_of('_');
+	if(underscore_pos == std::string::npos)
+		return url;
+
+	const std::string suffix = base.substr(underscore_pos + 1);
+	if(suffix.empty())
+		return url;
+	for(size_t i = 0; i < suffix.size(); ++i)
+		if(suffix[i] < '0' || suffix[i] > '9')
+			return url;
+
+	return base.substr(0, underscore_pos) + ext;
+}
+
+
 // Gaussian splat (.sog) counterpart of handleUploadedMeshData() above. Splats have no mesh/physics geometry and aren't shared via mesh_manager (each waiting object gets its own GLObject/texture -
 // see class comment in gui_client/gaussian_splats/GaussianSplatRenderer.h), so this is considerably simpler: just assign the loaded splat cloud to any objects waiting on this URL.
 void GUIClient::handleUploadedGaussianSplat(const URLString& lod_model_url, int loaded_model_lod_level, bool dynamic_physics_shape, const GaussianSplatDataRef& splat_data)
@@ -4702,7 +4730,7 @@ void GUIClient::handleUploadedGaussianSplat(const URLString& lod_model_url, int 
 
 							removeAndDeleteGLAndPhysicsObjectsForOb(*ob); // Remove any existing (e.g. placeholder) OpenGL model and physics object.
 
-							GLObjectRef splat_ob = gaussian_splat_renderer.createObject(splat_data, *opengl_engine);
+							GLObjectRef splat_ob = gaussian_splat_renderer.createObject(splat_data, *opengl_engine, /*source_name=*/stripResourceHashSuffixForDisplay(toStdString(ob->model_url)));
 							splat_ob->ob_to_world_matrix = obToWorldMatrix(*ob);
 							ob->opengl_engine_ob = splat_ob;
 							opengl_engine->addObject(ob->opengl_engine_ob);
@@ -10175,7 +10203,7 @@ std::string GUIClient::getDiagnosticsString(bool do_graphics_diagnostics, bool d
 			for(size_t i = 0; i < splat_stats.size(); ++i)
 			{
 				const GaussianSplatRenderer::PerfStats& s = splat_stats[i];
-				msg += "  [" + toString(i) + "] num_splats: " + toString(s.num_splats) +
+				msg += "  [" + toString(i) + "] source: " + s.source_name + ", num_splats: " + toString(s.num_splats) +
 					", last depth-sort time: " + (s.last_sort_duration_s >= 0.0 ? (doubleToStringNSigFigs(s.last_sort_duration_s * 1000, 3) + " ms") : std::string("(none yet)")) +
 					", sorts completed: " + toString(s.num_sorts_completed) + "\n";
 			}
@@ -14507,6 +14535,41 @@ void GUIClient::deleteSelectedObject()
 }
 
 
+// Dev/test tool only (see GUIClient.h) - deletes every object in the world except the purple test cube and invisible ground platform,
+// i.e. everything server/WorldCreation.cpp's idempotent ensurePurpleTestCubeExists()/ensureTestGroundPlatformExists() would seed into a
+// brand new world. Content markers "purple_test_cube"/"test_ground_platform" match those two functions exactly - keep in sync if they change.
+void GUIClient::resetSceneToDefault()
+{
+	std::vector<WorldObjectRef> obs_to_delete;
+	{
+		WorldStateLock lock(this->world_state->mutex);
+		for(auto it = this->world_state->objects.valuesBegin(); it != this->world_state->objects.valuesEnd(); ++it)
+		{
+			WorldObjectRef ob = it.getValue();
+			if((ob->content != "purple_test_cube") && (ob->content != "test_ground_platform"))
+				obs_to_delete.push_back(ob);
+		}
+	}
+
+	deselectObject(); // Deselect in case the currently-selected object is about to be deleted.
+
+	int num_deleted = 0;
+	for(size_t i = 0; i < obs_to_delete.size(); ++i)
+	{
+		WorldObject* ob = obs_to_delete[i].ptr();
+		if(objectModificationAllowedWithMsg(*ob, "delete"))
+		{
+			MessageUtils::initPacket(scratch_packet, Protocol::DestroyObject);
+			writeToStream(ob->uid, scratch_packet);
+			enqueueMessageToSend(*this->client_thread, scratch_packet);
+			num_deleted++;
+		}
+	}
+
+	showInfoNotification("Scene reset: deleted " + toString(num_deleted) + " object(s).");
+}
+
+
 ObjectPathController* GUIClient::getPathControllerForOb(const WorldObject& ob)
 {
 	for(size_t i=0; i<path_controllers.size(); ++i)
@@ -15518,6 +15581,94 @@ void GUIClient::createImageObjectForWidthAndHeight(const std::string& local_imag
 	enqueueMessageToSend(*client_thread, scratch_packet);
 
 	showInfoNotification("Object created.");
+}
+
+
+// Called when the user picks a local .sog file via the ImGui "Gaussian splats" panel (SDLClient.cpp) - see UIInterface::PICK_GAUSSIAN_SPLAT.
+// Uploads the file to the server as a resource and creates a new WorldObject referencing it, in front of the camera. Replaces the old
+// server-side env-var seeding (WorldCreation::ensureTestGaussianSplatObjectExists(), removed) - the object's pose is set once here and then
+// lives in the DB like any other object's, edited via the gizmo / the "Selected object" scale slider, not re-applied on every server start.
+void GUIClient::createGaussianSplatObjectFromLocalFile(const std::string& local_sog_path, const uint8* file_data, size_t file_data_size)
+{
+	if(!this->logged_in_user_id.valid())
+		throw glare::Exception("You must be logged in to add a Gaussian splat object.");
+
+	// Cheap header-only read (meta.json only, no WebP decode) to get the real object-space AABB and splat count, without paying for a full decode
+	// before we even know if this file is one we can render (see maxSupportedSplats() check below). See GaussianSplatLoader::readMetaSummaryFromBuffer()'s
+	// doc comment for why this AABB matches what a full GaussianSplatLoader::loadFromBuffer() decode would produce.
+	const GaussianSplatLoader::SplatMetaSummary summary = GaussianSplatLoader::readMetaSummaryFromBuffer(file_data, file_data_size);
+
+	// Guard against files with more splats than a single object's data texture can hold (see GaussianSplatRenderer::maxSupportedSplats() doc comment) -
+	// checked against the real driver GL_MAX_TEXTURE_SIZE, not the WebGL2-guaranteed minimum, since real hardware commonly supports much more.
+	const size_t max_splats = GaussianSplatRenderer::maxSupportedSplats(opengl_engine->max_texture_size);
+	if((summary.num_splats > 0) && (summary.num_splats > max_splats))
+		throw glare::Exception("This splat file has " + toString(summary.num_splats) + " splats, which is more than this GPU can display in a single object (max " +
+			toString(max_splats) + "). Try a smaller/decimated capture.");
+
+	// Hash the in-memory buffer directly (same XXH64 seed FileChecksum::fileChecksum() uses over file bytes, so this produces the same resource URL a
+	// native client would for the same file) rather than re-reading the temp file we just wrote - avoids relying on MemMappedFile/mmap behaviour on the
+	// Emscripten virtual filesystem, which we have no need to exercise here since the whole file is already in memory.
+	const uint64 hash = XXH64(file_data, file_data_size, 1);
+	const URLString model_URL = ResourceManager::URLForPathAndHash(local_sog_path, hash);
+
+	// Register as an external resource (backed by the temp file we just wrote to the Emscripten virtual FS), NOT copyLocalFileToResourceDir(): under
+	// EMSCRIPTEN, LoadModelTask requires resource->external_resource to be true in order to read the file itself (via MemMappedFile) rather than expect
+	// an in-memory loaded_buffer that only the download path provides (see LoadModelTask.cpp) - without this, the object we just created would fail to
+	// load/render for us specifically (it would still work for other clients, who genuinely download it). Also means this resource isn't persisted to the
+	// local resources DB, so a page reload correctly re-fetches it from the server rather than depending on this session's temp file still existing.
+	resource_manager->addExternalResource(model_URL, local_sog_path);
+
+	// Default pose: apply the Y-up (capture) -> Z-up (world) correction that both existing test splats converged on by hand (rotate -90 degrees around
+	// local X, i.e. swap Y<->Z), combined with a yaw to face the camera (same idiom as summonBike() etc.), at scale 1 - no auto-fit, the existing
+	// "scale (uniform)" ImGui slider (see SDLClient.cpp) is there precisely for the user to size it afterwards.
+	const Quatf up_axis_fix_rot = Quatf::fromAxisAndAngle(Vec3f(1, 0, 0), -Maths::pi_2<float>());
+	const Quatf to_face_camera_rot = Quatf::fromAxisAndAngle(Vec3f(0, 0, 1), (float)cam_controller.getAvatarAngles().x);
+	Vec4f axis;
+	float angle;
+	(to_face_camera_rot * up_axis_fix_rot).toAxisAndAngle(axis, angle);
+
+	const Vec3f scale(1.f);
+
+	// Rotate+scale the (object-space) AABB to find where its bottom actually ends up, so we can place the cloud standing on the ground under the player
+	// rather than guessing a Z offset by hand (as the old hardcoded test poses did - see the removed WorldCreation::ensureTestGaussianSplatObjectExists()).
+	const Matrix4f ob_rot_scale_matrix = Matrix4f::rotationMatrix(normalise(axis), angle) * Matrix4f::scaleMatrix(scale.x, scale.y, scale.z);
+	const js::AABBox rotated_aabb_os = summary.aabb_os.transformedAABBFast(ob_rot_scale_matrix);
+
+	const Vec3d cam_pos = cam_controller.getFirstPersonPosition();
+	const double horizontal_extent = myMax(rotated_aabb_os.axisLength(0), rotated_aabb_os.axisLength(1));
+	const Vec3d ob_pos_xy = cam_pos + ::removeComponentInDir(cam_controller.getForwardsVec(), Vec3d(0, 0, 1)) * myMax(2.0, 0.6 * horizontal_extent);
+	const Vec3d ob_pos(ob_pos_xy.x, ob_pos_xy.y, (cam_pos.z - 1.67) - rotated_aabb_os.min_.x[2]); // cam_pos.z - 1.67 = ground level under the player (eye height); place the cloud's bottom there.
+
+	// Check permissions
+	bool ob_pos_in_parcel;
+	const bool have_creation_perms = haveParcelObjectCreatePermissions(ob_pos, ob_pos_in_parcel);
+	if(!have_creation_perms)
+	{
+		if(ob_pos_in_parcel)
+			showErrorNotification("You do not have write permissions, and are not an admin for this parcel.");
+		else
+			showErrorNotification("You can only create objects in a parcel that you have write permissions for.");
+		return;
+	}
+
+	WorldObjectRef new_world_object = new WorldObject();
+	new_world_object->uid = UID(0); // A new UID will be assigned by the server
+	new_world_object->object_type = WorldObject::ObjectType_Generic; // Same object type as any mesh - .sog-ness is determined purely by model_url's extension (architecture contract §2.B).
+	new_world_object->model_url = model_URL;
+	new_world_object->pos = ob_pos;
+	new_world_object->axis = Vec3f(axis);
+	new_world_object->angle = angle;
+	new_world_object->scale = scale;
+	new_world_object->setAABBOS(summary.aabb_os); // Object-space (untransformed) AABB - setAABBOS()/getAABBWS() apply pos/axis/angle/scale themselves (WorldObject.h:724). rotated_aabb_os above is only for the ground-placement maths, not for this.
+	BitUtils::setBit(new_world_object->flags, WorldObject::EXCLUDE_FROM_LOD_CHUNK_MESH); // ChunkGenThread's LOD-chunk mesh builder has no .sog support (unlike MeshLODGenThread, which was taught to skip it) - avoid log-noise from it trying.
+	// No SUMMONED_FLAG: server/ObjectPermissions.cpp's userCanCreateSummonedObject() only whitelists 5 hardcoded vehicle model_urls, so setting it here would make the server reject this object.
+
+	// Send CreateObject message to server
+	MessageUtils::initPacket(scratch_packet, Protocol::CreateObject);
+	new_world_object->writeToNetworkStream(scratch_packet);
+	enqueueMessageToSend(*this->client_thread, scratch_packet);
+
+	showInfoNotification("Gaussian splat object created.");
 }
 
 

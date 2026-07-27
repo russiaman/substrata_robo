@@ -38,4 +38,10 @@ class GaussianSplatZipReader
 public:
 	// Throws glare::Exception on failure (malformed zip, or an entry using an unsupported compression method).
 	static std::map<std::string, std::vector<uint8_t>> readEntries(const uint8_t* data, size_t size);
+
+	// Returns the decompressed contents of a single named entry, without decompressing any other entry in the zip.
+	// Throws glare::Exception if the zip is malformed, the entry uses an unsupported compression method, or no entry
+	// with that exact filename exists. Useful for reading just meta.json out of a bundle without paying for the
+	// (much larger) WebP payloads - see GaussianSplatLoader::readMetaSummaryFromBuffer().
+	static std::vector<uint8_t> readEntry(const uint8_t* data, size_t size, const std::string& filename);
 };

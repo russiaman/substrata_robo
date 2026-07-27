@@ -273,6 +273,7 @@ public:
 	void scaleObject(WorldObjectRef ob, const Vec3f& new_scale); // Used by the ImGui "Selected object" scale editor (SDLClient.cpp) - TransformGizmo has no scale handles, see architecture snapshot notes.
 	void selectObject(const WorldObjectRef& ob, int selected_mat_index);
 	void deleteSelectedObject();
+	void resetSceneToDefault(); // Dev/test tool: deletes every object except the purple test cube and invisible ground platform - see GUIClient.cpp for details. Reachable from the ImGui "Gaussian splats" panel (SDLClient.cpp).
 	void deselectObject();
 	void deselectParcel();
 	void visitSubURL(const std::string& URL, bool push_cur_URL_on_nav_stack = true, bool adjust_cur_URL_pos_back = false); // Visit a substrata 'sub://' URL.  Checks hostname and only reconnects if the hostname is different from the current one.
@@ -389,6 +390,7 @@ public:
 	void createImageObject(const std::string& local_image_path);
 	void createModelObject(const std::string& local_model_path);
 	void createImageObjectForWidthAndHeight(const std::string& local_image_path, int w, int h, bool has_alpha);
+	void createGaussianSplatObjectFromLocalFile(const std::string& local_sog_path, const uint8* file_data, size_t file_data_size);
 
 	void keyPressed(KeyEvent& e);
 	void keyReleased(KeyEvent& e);

@@ -1241,7 +1241,10 @@ if(EMSCRIPTEN)
 		"-sENVIRONMENT=web,worker" # Specify that the JS code only supports running in web/web workers.(Not node.js etc.)
 		"-sPTHREAD_POOL_SIZE=30" # See calculation above
 		"-sSTACK_SIZE=262144"
-		"-sEXPORTED_RUNTIME_METHODS=ccall" # Needed to be able to call into C++ from JS.  Used in emscripten_browser_clipboard.
+		"-sEXPORTED_RUNTIME_METHODS=ccall,HEAPU8" # ccall needed to call into C++ from JS (used in emscripten_browser_clipboard). HEAPU8 needed by webclient.html's
+			# file-picker submit handler, which writes the picked file's bytes into the wasm heap via Module.HEAPU8.set() before calling ccall('processFilePickerFile', ...) -
+			# newer Emscripten no longer exports HEAPU8 by default, so without this the handler throws "'HEAPU8' was not exported" for ANY file-picker use
+			# (avatar model, animation, and now Gaussian splat file picking all go through this same JS code path).
 		"-sEXPORTED_FUNCTIONS=_processFilePickerFile,_malloc,_free,_main"
 		"-lwebsocket.js" # To use emscripten websockets API: https://emscripten.org/docs/porting/networking.html#emscripten-websockets-api
 		--use-preload-cache # Cache the preloaded data in IndexedDB for subsequent page visits.

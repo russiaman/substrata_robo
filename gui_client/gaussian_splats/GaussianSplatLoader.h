@@ -8,6 +8,7 @@ Generated at Mon Jul 27 06:16:15 2026
 
 
 #include "GaussianSplatData.h"
+#include <physics/jscol_aabbox.h>
 #include <cstdint>
 #include <vector>
 
@@ -36,4 +37,17 @@ class GaussianSplatLoader
 public:
 	// data/size is the raw contents of a .sog file (a ZIP archive). Throws glare::Exception on failure.
 	static GaussianSplatDataRef loadFromBuffer(const uint8_t* data, size_t size);
+
+
+	struct SplatMetaSummary
+	{
+		js::AABBox aabb_os; // Object-space bound, derived from means.mins/maxs - see readMetaSummaryFromBuffer() for why this matches loadFromBuffer()'s real aabb_os.
+		size_t num_splats;
+	};
+
+	// Cheap header-only read: parses meta.json out of the .sog bundle and derives the object-space AABB and splat
+	// count from it, without decoding any of the (much larger) WebP payloads. Used to size/place a new splat object
+	// before committing to a full decode - see GUIClient::createGaussianSplatObjectFromLocalFile(). Throws
+	// glare::Exception on failure (same failure modes as loadFromBuffer() for the meta.json parsing part).
+	static SplatMetaSummary readMetaSummaryFromBuffer(const uint8_t* data, size_t size);
 };

@@ -31,7 +31,4 @@ public:
 	// for Gaussian splat testing, without touching the built-in terrain grid texture/rendering. See snapshot notes for why: hiding the built-in grid would require
 	// editing shared client rendering code (TerrainSystem.cpp), which the owner didn't want to touch; this sidesteps that entirely by staying in our own test-scene setup file.
 	static void ensureTestGroundPlatformExists(Reference<ServerAllWorldsState> world_state);
-
-	// Dev/test-only (architecture contract task #9): idempotent, only runs if SUBSTRATA_TEST_SOG_PATH env var points at a local .sog file - no-op otherwise.
-	static void ensureTestGaussianSplatObjectExists(Reference<ServerAllWorldsState> world_state);
 };

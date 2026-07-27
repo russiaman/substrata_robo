@@ -90,18 +90,32 @@ public:
 
 	// Builds a ready-to-add GLObject for a decoded splat cloud: packs the GPU texture, builds the instanced quad mesh and instance-index VBO, sets up the material.
 	// Caller still needs to set the returned object's ob_to_world_matrix and call opengl_engine.addObject() on it.
-	GLObjectRef createObject(const GaussianSplatDataRef& splat_data, OpenGLEngine& opengl_engine);
+	// source_name: the object's model_url (or similar), kept only for the perf-diagnostics overlay (see PerfStats) so multiple splat objects can be told apart.
+	GLObjectRef createObject(const GaussianSplatDataRef& splat_data, OpenGLEngine& opengl_engine, const std::string& source_name);
+
+	// Maximum number of splats a single splat object's data texture can hold, given the real GL_MAX_TEXTURE_SIZE (OpenGLEngine::max_texture_size). Callers
+	// building a new splat object client-side (see GUIClient::createGaussianSplatObjectFromLocalFile()) should reject files with more splats than this
+	// before spending any effort on upload/decode - createObject() itself has no such guard and would just build an oversized (and likely GL-rejected) texture.
+	static size_t maxSupportedSplats(int gl_max_texture_size);
 
 	// Per-frame update: refreshes the viewport-size / focal-length user uniforms each managed object's shader needs for the EWA covariance projection,
 	// drains any completed background depth-sort results, and kicks off a new depth-sort task for any object whose camera viewpoint has moved past
 	// the re-sort threshold since its last sort. Call once per frame, after the frame's camera transform has been set on opengl_engine.
 	void think(OpenGLEngine& opengl_engine, glare::TaskManager& task_manager);
 
+	// Removes the managed entry for a splat object previously returned by createObject(), if any (no-op if ob isn't a splat object, or isn't
+	// found - e.g. already removed). Must be called whenever a splat object's GLObject is torn down (see
+	// GUIClient::removeAndDeleteGLObjectsForOb()) - otherwise its entry lingers forever in getPerfStats(), showing deleted objects in the
+	// perf-diagnostics overlay indefinitely. Does not touch the GL resources themselves (textures/VBOs) or opengl_engine - the caller is
+	// responsible for that, same as for any other object type.
+	void removeObject(const GLObjectRef& ob);
+
 	void shutdown();
 
 	// Exposed for the in-world performance-diagnostics overlay (GUIClient) - not used by the rendering path itself.
 	struct PerfStats
 	{
+		std::string source_name; // The source_name passed to createObject(), e.g. the object's model_url.
 		size_t num_splats;
 		double last_sort_duration_s; // Wall-clock time the most recently completed background sort task took, or -1 if none has completed yet.
 		uint64 num_sorts_completed;
@@ -117,6 +131,7 @@ private:
 	struct ManagedObject
 	{
 		uint64 id; // Stable identity for matching an async sort result back to this object, independent of managed_objects' storage (a std::vector, so element addresses aren't stable across push_back).
+		std::string source_name; // See createObject()'s source_name param - kept only for the perf-diagnostics overlay (PerfStats).
 		GLObjectRef ob;
 		GaussianSplatDataRef splat_data;
 		Reference<VBO> instance_index_vbo;

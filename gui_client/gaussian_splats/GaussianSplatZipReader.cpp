@@ -80,10 +80,9 @@ std::vector<uint8_t> inflateRaw(const uint8_t* compressed_data, size_t compresse
 }
 
 
-} // end anonymous namespace
-
-
-std::map<std::string, std::vector<uint8_t>> GaussianSplatZipReader::readEntries(const uint8_t* data, size_t size)
+// Shared central-directory walk used by both readEntries() (wanted_filename == NULL, decode everything) and
+// readEntry() (wanted_filename != NULL, decode only the matching entry and skip inflating anything else).
+std::map<std::string, std::vector<uint8_t>> readEntriesImpl(const uint8_t* data, size_t size, const std::string* wanted_filename)
 {
 	if(size < 22)
 		throw glare::Exception("GaussianSplatZipReader: buffer too small to be a valid ZIP file.");
@@ -144,6 +143,10 @@ std::map<std::string, std::vector<uint8_t>> GaussianSplatZipReader::readEntries(
 		if(!filename.empty() && filename.back() == '/')
 			continue;
 
+		// If we're only after one named entry, skip decoding (and even locating) any other entry entirely.
+		if(wanted_filename && (filename != *wanted_filename))
+			continue;
+
 		// Now read the local file header to find the actual start of the file data
 		// (the "extra" field length can differ between the central directory and local headers).
 		if((size_t)local_hdr_off + 30 > size)
@@ -170,7 +173,29 @@ std::map<std::string, std::vector<uint8_t>> GaussianSplatZipReader::readEntries(
 		{
 			throw glare::Exception("GaussianSplatZipReader: entry '" + filename + "' uses unsupported compression method " + std::to_string(compression_method) + ".");
 		}
+
+		if(wanted_filename)
+			break; // Found the one entry we wanted, no need to keep scanning the central directory.
 	}
 
 	return result;
+}
+
+
+} // end anonymous namespace
+
+
+std::map<std::string, std::vector<uint8_t>> GaussianSplatZipReader::readEntries(const uint8_t* data, size_t size)
+{
+	return readEntriesImpl(data, size, /*wanted_filename=*/nullptr);
+}
+
+
+std::vector<uint8_t> GaussianSplatZipReader::readEntry(const uint8_t* data, size_t size, const std::string& filename)
+{
+	const std::map<std::string, std::vector<uint8_t>> result = readEntriesImpl(data, size, &filename);
+	const auto it = result.find(filename);
+	if(it == result.end())
+		throw glare::Exception("GaussianSplatZipReader: entry '" + filename + "' not found in ZIP.");
+	return it->second;
 }
