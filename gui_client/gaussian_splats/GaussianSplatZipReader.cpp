@@ -1,7 +1,8 @@
 /*=====================================================================
 GaussianSplatZipReader.cpp
 ----------------------------
-Copyright Glare Technologies Limited 2026 -
+coded by AI agent under @russiaman supervision -
+Generated at Mon Jul 27 06:16:15 2026
 =====================================================================*/
 #include "GaussianSplatZipReader.h"
 

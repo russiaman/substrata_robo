@@ -1,4 +1,8 @@
 
+// gaussian_splat_frag_shader.glsl
+// coded by AI agent under @russiaman supervision -
+// Generated at Mon Jul 27 06:16:15 2026
+//
 // See class comment in gui_client/gaussian_splats/GaussianSplatRenderer.h for the overall design this shader is part of.
 
 precision highp float; // Override the engine's default "precision mediump float;" for Emscripten (see OpenGLEngine.cpp) - the Gaussian exponent below is sensitive to precision for large splats/radii.
