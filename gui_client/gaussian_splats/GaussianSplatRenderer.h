@@ -12,8 +12,12 @@ Generated at Mon Jul 27 06:16:15 2026
 #include <opengl/OpenGLProgram.h>
 #include <utils/Platform.h>
 #include <utils/Reference.h>
+#include <utils/ThreadSafeQueue.h>
+#include <utils/ThreadMessage.h>
 #include <string>
 #include <vector>
+
+namespace glare { class TaskManager; }
 
 
 /*=====================================================================
@@ -33,14 +37,40 @@ for app-supplied shaders (architecture contract §4.1).
 Geometry is one instanced quad per splat cloud; draw order is controlled
 by a dedicated per-object uint32 index VBO (attribute "splat_index_in",
 forced to attribute location 1, see makeShaders()), not gl_InstanceID
-directly - this is what lets a later CPU depth-sort (architecture
-contract task #7) reorder splats back-to-front just by rewriting that
-VBO with VBO::updateData(), without touching the mesh or shader.
+directly - this lets the CPU depth-sort below reorder splats back-to-front
+just by rewriting that VBO with VBO::updateData(), without touching the
+mesh or shader.
+
+CPU depth-sort (architecture contract task #7): a full re-sort of up to
+~1M splats is too slow to redo unconditionally every frame on the main
+thread (see snapshots/2026-07-27-session6-depth-sort-and-axis-convention-fix.md
+for the first, deliberately-naive std::sort-every-frame version this
+replaces). This version instead:
+ - only kicks off a re-sort once the camera has moved/rotated past a
+   threshold (in the splat object's local space) since the last sort it
+   started - a static viewpoint doesn't need re-sorting at all;
+ - does the sort itself with Sort::radixSort32BitKey (already used
+   elsewhere in the engine for batch sorting, see OpenGLEngine.cpp's
+   sortBatchDrawInfoWithDists()) instead of std::sort;
+ - runs the sort on a glare::TaskManager worker thread (the same
+   high_priority_task_manager GUIClient already uses for per-frame
+   physics/animation work - see OpenGLEngine.h's doc comment on that
+   manager), not the main/render thread. Results come back via a
+   ThreadSafeQueue<Reference<ThreadMessage>>, the same message-queue
+   idiom LoadModelTask/TerrainSystem already use to hand results from a
+   worker back to the main thread - think() drains it non-blockingly
+   each frame and is the only place that calls VBO::updateData()
+   (GL calls are main-thread-only; see VBO.cpp).
+ - if a newer sort is kicked off before an in-flight one's result comes
+   back, the stale result is simply dropped when it arrives (matched by
+   the object's stable id) - one frame of slightly-stale draw order is
+   visually harmless, and the next result always supersedes it.
+Not handled yet: multiple splat objects don't share a task queue budget
+(each gets its own worker task when it needs a re-sort) - fine for the
+handful of splat objects a scene is expected to have; would need
+throttling if that assumption changes.
 
 Not handled yet (see architecture contract §6.3 - documented, not silent):
- - CPU depth-sorting (task #7). think() only refreshes per-frame
-   uniforms for now; instance order is always identity (splat i is
-   always drawn as instance i).
  - Order-independent transparency (an optional native-only engine
    feature). The fragment shader writes a single premultiplied-alpha
    colour output, matching the non-OIT blend path the web build always
@@ -62,25 +92,44 @@ public:
 	// Caller still needs to set the returned object's ob_to_world_matrix and call opengl_engine.addObject() on it.
 	GLObjectRef createObject(const GaussianSplatDataRef& splat_data, OpenGLEngine& opengl_engine);
 
-	// Per-frame update: refreshes the viewport-size / focal-length user uniforms each managed object's shader needs for the EWA covariance projection.
-	// Call once per frame, after the frame's camera transform has been set on opengl_engine.
-	void think(OpenGLEngine& opengl_engine);
+	// Per-frame update: refreshes the viewport-size / focal-length user uniforms each managed object's shader needs for the EWA covariance projection,
+	// drains any completed background depth-sort results, and kicks off a new depth-sort task for any object whose camera viewpoint has moved past
+	// the re-sort threshold since its last sort. Call once per frame, after the frame's camera transform has been set on opengl_engine.
+	void think(OpenGLEngine& opengl_engine, glare::TaskManager& task_manager);
 
 	void shutdown();
+
+	// Exposed for the in-world performance-diagnostics overlay (GUIClient) - not used by the rendering path itself.
+	struct PerfStats
+	{
+		size_t num_splats;
+		double last_sort_duration_s; // Wall-clock time the most recently completed background sort task took, or -1 if none has completed yet.
+		uint64 num_sorts_completed;
+	};
+	void getPerfStats(std::vector<PerfStats>& stats_out) const;
 
 private:
 	GLARE_DISABLE_COPY(GaussianSplatRenderer);
 
 	Reference<OpenGLProgram> shader_prog;
 
-	// One managed splat cloud: the GL object plus what think() needs to re-sort its instance-index VBO every frame (see think()'s TEMP NOTE).
+	// One managed splat cloud: the GL object plus everything think() needs to keep its instance-index VBO sorted back-to-front.
 	struct ManagedObject
 	{
+		uint64 id; // Stable identity for matching an async sort result back to this object, independent of managed_objects' storage (a std::vector, so element addresses aren't stable across push_back).
 		GLObjectRef ob;
 		GaussianSplatDataRef splat_data;
 		Reference<VBO> instance_index_vbo;
-		std::vector<float> depth_scratch; // Reused across frames to avoid a per-frame allocation.
-		std::vector<uint32> index_scratch;
+
+		bool sort_in_flight;
+		Vec4f last_sort_cam_pos_ws; // World-space camera position as of the last sort *kicked off* (not necessarily completed) - used to decide when a re-sort is worth doing.
+		bool have_last_sort_cam_pos;
+
+		double last_sort_duration_s;
+		uint64 num_sorts_completed;
 	};
 	std::vector<ManagedObject> managed_objects; // Objects created by createObject(), refreshed each frame by think().
+
+	uint64 next_object_id;
+	ThreadSafeQueue<Reference<ThreadMessage> > sort_result_queue; // Written to by GaussianSplatSortTask::run() (worker thread), drained by think() (main thread).
 };

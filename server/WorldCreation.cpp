@@ -18,6 +18,7 @@ Copyright Glare Technologies Limited 2022 -
 #include <FileChecksum.h>
 #include <Lock.h>
 #include <PlatformUtils.h>
+#include <StringUtils.h>
 
 
 static const int parcel_coords[10][4][2] ={
@@ -1365,62 +1366,112 @@ void WorldCreation::ensureTestGaussianSplatObjectExists(Reference<ServerAllWorld
 		return; // Env var not set - nothing to do.
 	}
 
+	// Dev/test-only, independent knob: how many copies of the same .sog to place side-by-side, for stress-testing the depth-sort/render pipeline at a splat count closer to the
+	// brief's ~0.5-1M target than any single real test file we have. Each copy is its own WorldObject (own GLObject, own depth-sort task) - not one merged splat cloud - so this
+	// also exercises multiple concurrent background sort tasks rather than one huge one, and stays well under the ~1.05M-splats-per-texture limit documented in GaussianSplatRenderer.cpp.
+	// Defaults to 1 (no replication) if unset, matching the invariant that this whole function is a no-op unless a test env var explicitly asks for something.
+	int replicate_count = 1;
+	try
+	{
+		replicate_count = stringToInt(PlatformUtils::getEnvironmentVariable("SUBSTRATA_TEST_SOG_REPLICATE_COUNT"));
+	}
+	catch(glare::Exception&) {}
+	if(replicate_count < 1)
+		replicate_count = 1;
+
 	// Always (re-)register the resource, even if the WorldObject below already exists from a previous run: copyLocalFileToResourceDir() only actually re-copies the file if it's not already
 	// State_Present, so this is cheap, but it's needed because the resource *record* (unlike the object, and unlike the already-copied file on disk) may not have been persisted yet if the
 	// server process was previously killed non-gracefully before its next state save - in that case the object would come back from server_state.bin but the resource wouldn't, leaving
 	// model_url pointing at a resource the server doesn't think it has.
 	const URLString model_url = world_state->resource_manager->copyLocalFileToResourceDirAndReturnURL(local_sog_path);
 
-	const std::string marker = "test_gaussian_splat_object";
-
 	// Pose is still being tuned by hand while checking orientation in the browser (architecture contract task #9) - kept as a single spot so re-running always applies the latest guess,
-	// even to an object that already exists from a previous run (see below).
+	// even to objects that already exist from a previous run (see below).
 	const Vec3d test_pos(4.5, 1.6, 1.0); // Near the purple test cube, a few metres in front of the default spawn point (2.1, -1.4, 1.67). Raised a bit (was 0.5) - at scale 1 she sank about halfway into the floor.
 	// First guess (rotating around Y) just spun her around her own long axis - confirms local Y is her head-to-feet/up axis (capture is Y-up), and our world is Z-up, so what's needed is
 	// swapping Y and Z: rotate around X instead.
 	const Vec3f test_axis(1, 0, 0);
 	const float test_angle = -Maths::pi_2<float>(); // -90 degrees (previous +90 guess looked tipped diagonally, not upright - trying the other sign).
 	const Vec3f test_scale(0.25f); // 1/4 scale.
+	const double copy_spacing = 1.2; // Metres between copies along +x, when replicate_count > 1 - enough to keep adjacent copies from visibly overlapping at test_scale.
 
 	WorldStateLock lock(world_state->mutex);
 
-	for(auto it = world_state->getRootWorldState()->getObjects(lock).begin(); it != world_state->getRootWorldState()->getObjects(lock).end(); ++it)
-		if(it->second->content == marker)
+	for(int copy_i = 0; copy_i < replicate_count; ++copy_i)
+	{
+		// copy_i == 0 keeps the original marker, for backwards compatibility with objects created before SUBSTRATA_TEST_SOG_REPLICATE_COUNT existed.
+		const std::string marker = (copy_i == 0) ? "test_gaussian_splat_object" : ("test_gaussian_splat_object_copy" + toString(copy_i));
+		const Vec3d copy_pos = test_pos + Vec3d((double)copy_i * copy_spacing, 0, 0);
+
+		bool found_existing = false;
+		for(auto it = world_state->getRootWorldState()->getObjects(lock).begin(); it != world_state->getRootWorldState()->getObjects(lock).end(); ++it)
+			if(it->second->content == marker)
+			{
+				// Already exists from a previous run - just re-apply the pose above in case it's changed since, rather than skipping entirely.
+				WorldObject* ob = it->second.ptr();
+				ob->pos = copy_pos;
+				ob->axis = test_axis;
+				ob->angle = test_angle;
+				ob->scale = test_scale;
+				world_state->getRootWorldState()->addWorldObjectAsDBDirty(ob, lock);
+				found_existing = true;
+				break;
+			}
+		if(found_existing)
+			continue;
+
+		conPrint("Creating test Gaussian splat object copy " + toString(copy_i) + " near spawn, from local file '" + local_sog_path + "'...");
+
+		WorldObjectRef ob = new WorldObject();
+		ob->creator_id = UserID(0);
+		ob->created_time = TimeStamp::currentTime();
+		ob->last_modified_time = TimeStamp::currentTime();
+		ob->state = WorldObject::State_Alive;
+		ob->uid = world_state->getNextObjectUID();
+		ob->object_type = WorldObject::ObjectType_Generic;
+		ob->content = marker;
+		ob->model_url = model_url;
+		ob->pos = copy_pos;
+		ob->axis = test_axis;
+		ob->angle = test_angle;
+		ob->scale = test_scale;
+		// Placeholder object-space AABB - there's no server-side SOG decoder yet (see MeshLODGenThread.cpp's checkObjectSpaceAABB(), which uses the same placeholder for this reason).
+		ob->setAABBOS(js::AABBox(Vec4f(-1,-1,-1,1), Vec4f(1,1,1,1)));
+
+		world_state->getRootWorldState()->getObjects(lock)[ob->uid] = ob;
+		world_state->getRootWorldState()->addWorldObjectAsDBDirty(ob, lock);
+
+		conPrint("Test Gaussian splat object copy " + toString(copy_i) + " created with UID " + ob->uid.toString());
+	}
+
+	// Remove any copy objects left over from a previous run with a higher SUBSTRATA_TEST_SOG_REPLICATE_COUNT than this one - e.g. stress-tested with 10 copies, then dropped back
+	// to 1 for a clean single-figure recording. Only ever removes copy markers ("test_gaussian_splat_object_copy" + N), never the original ("test_gaussian_splat_object", copy_i == 0),
+	// and only at server startup (no clients connected yet to notify of a removal), so a direct map erase is enough - no State_Dead/broadcast dance needed (contrast with runtime removal
+	// in WorkerThread.cpp).
+	const std::string copy_marker_prefix = "test_gaussian_splat_object_copy";
+	for(auto it = world_state->getRootWorldState()->getObjects(lock).begin(); it != world_state->getRootWorldState()->getObjects(lock).end();)
+	{
+		bool should_remove = false;
+		const std::string& content = it->second->content;
+		if(hasPrefix(content, copy_marker_prefix))
 		{
-			// Already exists from a previous run - just re-apply the pose above in case it's changed since, rather than skipping entirely.
-			WorldObject* ob = it->second.ptr();
-			ob->pos = test_pos;
-			ob->axis = test_axis;
-			ob->angle = test_angle;
-			ob->scale = test_scale;
-			world_state->getRootWorldState()->addWorldObjectAsDBDirty(ob, lock);
-			world_state->markAsChanged();
-			return;
+			try
+			{
+				const int existing_copy_i = stringToInt(content.substr(copy_marker_prefix.size()));
+				should_remove = existing_copy_i >= replicate_count;
+			}
+			catch(glare::Exception&) {} // Not actually one of our copy markers (unexpected suffix) - leave it alone.
 		}
+		if(should_remove)
+		{
+			conPrint("Removing stale test Gaussian splat copy object, UID " + it->second->uid.toString() + " (content='" + it->second->content + "')...");
+			it = world_state->getRootWorldState()->getObjects(lock).erase(it);
+		}
+		else
+			++it;
+	}
 
-	conPrint("Creating test Gaussian splat object near spawn, from local file '" + local_sog_path + "'...");
-
-	WorldObjectRef ob = new WorldObject();
-	ob->creator_id = UserID(0);
-	ob->created_time = TimeStamp::currentTime();
-	ob->last_modified_time = TimeStamp::currentTime();
-	ob->state = WorldObject::State_Alive;
-	ob->uid = world_state->getNextObjectUID();
-	ob->object_type = WorldObject::ObjectType_Generic;
-	ob->content = marker;
-	ob->model_url = model_url;
-	ob->pos = test_pos;
-	ob->axis = test_axis;
-	ob->angle = test_angle;
-	ob->scale = test_scale;
-	// Placeholder object-space AABB - there's no server-side SOG decoder yet (see MeshLODGenThread.cpp's checkObjectSpaceAABB(), which uses the same placeholder for this reason).
-	ob->setAABBOS(js::AABBox(Vec4f(-1,-1,-1,1), Vec4f(1,1,1,1)));
-
-	world_state->getRootWorldState()->getObjects(lock)[ob->uid] = ob;
-	world_state->getRootWorldState()->addWorldObjectAsDBDirty(ob, lock);
 	world_state->markAsChanged();
-
-	conPrint("Test Gaussian splat object created with UID " + ob->uid.toString());
 }
 
 

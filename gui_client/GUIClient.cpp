@@ -6165,7 +6165,7 @@ void GUIClient::timerEvent(const MouseCursorState& mouse_cursor_state)
 
 	handleMessages(global_time, cur_time);
 
-	gaussian_splat_renderer.think(*opengl_engine); // Refresh per-frame viewport/focal-length uniforms for any loaded Gaussian splat objects.
+	gaussian_splat_renderer.think(*opengl_engine, *this->high_priority_task_manager); // Refresh per-frame uniforms and drive the background depth-sort for any loaded Gaussian splat objects.
 
 	// Evaluate scripts on objects
 	{
@@ -10111,6 +10111,23 @@ std::string GUIClient::getDiagnosticsString(bool do_graphics_diagnostics, bool d
 	msg += "model_loaded_messages_to_process: " + toString(model_loaded_messages_to_process.size()) + "\n";
 	msg += "texture_loaded_messages_to_process: " + toString(texture_loaded_messages_to_process.size()) + "\n";
 	msg += "stack allocator high water mark: " + getNiceByteSize(stack_allocator.highWaterMark()) + " / " + getNiceByteSize(stack_allocator.size()) + "\n";
+
+	{
+		std::vector<GaussianSplatRenderer::PerfStats> splat_stats;
+		gaussian_splat_renderer.getPerfStats(splat_stats);
+		if(!splat_stats.empty())
+		{
+			msg += "------------Gaussian splats------------\n";
+			for(size_t i = 0; i < splat_stats.size(); ++i)
+			{
+				const GaussianSplatRenderer::PerfStats& s = splat_stats[i];
+				msg += "  [" + toString(i) + "] num_splats: " + toString(s.num_splats) +
+					", last depth-sort time: " + (s.last_sort_duration_s >= 0.0 ? (doubleToStringNSigFigs(s.last_sort_duration_s * 1000, 3) + " ms") : std::string("(none yet)")) +
+					", sorts completed: " + toString(s.num_sorts_completed) + "\n";
+			}
+			msg += "----------------------------------------\n";
+		}
+	}
 
 
 #ifdef NDEBUG
