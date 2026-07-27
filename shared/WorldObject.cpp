@@ -169,6 +169,10 @@ URLString WorldObject::getLODModelURLForLevel(const URLString& base_model_url, i
 	if(hasExtension(base_model_url, "subvox"))
 		return URLString(base_model_url, glare::STLArenaAllocator<char>(options.allocator));
 
+	// .sog (Gaussian splat cloud) files don't have the _opt3 suffix either - there's no server-side optimised-mesh generation for them (see server/MeshLODGenThread.cpp), so requesting one would always 404.
+	if(hasExtension(base_model_url, "sog"))
+		return URLString(base_model_url, glare::STLArenaAllocator<char>(options.allocator));
+
 	return makeOptimisedMeshURL(base_model_url, lod_level, /*get_optimised_mesh=*/options.get_optimised_mesh, options.opt_mesh_version, options.allocator);
 }
 

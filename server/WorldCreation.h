@@ -26,4 +26,7 @@ public:
 	// Idempotent: creates a purple test cube near the default spawn point if one doesn't already exist (identified by its 'content' marker string).
 	// Used to verify we have working end-to-end control over server-side world state.
 	static void ensurePurpleTestCubeExists(Reference<ServerAllWorldsState> world_state);
+
+	// Dev/test-only (architecture contract task #9): idempotent, only runs if SUBSTRATA_TEST_SOG_PATH env var points at a local .sog file - no-op otherwise.
+	static void ensureTestGaussianSplatObjectExists(Reference<ServerAllWorldsState> world_state);
 };
