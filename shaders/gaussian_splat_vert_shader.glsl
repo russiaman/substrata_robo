@@ -122,7 +122,20 @@ void main()
 	clip_pos.xy += (screen_offset_px / viewport_dims_px) * 2.0 * clip_pos.w; // Offset in clip space, pre-multiplied by w so it survives the perspective divide unchanged (standard screen-space billboard technique).
 	gl_Position = clip_pos;
 
-	float inv_det = 1.0 / det;
-	frag_conic = vec3(cov2d_c * inv_det, -cov2d_b * inv_det, cov2d_a * inv_det); // (A, B, C) of the conic Ax^2 + 2Bxy + Cy^2, evaluated per-pixel in the fragment shader.
+	// Build the conic from the (possibly clamped) radii above rather than inverting the raw cov2d matrix directly.
+	// Without this, an oversized/near-degenerate splat (e.g. a huge near-flat "sky" splat from reconstruction, common
+	// when a region has no real parallax to constrain its scale) has its quad geometry clamped above but its alpha
+	// falloff still computed from the true, enormous variance - which barely decays by the clamped quad edge, producing
+	// a hard visible straight-edged cutoff instead of a soft fade. Using the clamped radius as the effective sigma here
+	// makes alpha correctly fade to ~0 at the quad boundary in that case, and is a no-op (eff_lambda == lambda) whenever
+	// the radius wasn't clamped.
+	float eff_lambda1 = (radius1 * radius1) * (1.0 / 9.0); // radius = 3*sqrt(lambda) => lambda = (radius/3)^2
+	float eff_lambda2 = (radius2 * radius2) * (1.0 / 9.0);
+	float inv_l1 = 1.0 / eff_lambda1;
+	float inv_l2 = 1.0 / eff_lambda2;
+	frag_conic = vec3(
+		axis1.x*axis1.x*inv_l1 + axis2.x*axis2.x*inv_l2,
+		axis1.x*axis1.y*inv_l1 + axis2.x*axis2.y*inv_l2,
+		axis1.y*axis1.y*inv_l1 + axis2.y*axis2.y*inv_l2); // (A, B, C) of the conic Ax^2 + 2Bxy + Cy^2, evaluated per-pixel in the fragment shader.
 	frag_screen_offset_px = screen_offset_px;
 }

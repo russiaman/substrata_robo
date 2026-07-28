@@ -174,10 +174,16 @@ public:
 	};
 	void getPerfStats(std::vector<PerfStats>& stats_out) const;
 
+	// Hash of the actual vertex+fragment shader source bytes read from disk by makeShaders(), as an 8-hex-digit string. Lets the ImGui overlay
+	// prove which shader source is actually running - unlike a build-date string baked in at compile time, this is computed from the file
+	// makeShaders() genuinely loaded, so it reflects preload-cache/staging-copy problems (e.g. a stale data/shaders/ copy) that a build indicator can't catch.
+	const std::string& getShaderSourceHash() const { return shader_source_hash; }
+
 private:
 	GLARE_DISABLE_COPY(GaussianSplatRenderer);
 
 	Reference<OpenGLProgram> shader_prog;
+	std::string shader_source_hash;
 
 	// One managed splat cloud: the GL object plus everything think() needs to keep its instance-index VBO sorted back-to-front.
 	struct ManagedObject

@@ -20,6 +20,8 @@ Generated at Mon Jul 27 06:16:15 2026
 #include <utils/BitUtils.h>
 #include <utils/ConPrint.h>
 #include <utils/Exception.h>
+#include <utils/FileUtils.h>
+#include <utils/IncludeXXHash.h>
 #include <utils/RefCounted.h>
 #include <utils/StringUtils.h>
 #include <utils/Sort.h>
@@ -305,6 +307,15 @@ void GaussianSplatRenderer::makeShaders(OpenGLEngine& opengl_engine, const std::
 {
 	const std::string version_directive    = opengl_engine.getVersionDirective();
 	const std::string preprocessor_defines = opengl_engine.getPreprocessorDefines();
+
+	// Hash the actual shader source bytes read from disk right here, so getShaderSourceHash() reflects exactly what this run loaded and compiled -
+	// see its declaration comment for why (catches stale-preload-copy issues a compile-time build indicator can't).
+	{
+		const std::string vert_src = FileUtils::readEntireFileTextMode(shader_dir + "/gaussian_splat_vert_shader.glsl");
+		const std::string frag_src = FileUtils::readEntireFileTextMode(shader_dir + "/gaussian_splat_frag_shader.glsl");
+		const uint64 hash = XXH64(vert_src.data(), vert_src.size(), /*seed=*/1) ^ XXH64(frag_src.data(), frag_src.size(), /*seed=*/2);
+		shader_source_hash = leftPad(toHexString(hash & 0xFFFFFFFFull), '0', 8);
+	}
 
 	// wait_for_build_to_complete is false here because we need to bind our custom per-instance attribute location and relink before the program is considered finished - see below.
 	shader_prog = new OpenGLProgram(

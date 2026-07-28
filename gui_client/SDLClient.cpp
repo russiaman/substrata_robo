@@ -1311,6 +1311,10 @@ static void doOneMainLoopIter()
 #else
 				ImGui::TextColored(ImVec4(1.f, 0.6f, 0.2f, 1.f), "Build: Debug (unoptimised)");
 #endif
+				// Hash of the actual splat shader source bytes this run loaded off disk (see GaussianSplatRenderer::getShaderSourceHash()) - proves
+				// which shader is really running, independent of the build-date indicator above (which reflects when the .wasm was compiled, not
+				// whether the preloaded data package actually contains the shader source that .wasm was compiled against).
+				ImGui::TextDisabled("Splat shader hash: %s", gui_client->gaussian_splat_renderer.getShaderSourceHash().c_str());
 
 				ImGui::Separator();
 
