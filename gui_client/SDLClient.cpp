@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2024 -
 
 #include "GUIClient.h"
 #include "SDLUIInterface.h"
+#include "gaussian_splats/GaussianSplatLoader.h"
 #if EMSCRIPTEN
 #include <settings/EmscriptenSettingsStore.h>
 #else
@@ -858,6 +859,17 @@ static size_t last_total_memory = 0;
 static uintptr_t last_dynamic_top = 0;
 
 static double last_timerEvent_CPU_work_elapsed = 0;
+
+// Pending large-splat confirmation: when the user picks a .sog file that exceeds the "safe" WebGL2 splat count, we pause
+// and ask for explicit confirmation before uploading/loading. The file data is kept here until the user decides.
+struct PendingSplatConfirm
+{
+	std::vector<uint8> data;
+	std::string        local_temp_path;
+	size_t             num_splats = 0;
+	bool               active     = false;
+};
+static PendingSplatConfirm pending_splat_confirm;
 double last_updateGL_time = 0;
 
 static bool doing_cam_rotate_mouse_drag = false; // Is the mouse pointer hidden, and will moving the mouse rotate the camera?
@@ -1296,8 +1308,12 @@ static void doOneMainLoopIter()
 				static bool confirm_reset_scene = false;
 				if(!confirm_reset_scene)
 				{
+					ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.55f, 0.15f, 0.70f, 1.f));
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.65f, 0.25f, 0.80f, 1.f));
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.40f, 0.05f, 0.55f, 1.f));
 					if(ImGui::Button("Reset scene to default (delete all objects)..."))
 						confirm_reset_scene = true;
+					ImGui::PopStyleColor(3);
 				}
 				else
 				{
@@ -1337,11 +1353,74 @@ static void doOneMainLoopIter()
 					if((ob->scale.x != ob->scale.y) || (ob->scale.x != ob->scale.z))
 						ImGui::TextColored(ImVec4(1,0.6f,0,1), "Non-uniform scale (%.4f, %.4f, %.4f) - dragging above will reset it to uniform.",
 							ob->scale.x, ob->scale.y, ob->scale.z);
+
+					// World-position editor, next to the scale editor above. Same pattern: drag updates locally + marks the object dirty for the
+					// server, undo_buffer brackets the whole drag as one undoable edit.
+					float pos[3] = { (float)ob->pos.x, (float)ob->pos.y, (float)ob->pos.z };
+					ImGui::DragFloat3("position (world)", pos, /*speed=*/0.05f, -1.0e5f, 1.0e5f, "%.3f");
+					if(ImGui::IsItemActivated())
+						gui_client->undo_buffer.startWorldObjectEdit(*ob);
+					if(ImGui::IsItemEdited())
+						gui_client->moveObject(ob, Vec3d(pos[0], pos[1], pos[2]));
+					if(ImGui::IsItemDeactivatedAfterEdit())
+						gui_client->undo_buffer.finishWorldObjectEdit(*ob);
 				}
 			}
 		}
+
+		// Large-splat confirmation popup - shown when the user picks a .sog file with more splats than the WebGL2-guaranteed safe limit.
+		// ImGui modal popups must be opened and rendered in the same NewFrame/Render block, so this lives here even though it's triggered
+		// from processFilePickerFile() below via ImGui::OpenPopup().
+		if(pending_splat_confirm.active)
+			ImGui::OpenPopup("##large_splat_confirm");
+
+		ImGui::SetNextWindowSize(ImVec2(480, 0), ImGuiCond_Always);
+		if(ImGui::BeginPopupModal("##large_splat_confirm", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize))
+		{
+			ImGui::TextColored(ImVec4(1.f, 0.8f, 0.f, 1.f), "Warning: large splat file");
+			ImGui::Separator();
+			ImGui::Spacing();
+			ImGui::TextWrapped(
+				"This file contains %zu splats, which is more than the WebGL2-guaranteed safe limit of 8,388,608.\n\n"
+				"It may fail to render on GPUs with a small maximum texture size. On your current GPU the actual limit is higher, "
+				"so loading will likely succeed - but this is not guaranteed on all hardware.",
+				pending_splat_confirm.num_splats);
+			ImGui::Spacing();
+			ImGui::TextColored(ImVec4(1.f, 0.6f, 0.2f, 1.f), "Load anyway?");
+			ImGui::Spacing();
+			ImGui::Separator();
+
+			ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.15f, 0.55f, 0.15f, 1.f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.70f, 0.25f, 1.f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.05f, 0.40f, 0.05f, 1.f));
+			if(ImGui::Button("Yes, load it", ImVec2(140, 0)))
+			{
+				ImGui::CloseCurrentPopup();
+				const PendingSplatConfirm copy = pending_splat_confirm;
+				pending_splat_confirm.active = false;
+				pending_splat_confirm.data.clear();
+				try {
+					gui_client->createGaussianSplatObjectFromLocalFile(copy.local_temp_path, copy.data.data(), copy.data.size());
+				} catch(glare::Exception& e) {
+					gui_client->showErrorNotification(e.what());
+				}
+			}
+			ImGui::PopStyleColor(3);
+
+			ImGui::SameLine();
+
+			if(ImGui::Button("Cancel", ImVec2(100, 0)))
+			{
+				ImGui::CloseCurrentPopup();
+				pending_splat_confirm.active = false;
+				pending_splat_confirm.data.clear();
+			}
+
+			ImGui::EndPopup();
+		}
+
 		ImGui::End();
-		
+
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 	}
@@ -1499,7 +1578,21 @@ void processFilePickerFile(unsigned char* data, int length, const char* filename
 				const std::string local_temp_path = "/tmp/" + sanitiseString(removeDotAndExtension(filename)) + "." + getExtension(filename);
 				FileUtils::writeEntireFile(local_temp_path, (const char*)data, length);
 
-				gui_client->createGaussianSplatObjectFromLocalFile(local_temp_path, (const uint8*)data, (size_t)length);
+				// 8 388 608 = the splat count that fits in the WebGL2-guaranteed minimum texture size (2048x2048 px / 4 texels per splat).
+				// Files above this threshold may not render on all GPUs, so we ask for explicit confirmation before proceeding.
+				const size_t SAFE_SPLAT_THRESHOLD = 8388608;
+				const GaussianSplatLoader::SplatMetaSummary summary = GaussianSplatLoader::readMetaSummaryFromBuffer((const uint8*)data, (size_t)length);
+				if(summary.num_splats > SAFE_SPLAT_THRESHOLD)
+				{
+					pending_splat_confirm.data.assign((const uint8*)data, (const uint8*)data + length);
+					pending_splat_confirm.local_temp_path = local_temp_path;
+					pending_splat_confirm.num_splats      = summary.num_splats;
+					pending_splat_confirm.active          = true;
+					// Do NOT call ImGui::OpenPopup() here - this function is called from JS outside an ImGui frame.
+					// The render loop calls OpenPopup() when it sees active == true.
+				}
+				else
+					gui_client->createGaussianSplatObjectFromLocalFile(local_temp_path, (const uint8*)data, (size_t)length);
 			}
 		}
 		else

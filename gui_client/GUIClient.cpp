@@ -14512,6 +14512,46 @@ void GUIClient::scaleObject(WorldObjectRef ob, const Vec3f& new_scale)
 }
 
 
+void GUIClient::moveObject(WorldObjectRef ob, const Vec3d& new_pos)
+{
+	const bool allow_modification = objectModificationAllowedWithMsg(*ob, "move");
+	if(allow_modification)
+	{
+		ob->pos = new_pos;
+
+		const Matrix4f new_ob_to_world = obToWorldMatrix(*ob);
+
+		// Update in opengl engine.
+		GLObjectRef opengl_ob = ob->opengl_engine_ob;
+		if(!opengl_ob)
+			return;
+
+		opengl_ob->ob_to_world_matrix = new_ob_to_world;
+		opengl_engine->updateObjectTransformData(*opengl_ob);
+
+		// Update physics object
+		if(ob->physics_object)
+			physics_world->setNewObToWorldTransform(*ob->physics_object, ob->pos.toVec4fVector(), Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle), useScaleForWorldOb(ob->scale).toVec4fVector());
+
+		ui_interface->startObEditorTimerIfNotActive();
+
+		ob->transformChanged();
+
+		ob->last_modified_time = TimeStamp::currentTime();
+
+		// Mark as from-local-dirty to send an object updated message to the server.
+		{
+			Lock lock(world_state->mutex);
+			ob->from_local_transform_dirty = true;
+			this->world_state->dirty_from_local_objects.insert(ob);
+		}
+
+		if(this->terrain_system.nonNull() && ::hasPrefix(ob->content, "biome:"))
+			this->terrain_system->invalidateVegetationMap(ob->getAABBWS());
+	}
+}
+
+
 void GUIClient::deleteSelectedObject()
 {
 	if(this->selected_ob.nonNull())

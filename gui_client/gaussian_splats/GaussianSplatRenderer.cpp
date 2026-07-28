@@ -39,7 +39,7 @@ namespace
 
 
 const size_t texels_per_splat = 4; // See class comment in GaussianSplatRenderer.h and gaussian_splat_vert_shader.glsl for the texel layout this implies.
-const size_t splat_tex_width = 2048; // WebGL2 guarantees GL_MAX_TEXTURE_SIZE >= 2048 on all conformant implementations.
+const size_t splat_tex_width = 4096; // 4096 gives ~16.7M splat capacity on GPUs with GL_MAX_TEXTURE_SIZE >= 16384 (common). WebGL2 only guarantees 2048, but real hardware consistently reports much more.
 const int splat_index_attribute_loc = 1; // Forced via bindAttributeLocation() in GaussianSplatRenderer::makeShaders() - slot 1 is otherwise used for "normal_in", which splats have no use for.
 
 

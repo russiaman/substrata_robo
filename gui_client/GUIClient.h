@@ -271,6 +271,7 @@ public:
 public:
 	void rotateObject(WorldObjectRef ob, const Vec4f& axis, float angle);
 	void scaleObject(WorldObjectRef ob, const Vec3f& new_scale); // Used by the ImGui "Selected object" scale editor (SDLClient.cpp) - TransformGizmo has no scale handles, see architecture snapshot notes.
+	void moveObject(WorldObjectRef ob, const Vec3d& new_pos); // Used by the ImGui "Selected object" position editor (SDLClient.cpp).
 	void selectObject(const WorldObjectRef& ob, int selected_mat_index);
 	void deleteSelectedObject();
 	void resetSceneToDefault(); // Dev/test tool: deletes every object except the purple test cube and invisible ground platform - see GUIClient.cpp for details. Reachable from the ImGui "Gaussian splats" panel (SDLClient.cpp).
