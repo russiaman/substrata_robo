@@ -1302,6 +1302,18 @@ static void doOneMainLoopIter()
 
 				ImGui::Separator();
 
+#ifdef NDEBUG
+	#ifdef BUILD_TESTS
+				ImGui::TextDisabled("Build: RelWithDebInfo");
+	#else
+				ImGui::TextDisabled("Build: Release");
+	#endif
+#else
+				ImGui::TextColored(ImVec4(1.f, 0.6f, 0.2f, 1.f), "Build: Debug (unoptimised)");
+#endif
+
+				ImGui::Separator();
+
 				// Dev/test tool: wipe the scene back to what a brand new server starts with (purple test cube + invisible ground platform -
 				// see GUIClient::resetSceneToDefault()). Two-step confirm since this is destructive and irreversible from the UI (no undo for
 				// objects created by other sessions/clients).
