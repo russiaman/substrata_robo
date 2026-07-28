@@ -10204,7 +10204,8 @@ std::string GUIClient::getDiagnosticsString(bool do_graphics_diagnostics, bool d
 			{
 				const GaussianSplatRenderer::PerfStats& s = splat_stats[i];
 				msg += "  [" + toString(i) + "] source: " + s.source_name + ", num_splats: " + toString(s.num_splats) +
-					", last depth-sort time: " + (s.last_sort_duration_s >= 0.0 ? (doubleToStringNSigFigs(s.last_sort_duration_s * 1000, 3) + " ms") : std::string("(none yet)")) +
+					", last coarse depth-sort time: " + (s.last_coarse_sort_duration_s >= 0.0 ? (doubleToStringNSigFigs(s.last_coarse_sort_duration_s * 1000, 3) + " ms") : std::string("(none yet)")) +
+					", last precise depth-sort time: " + (s.last_sort_duration_s >= 0.0 ? (doubleToStringNSigFigs(s.last_sort_duration_s * 1000, 3) + " ms") : std::string("(none yet)")) +
 					", sorts completed: " + toString(s.num_sorts_completed) + "\n";
 			}
 			msg += "----------------------------------------\n";
