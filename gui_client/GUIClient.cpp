@@ -15713,6 +15713,42 @@ void GUIClient::createGaussianSplatObjectFromLocalFile(const std::string& local_
 }
 
 
+// Duplicates ob (model_url/materials/scale/rotation etc. via copyNetworkStateFrom() - the same shallow-copy-of-materials idiom
+// readFromNetworkStreamGivenUID() itself uses, so this doesn't need its own deep-copy logic) at pos + (0.5, 0, 0) so the clone
+// doesn't land exactly on top of the original. No name/label distinguishes the two - WorldObject has no generic display-name
+// field (model_url is a content-addressed resource path shared by any object using the same asset, not a per-object name).
+void GUIClient::cloneObject(const WorldObjectRef& ob)
+{
+	if(!this->logged_in_user_id.valid())
+		throw glare::Exception("You must be logged in to clone an object.");
+
+	const Vec3d new_pos = ob->pos + Vec3d(0.5, 0, 0);
+
+	bool ob_pos_in_parcel;
+	const bool have_creation_perms = haveParcelObjectCreatePermissions(new_pos, ob_pos_in_parcel);
+	if(!have_creation_perms)
+	{
+		if(ob_pos_in_parcel)
+			showErrorNotification("You do not have write permissions, and are not an admin for this parcel.");
+		else
+			showErrorNotification("You can only create objects in a parcel that you have write permissions for.");
+		return;
+	}
+
+	WorldObjectRef new_world_object = new WorldObject();
+	new_world_object->uid = UID(0); // A new UID will be assigned by the server
+	new_world_object->copyNetworkStateFrom(*ob);
+	new_world_object->pos = new_pos;
+
+	// Send CreateObject message to server
+	MessageUtils::initPacket(scratch_packet, Protocol::CreateObject);
+	new_world_object->writeToNetworkStream(scratch_packet);
+	enqueueMessageToSend(*this->client_thread, scratch_packet);
+
+	showInfoNotification("Object cloned.");
+}
+
+
 // On Mac laptops, the delete key sends a Key_Backspace keycode for some reason.  So check for that as well.
 static bool keyIsDeleteKey(int keycode)
 {

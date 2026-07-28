@@ -1431,6 +1431,22 @@ static void doOneMainLoopIter()
 						gui_client->moveObject(ob, Vec3d(pos[0], pos[1], pos[2]));
 					if(ImGui::IsItemDeactivatedAfterEdit())
 						gui_client->undo_buffer.finishWorldObjectEdit(*ob);
+
+					ImGui::Spacing();
+					// Duplicates the selected object 0.5m along world X, so the clone doesn't land exactly on top of the original and is
+					// immediately visible/grabbable next to it. No undo_buffer bracketing here (unlike the drags above) - this creates a
+					// whole new object rather than editing this one, so there's nothing to bracket; deleting the clone is its own undo step.
+					if(ImGui::Button("Clone"))
+					{
+						try
+						{
+							gui_client->cloneObject(ob);
+						}
+						catch(glare::Exception& e)
+						{
+							gui_client->showErrorNotification(e.what());
+						}
+					}
 				}
 			}
 		}

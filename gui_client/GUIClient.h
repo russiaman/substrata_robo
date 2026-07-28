@@ -400,6 +400,7 @@ public:
 	void createModelObject(const std::string& local_model_path);
 	void createImageObjectForWidthAndHeight(const std::string& local_image_path, int w, int h, bool has_alpha);
 	void createGaussianSplatObjectFromLocalFile(const std::string& local_sog_path, const uint8* file_data, size_t file_data_size);
+	void cloneObject(const WorldObjectRef& ob); // Creates a copy of ob (same model/materials/scale/rotation), offset +0.5m along world X so it doesn't land exactly on top of the original. Called from SDLClient.cpp's "Selected object" panel "Clone" button.
 
 	void keyPressed(KeyEvent& e);
 	void keyReleased(KeyEvent& e);
