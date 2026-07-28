@@ -138,6 +138,14 @@ struct DownloadingResourceInfo
 //extern float proj_len_viewable_threshold; // TEMP for tweaking with ImGui.
 
 
+// Resource URLs are content-addressed - ResourceManager::URLForPathAndHash() etc. append "_<hash>" before the extension, e.g.
+// "Smile_Gril_sog_1090480646407043859.sog". Strip that suffix for display purposes only (e.g. the Gaussian splat perf-diagnostics overlay,
+// or SDLClient.cpp's "Splats list" panel) - never use the result as an actual URL/resource key. Returns the input unchanged if it doesn't
+// end in "_<digits>.<ext>". Defined in GUIClient.cpp; declared here (rather than a separate copy in SDLClient.cpp) so there's exactly one
+// implementation used by both.
+std::string stripResourceHashSuffixForDisplay(const std::string& url);
+
+
 /*=====================================================================
 GUIClient
 ---------------

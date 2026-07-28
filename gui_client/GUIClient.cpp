@@ -4667,7 +4667,7 @@ void GUIClient::handleUploadedMeshData(const URLString& lod_model_url, int loade
 // Resource URLs are content-addressed - ResourceManager::URLForPathAndHash() etc. append "_<hash>" before the extension, e.g.
 // "Smile_Gril_sog_1090480646407043859.sog". Strip that suffix for display purposes only (e.g. the Gaussian splat perf-diagnostics overlay
 // below) - never use the result as an actual URL/resource key. Returns the input unchanged if it doesn't end in "_<digits>.<ext>".
-static std::string stripResourceHashSuffixForDisplay(const std::string& url)
+std::string stripResourceHashSuffixForDisplay(const std::string& url)
 {
 	const size_t dot_pos = url.find_last_of('.');
 	if(dot_pos == std::string::npos)

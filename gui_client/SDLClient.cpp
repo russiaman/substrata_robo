@@ -174,31 +174,6 @@ Reference<RenderStatsWidget> GPU_render_stats_widget;
 static double cur_canvas_css_W = 800; // Current device-independent pixel width.  Canvas element css width in WebGL.
 static double cur_canvas_css_H = 800;
 
-// Local copy of GUIClient.cpp's file-local stripResourceHashSuffixForDisplay(): resource URLs are content-addressed - ResourceManager::URLForPathAndHash()
-// etc. append "_<hash>" before the extension, e.g. "Smile_Gril_sog_1090480646407043859.sog". Strip that suffix for display purposes only (used by the
-// "Splats list" panel below) - never use the result as an actual URL/resource key. Returns the input unchanged if it doesn't end in "_<digits>.<ext>".
-static std::string stripResourceHashSuffixForDisplayImGui(const std::string& url)
-{
-	const size_t dot_pos = url.find_last_of('.');
-	if(dot_pos == std::string::npos)
-		return url;
-	const std::string base = url.substr(0, dot_pos);
-	const std::string ext = url.substr(dot_pos); // includes the dot
-
-	const size_t underscore_pos = base.find_last_of('_');
-	if(underscore_pos == std::string::npos)
-		return url;
-
-	const std::string suffix = base.substr(underscore_pos + 1);
-	if(suffix.empty())
-		return url;
-	for(size_t i = 0; i < suffix.size(); ++i)
-		if(suffix[i] < '0' || suffix[i] > '9')
-			return url;
-
-	return base.substr(0, underscore_pos) + ext;
-}
-
 #if EMSCRIPTEN
 
 // Define getLocationHost() function
@@ -1383,7 +1358,7 @@ static void doOneMainLoopIter()
 					for(size_t i = 0; i < entries.size(); ++i)
 					{
 						const WorldObjectRef& ob = entries[i].ob;
-						const std::string label = stripResourceHashSuffixForDisplayImGui(toStdString(ob->model_url)) + " (" + doubleToStringNDecimalPlaces(entries[i].dist, 1) + " m)";
+						const std::string label = stripResourceHashSuffixForDisplay(toStdString(ob->model_url)) + " (" + doubleToStringNDecimalPlaces(entries[i].dist, 1) + " m)";
 						const bool is_selected = (gui_client->selected_ob.ptr() == ob.ptr());
 						if(ImGui::Selectable((label + "##splat_" + toString(ob->uid.value())).c_str(), is_selected))
 							gui_client->selectObject(ob, /*selected_mat_index=*/0);
