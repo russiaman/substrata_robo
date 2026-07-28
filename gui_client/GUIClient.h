@@ -381,6 +381,27 @@ public:
 	void removeAndDeleteGLObjectsForOb(WorldObject& ob);
 	void removeAndDeleteGLAndPhysicsObjectsForOb(WorldObject& ob);
 
+	// Applies a new pose to ob's OpenGL representation - the one place that knows a Gaussian splat WorldObject needs a different path (re-bake into the
+	// shared world splat cloud, see GaussianSplatRenderer::updateObjectTransform()) than every other object type (just set ob_to_world_matrix on its own
+	// GLObject). Every call site that pushes a new transform onto an already-loaded WorldObject's opengl_engine_ob (the gizmo drag, the "Selected object"
+	// position/scale sliders, interpolated transforms for objects moved by other clients, etc.) should go through this rather than assigning
+	// ob.opengl_engine_ob->ob_to_world_matrix directly - see snapshots/2026-07-28-session020-*.md's "Move/scale" section for why splats can't share that path.
+	void setObjectGLTransform(WorldObject& ob, const Vec4f& translation_ws, const Quatf& rotation_ws, const Vec3f& scale_ws);
+
+	// Returns ob's current world-space transform. For every object type except Gaussian splats this is just ob.opengl_engine_ob->ob_to_world_matrix (kept
+	// in sync with the WorldObject by setObjectGLTransform() above and the object's own load/creation code) - but a splat WorldObject's opengl_engine_ob is
+	// the SHARED world splat cloud GLObject (see GaussianSplatRenderer class comment), whose own ob_to_world_matrix is always identity, so reading it directly
+	// would report every splat as sitting at the world origin. Use this instead of `ob.opengl_engine_ob->ob_to_world_matrix` anywhere the code needs "where is
+	// this object actually positioned right now" rather than "what matrix should I hand this specific GLObject" - e.g. positioning the 3D transform gizmo
+	// widget (see updateSelectedObjectPlacementBeamAndGizmos()) or tryToMoveObject()'s tentative-transform math.
+	Matrix4f getObjectWorldTransform(const WorldObject& ob) const;
+
+	// Returns ob's world-space AABB for a given (tentative or actual) world transform - like OpenGLEngine::getAABBWSForObjectWithTransform(), but safe to call
+	// for a Gaussian splat WorldObject: that helper reads object.mesh_data->aabb_os, which for a splat's (shared) opengl_engine_ob is the WHOLE WORLD splat
+	// cloud's bounds, not this object's own - see GaussianSplatRenderer class comment. Used anywhere the code needs "how much space would this object occupy
+	// at transform X" (parcel-boundary clamping, edge markers, placement-beam raycast start point) rather than blindly delegating to the engine helper.
+	js::AABBox getObjectWorldAABBWS(const WorldObject& ob, const Matrix4f& to_world) const;
+
 	//----------------------- ObLoadingCallbacks interface -----------------------
 	//virtual void loadObject(WorldObjectRef ob);
 	virtual void unloadObject(WorldObjectRef ob) override;

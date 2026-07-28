@@ -1456,13 +1456,55 @@ static void removeAnimatedTextureUse(GLObject& ob, AnimatedTextureManager& anima
 }
 
 
+// See the declaration comment in GUIClient.h for why this exists - splat WorldObjects share ONE GLObject (the "world splat cloud", see
+// snapshots/2026-07-28-session020-*.md) and so can't just have their own ob_to_world_matrix assigned like every other object type.
+void GUIClient::setObjectGLTransform(WorldObject& ob, const Vec4f& translation_ws, const Quatf& rotation_ws, const Vec3f& scale_ws)
+{
+	GLObjectRef opengl_ob = ob.opengl_engine_ob;
+	if(!opengl_ob)
+		return;
+
+	// updateObjectTransform() re-bakes ob's range within the shared world splat cloud in place and returns true - the shared GLObject's own
+	// ob_to_world_matrix is never touched (it stays identity forever, see GaussianSplatRenderer class comment). Returns false (and does nothing) if ob isn't
+	// a registered splat object, in which case we fall through to the normal per-object path below.
+	if(gaussian_splat_renderer.updateObjectTransform(ob.uid, translation_ws, rotation_ws, scale_ws.x, *opengl_engine))
+		return;
+
+	opengl_ob->ob_to_world_matrix = Matrix4f::translationMatrix(translation_ws) * rotation_ws.toMatrix() * Matrix4f::scaleMatrix(scale_ws.x, scale_ws.y, scale_ws.z);
+	opengl_engine->updateObjectTransformData(*opengl_ob);
+}
+
+
+// See the declaration comment in GUIClient.h.
+Matrix4f GUIClient::getObjectWorldTransform(const WorldObject& ob) const
+{
+	if(gaussian_splat_renderer.isSplatObject(ob.uid))
+		return obToWorldMatrix(ob);
+	return ob.opengl_engine_ob.nonNull() ? ob.opengl_engine_ob->ob_to_world_matrix : obToWorldMatrix(ob);
+}
+
+
+// See the declaration comment in GUIClient.h.
+js::AABBox GUIClient::getObjectWorldAABBWS(const WorldObject& ob, const Matrix4f& to_world) const
+{
+	if(gaussian_splat_renderer.isSplatObject(ob.uid))
+		return ob.getAABBOS().transformedAABBFast(to_world);
+	return opengl_engine->getAABBWSForObjectWithTransform(*ob.opengl_engine_ob, to_world);
+}
+
+
 void GUIClient::removeAndDeleteGLObjectsForOb(WorldObject& ob)
 {
 	if(ob.opengl_engine_ob)
 	{
 		removeAnimatedTextureUse(*ob.opengl_engine_ob, *animated_texture_manager);
-		gaussian_splat_renderer.removeObject(ob.opengl_engine_ob); // No-op if this isn't a Gaussian splat object - see GaussianSplatRenderer::removeObject().
-		opengl_engine->removeObject(ob.opengl_engine_ob);
+
+		// If ob is a splat object, its opengl_engine_ob is the shared world splat cloud GLObject (see GaussianSplatRenderer class comment) - other splat
+		// objects may still be using it, so it must NOT be handed to opengl_engine->removeObject() here. removeObject() below strips just ob's own range
+		// out of the shared cloud and returns true in that case; for every other object type it's a no-op returning false, and the normal removal applies.
+		const bool was_splat_object = gaussian_splat_renderer.removeObject(ob.uid);
+		if(!was_splat_object)
+			opengl_engine->removeObject(ob.opengl_engine_ob);
 	}
 
 	if(ob.opengl_light)
@@ -3959,9 +4001,9 @@ void GUIClient::updateSelectedObjectPlacementBeamAndGizmos()
 	{
 		//-------------------- Update object placement beam - a beam that goes from the object to what's below it. -----------------------
 		GLObjectRef opengl_ob = this->selected_ob->opengl_engine_ob;
-		const Matrix4f& to_world = opengl_ob->ob_to_world_matrix;
+		const Matrix4f to_world = getObjectWorldTransform(*this->selected_ob); // NOT opengl_ob->ob_to_world_matrix directly - see that method's doc comment (wrong, always-identity, for a Gaussian splat object).
 
-		const js::AABBox new_aabb_ws = opengl_engine->getAABBWSForObjectWithTransform(*opengl_ob, to_world);
+		const js::AABBox new_aabb_ws = getObjectWorldAABBWS(*this->selected_ob, to_world);
 
 		// We need to determine where to trace down from.
 		// To find this point, first trace up *just* against the selected object.
@@ -3997,7 +4039,7 @@ void GUIClient::updateSelectedObjectPlacementBeamAndGizmos()
 
 		//----------------------- Update x, y, z axis arrows and rotation arcs. -----------------------
 		if(transform_gizmo)
-			transform_gizmo->update(opengl_ob->ob_to_world_matrix.getColumn(3));
+			transform_gizmo->update(to_world.getColumn(3));
 	}
 
 	if(selected_ob && selected_ob->edit_aabb)
@@ -4162,10 +4204,10 @@ void GUIClient::tryToMoveObject(WorldObjectRef ob, /*const Matrix4f& tentative_n
 		return;
 	}
 
-	Matrix4f tentative_new_to_world = opengl_ob->ob_to_world_matrix;
+	Matrix4f tentative_new_to_world = getObjectWorldTransform(*this->selected_ob); // NOT opengl_ob->ob_to_world_matrix directly - see that method's doc comment (wrong, always-identity, for a Gaussian splat object).
 	tentative_new_to_world.setColumn(3, desired_new_ob_pos);
 
-	const js::AABBox tentative_new_aabb_ws = opengl_engine->getAABBWSForObjectWithTransform(*opengl_ob, tentative_new_to_world);
+	const js::AABBox tentative_new_aabb_ws = getObjectWorldAABBWS(*this->selected_ob, tentative_new_to_world);
 
 	// Check parcel permissions for this object
 	bool ob_pos_in_parcel;
@@ -4255,13 +4297,8 @@ void GUIClient::doMoveAndRotateObject(WorldObjectRef ob, const Vec3d& new_ob_pos
 	ob->last_modified_time = TimeStamp::currentTime(); // Gets set on server as well, this is just for updating the local display.
 
 	// Set graphics object pos and update in opengl engine.
-	const Matrix4f new_to_world = obToWorldMatrix(*ob);
-
 	if(opengl_ob.nonNull())
-	{
-		opengl_ob->ob_to_world_matrix = new_to_world;
-		opengl_engine->updateObjectTransformData(*opengl_ob);
-	}
+		setObjectGLTransform(*ob, ob->pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle), ob->scale);
 
 	// Update physics object
 	if(ob->physics_object)
@@ -4730,10 +4767,11 @@ void GUIClient::handleUploadedGaussianSplat(const URLString& lod_model_url, int 
 
 							removeAndDeleteGLAndPhysicsObjectsForOb(*ob); // Remove any existing (e.g. placeholder) OpenGL model and physics object.
 
-							GLObjectRef splat_ob = gaussian_splat_renderer.createObject(splat_data, *opengl_engine, /*source_name=*/stripResourceHashSuffixForDisplay(toStdString(ob->model_url)));
-							splat_ob->ob_to_world_matrix = obToWorldMatrix(*ob);
-							ob->opengl_engine_ob = splat_ob;
-							opengl_engine->addObject(ob->opengl_engine_ob);
+							// Bakes splat_data (object-space) into the shared world splat cloud at ob's current pose, and returns that shared GLObject - NOT a
+							// GLObject of ob's own (see GaussianSplatRenderer class comment). addObject() itself already opengl_engine->addObject()s the shared
+							// GLObject the first time it's ever called, so - unlike every other object type - we must NOT call opengl_engine->addObject() again here.
+							ob->opengl_engine_ob = gaussian_splat_renderer.addObject(ob->uid, splat_data, ob->pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle), ob->scale.x,
+								*opengl_engine, /*source_name=*/stripResourceHashSuffixForDisplay(toStdString(ob->model_url)));
 
 							ob->loading_or_loaded_model_lod_level = ob_model_lod_level;
 
@@ -7162,17 +7200,21 @@ void GUIClient::timerEvent(const MouseCursorState& mouse_cursor_state)
 								GLObjectRef opengl_ob = ob->opengl_engine_ob;
 
 								// Update transform
-								opengl_ob->ob_to_world_matrix = ob->obToWorldMatrix();
-								opengl_engine->updateObjectTransformData(*opengl_ob);
+								setObjectGLTransform(*ob, ob->pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle), ob->scale);
 
 								// Update materials in opengl engine.
-								glare::ArenaFrame frame(arena_allocator);
-								const int ob_lod_level = ob->getLODLevel(cam_controller.getPosition());
-								for(size_t i=0; i<ob->materials.size(); ++i)
-									if(i < opengl_ob->materials.size())
-										ModelLoading::setGLMaterialFromWorldMaterial(*ob->materials[i], ob_lod_level, ob->lightmap_url, /*use_basis=*/this->server_has_basis_textures, *this->resource_manager, &arena_allocator, opengl_ob->materials[i]);
+								// (Gaussian splat objects share one GLObject/material across the whole world splat cloud - see GaussianSplatRenderer class
+								// comment - so ob->materials is meaningless for them and must NOT be written into opengl_ob->materials[0] here; same guard as objectEdited().)
+								if(!gaussian_splat_renderer.isSplatObject(ob->uid))
+								{
+									glare::ArenaFrame frame(arena_allocator);
+									const int ob_lod_level = ob->getLODLevel(cam_controller.getPosition());
+									for(size_t i=0; i<ob->materials.size(); ++i)
+										if(i < opengl_ob->materials.size())
+											ModelLoading::setGLMaterialFromWorldMaterial(*ob->materials[i], ob_lod_level, ob->lightmap_url, /*use_basis=*/this->server_has_basis_textures, *this->resource_manager, &arena_allocator, opengl_ob->materials[i]);
 
-								opengl_engine->objectMaterialsUpdated(*opengl_ob);
+									opengl_engine->objectMaterialsUpdated(*opengl_ob);
+								}
 
 								if(ob->object_type == WorldObject::ObjectType_Spotlight)
 									updateSpotlightGraphicsEngineData(opengl_ob->ob_to_world_matrix, ob);
@@ -7414,13 +7456,7 @@ void GUIClient::timerEvent(const MouseCursorState& mouse_cursor_state)
 							ob->getInterpolatedTransform(cur_time, pos, rot);
 
 							if(ob->opengl_engine_ob.nonNull())
-							{
-								ob->opengl_engine_ob->ob_to_world_matrix = Matrix4f::translationMatrix((float)pos.x, (float)pos.y, (float)pos.z) * 
-									rot.toMatrix() *
-									Matrix4f::scaleMatrix(ob->scale.x, ob->scale.y, ob->scale.z);
-
-								opengl_engine->updateObjectTransformData(*ob->opengl_engine_ob);
-							}
+								setObjectGLTransform(*ob, Vec4f((float)pos.x, (float)pos.y, (float)pos.z, 1.f), rot, ob->scale);
 
 							if(ob->physics_object)
 							{
@@ -10842,8 +10878,7 @@ bool GUIClient::clampObjectPositionToParcelForNewTransform(const WorldObject& ob
 	if(have_creation_perms)
 	{
 		// Get the AABB corresponding to tentative_new_ob_pos.
-		const js::AABBox ten_new_aabb_ws = opengl_engine->getAABBWSForObjectWithTransform(*opengl_ob, 
-			tentative_to_world_matrix);
+		const js::AABBox ten_new_aabb_ws = getObjectWorldAABBWS(ob, tentative_to_world_matrix);
 
 		// Constrain tentative ob pos so that the tentative new aabb lies in parcel.
 		// This will have no effect if tentative new AABB is already in the parcel.
@@ -11409,8 +11444,7 @@ void GUIClient::applyUndoOrRedoObject(const WorldObjectRef& restored_ob)
 					if(opengl_ob.nonNull())
 					{
 						// Update transform of OpenGL object
-						opengl_ob->ob_to_world_matrix = obToWorldMatrix(*in_world_ob);
-						opengl_engine->updateObjectTransformData(*opengl_ob);
+						setObjectGLTransform(*in_world_ob, in_world_ob->pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(in_world_ob->axis), in_world_ob->angle), in_world_ob->scale);
 
 						const int ob_lod_level = in_world_ob->getLODLevel(cam_controller.getPosition());
 
@@ -12283,8 +12317,7 @@ void GUIClient::objectTransformEdited()
 				}
 
 				// Update transform of OpenGL object
-				opengl_ob->ob_to_world_matrix = new_ob_to_world_matrix;
-				opengl_engine->updateObjectTransformData(*opengl_ob);
+				setObjectGLTransform(*selected_ob, new_ob_pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(selected_ob->axis), selected_ob->angle), selected_ob->scale);
 
 				// Update physics object transform
 				if(selected_ob->physics_object)
@@ -12580,7 +12613,11 @@ void GUIClient::objectEdited()
 					selected_ob->setTransformAndHistory(new_ob_pos, this->selected_ob->axis, this->selected_ob->angle);
 
 					// Update in opengl engine.
-					if(this->selected_ob->object_type == WorldObject::ObjectType_Generic || this->selected_ob->object_type == WorldObject::ObjectType_VoxelGroup)
+					// (Gaussian splat objects are ObjectType_Generic too (see architecture contract §2.B) but must skip this branch: opengl_ob is the shared
+					// world splat cloud GLObject for them (see GaussianSplatRenderer class comment), and this->selected_ob->materials is meaningless for it -
+					// writing into opengl_ob->materials[0] here would clobber the splat shader material shared by every splat object in the world.)
+					if((this->selected_ob->object_type == WorldObject::ObjectType_Generic || this->selected_ob->object_type == WorldObject::ObjectType_VoxelGroup) &&
+						!gaussian_splat_renderer.isSplatObject(this->selected_ob->uid))
 					{
 						// Update materials
 						if(opengl_ob.nonNull())
@@ -12664,8 +12701,7 @@ void GUIClient::objectEdited()
 					}
 
 					// Update transform of OpenGL object
-					opengl_ob->ob_to_world_matrix = new_ob_to_world_matrix;
-					opengl_engine->updateObjectTransformData(*opengl_ob);
+					setObjectGLTransform(*selected_ob, new_ob_pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(selected_ob->axis), selected_ob->angle), selected_ob->scale);
 
 					// Update physics object transform
 					if(selected_ob->physics_object)
@@ -14423,8 +14459,7 @@ void GUIClient::rotateObject(WorldObjectRef ob, const Vec4f& axis, float angle)
 		if(!opengl_ob)
 			return;
 
-		opengl_ob->ob_to_world_matrix = new_ob_to_world;
-		opengl_engine->updateObjectTransformData(*opengl_ob);
+		setObjectGLTransform(*ob, ob->pos.toVec4fPoint(), new_q, ob->scale);
 
 		// Update physics object
 		if(ob->physics_object)
@@ -14480,15 +14515,11 @@ void GUIClient::scaleObject(WorldObjectRef ob, const Vec3f& new_scale)
 	{
 		ob->scale = new_scale;
 
-		const Matrix4f new_ob_to_world = obToWorldMatrix(*ob);
-
 		// Update in opengl engine.
-		GLObjectRef opengl_ob = ob->opengl_engine_ob;
-		if(!opengl_ob)
+		if(!ob->opengl_engine_ob)
 			return;
 
-		opengl_ob->ob_to_world_matrix = new_ob_to_world;
-		opengl_engine->updateObjectTransformData(*opengl_ob);
+		setObjectGLTransform(*ob, ob->pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle), ob->scale);
 
 		// Update physics object
 		if(ob->physics_object)
@@ -14520,15 +14551,11 @@ void GUIClient::moveObject(WorldObjectRef ob, const Vec3d& new_pos)
 	{
 		ob->pos = new_pos;
 
-		const Matrix4f new_ob_to_world = obToWorldMatrix(*ob);
-
 		// Update in opengl engine.
-		GLObjectRef opengl_ob = ob->opengl_engine_ob;
-		if(!opengl_ob)
+		if(!ob->opengl_engine_ob)
 			return;
 
-		opengl_ob->ob_to_world_matrix = new_ob_to_world;
-		opengl_engine->updateObjectTransformData(*opengl_ob);
+		setObjectGLTransform(*ob, ob->pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle), ob->scale);
 
 		// Update physics object
 		if(ob->physics_object)
@@ -15639,12 +15666,14 @@ void GUIClient::createGaussianSplatObjectFromLocalFile(const std::string& local_
 	// doc comment for why this AABB matches what a full GaussianSplatLoader::loadFromBuffer() decode would produce.
 	const GaussianSplatLoader::SplatMetaSummary summary = GaussianSplatLoader::readMetaSummaryFromBuffer(file_data, file_data_size);
 
-	// Guard against files with more splats than a single object's data texture can hold (see GaussianSplatRenderer::maxSupportedSplats() doc comment) -
-	// checked against the real driver GL_MAX_TEXTURE_SIZE, not the WebGL2-guaranteed minimum, since real hardware commonly supports much more.
+	// Guard against this file pushing the WORLD's total splat count (not just this file's own) over what a single data texture can hold - see
+	// GaussianSplatRenderer::maxSupportedSplats() doc comment (every splat object in the world shares one texture now, see the class comment in
+	// GaussianSplatRenderer.h) - checked against the real driver GL_MAX_TEXTURE_SIZE, not the WebGL2-guaranteed minimum, since real hardware commonly supports much more.
 	const size_t max_splats = GaussianSplatRenderer::maxSupportedSplats(opengl_engine->max_texture_size);
-	if((summary.num_splats > 0) && (summary.num_splats > max_splats))
-		throw glare::Exception("This splat file has " + toString(summary.num_splats) + " splats, which is more than this GPU can display in a single object (max " +
-			toString(max_splats) + "). Try a smaller/decimated capture.");
+	const size_t splats_already_in_world = gaussian_splat_renderer.numSplatsInWorld();
+	if((summary.num_splats > 0) && (summary.num_splats > max_splats - myMin(max_splats, splats_already_in_world)))
+		throw glare::Exception("This splat file has " + toString(summary.num_splats) + " splats; the world already has " + toString(splats_already_in_world) +
+			", and this GPU can display at most " + toString(max_splats) + " splats in total. Try a smaller/decimated capture, or remove some existing splats first.");
 
 	// Hash the in-memory buffer directly (same XXH64 seed FileChecksum::fileChecksum() uses over file bytes, so this produces the same resource URL a
 	// native client would for the same file) rather than re-reading the temp file we just wrote - avoids relying on MemMappedFile/mmap behaviour on the
