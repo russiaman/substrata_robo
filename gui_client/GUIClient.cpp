@@ -13718,6 +13718,17 @@ struct GUIClientGizmoDelegate : public GizmoDelegateInterface
 			client->scaleObject(client->selected_ob, client->selected_ob->scale * delta_scale);
 	}
 
+	void onTwoAxisScaleDrag(int plane_index, float delta_scale) override
+	{
+		if(!client->selected_ob) return;
+		// plane 0=YZ: axes {1,2}, plane 1=XZ: axes {0,2}, plane 2=XY: axes {0,1}
+		static const int plane_axes[3][2] = {{1,2},{0,2},{0,1}};
+		Vec3f s = client->selected_ob->scale;
+		s[plane_axes[plane_index][0]] *= delta_scale;
+		s[plane_axes[plane_index][1]] *= delta_scale;
+		client->scaleObject(client->selected_ob, s);
+	}
+
 	void onGrabStart(bool /*is_rotation*/) override
 	{
 		client->ui_interface->setCamRotationOnMouseDragEnabled(false);

@@ -165,7 +165,10 @@ struct GearGizmoDelegate : public GizmoDelegateInterface
 		ui->set_ui_from_gear_item_soon = true;
 	}
 
-	void onUniformScaleDrag(float /*total_scale*/) override
+	void onUniformScaleDrag(float /*delta_scale*/) override
+	{}
+
+	void onTwoAxisScaleDrag(int /*plane_index*/, float /*delta_scale*/) override
 	{}
 
 	void onGrabStart(bool) override
