@@ -165,6 +165,9 @@ struct GearGizmoDelegate : public GizmoDelegateInterface
 		ui->set_ui_from_gear_item_soon = true;
 	}
 
+	void onUniformScaleDrag(float /*total_scale*/) override
+	{}
+
 	void onGrabStart(bool) override
 	{
 		ui->on_grab_gear_transform = ui->gear_item->gearObToBoneSpaceMatrix();

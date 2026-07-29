@@ -13698,7 +13698,7 @@ bool GUIClient::getGLUICoordsForPoint(const Vec4f& point_ws, Vec2f& coords_out) 
 // Delegate that connects TransformGizmo events to GUIClient's object editing.
 struct GUIClientGizmoDelegate : public GizmoDelegateInterface
 {
-	GUIClientGizmoDelegate(GUIClient* c) : client(c) {}
+	GUIClientGizmoDelegate(GUIClient* c) : client(c), scale_at_grab(Vec3f(1.f)) {}
 
 	void onTranslationDrag(const Vec4f& total_translation, const Vec4f& desired_new_ob_pos) override
 	{
@@ -13712,11 +13712,20 @@ struct GUIClientGizmoDelegate : public GizmoDelegateInterface
 			client->rotateObject(client->selected_ob, axis, delta_angle);
 	}
 
+	void onUniformScaleDrag(float total_scale) override
+	{
+		if(client->selected_ob)
+			client->scaleObject(client->selected_ob, scale_at_grab * total_scale);
+	}
+
 	void onGrabStart(bool /*is_rotation*/) override
 	{
 		client->ui_interface->setCamRotationOnMouseDragEnabled(false);
 		if(client->selected_ob)
+		{
 			client->undo_buffer.startWorldObjectEdit(*client->selected_ob);
+			scale_at_grab = client->selected_ob->scale;
+		}
 	}
 
 	void onGrabEnd() override
@@ -13726,6 +13735,7 @@ struct GUIClientGizmoDelegate : public GizmoDelegateInterface
 	}
 
 	GUIClient* client;
+	Vec3f scale_at_grab; // object scale captured when a scale grab starts
 };
 
 
