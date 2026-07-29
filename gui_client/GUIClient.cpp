@@ -1456,43 +1456,6 @@ static void removeAnimatedTextureUse(GLObject& ob, AnimatedTextureManager& anima
 }
 
 
-// See the declaration comment in GUIClient.h for why this exists - splat WorldObjects share ONE GLObject (the "world splat cloud", see
-// snapshots/2026-07-28-session020-*.md) and so can't just have their own ob_to_world_matrix assigned like every other object type.
-void GUIClient::setObjectGLTransform(WorldObject& ob, const Vec4f& translation_ws, const Quatf& rotation_ws, const Vec3f& scale_ws)
-{
-	GLObjectRef opengl_ob = ob.opengl_engine_ob;
-	if(!opengl_ob)
-		return;
-
-	// updateObjectTransform() re-bakes ob's range within the shared world splat cloud in place and returns true - the shared GLObject's own
-	// ob_to_world_matrix is never touched (it stays identity forever, see GaussianSplatRenderer class comment). Returns false (and does nothing) if ob isn't
-	// a registered splat object, in which case we fall through to the normal per-object path below.
-	if(gaussian_splat_renderer.updateObjectTransform(ob.uid, translation_ws, rotation_ws, scale_ws.x, *opengl_engine))
-		return;
-
-	opengl_ob->ob_to_world_matrix = Matrix4f::translationMatrix(translation_ws) * rotation_ws.toMatrix() * Matrix4f::scaleMatrix(scale_ws.x, scale_ws.y, scale_ws.z);
-	opengl_engine->updateObjectTransformData(*opengl_ob);
-}
-
-
-// See the declaration comment in GUIClient.h.
-Matrix4f GUIClient::getObjectWorldTransform(const WorldObject& ob) const
-{
-	if(gaussian_splat_renderer.isSplatObject(ob.uid))
-		return obToWorldMatrix(ob);
-	return ob.opengl_engine_ob.nonNull() ? ob.opengl_engine_ob->ob_to_world_matrix : obToWorldMatrix(ob);
-}
-
-
-// See the declaration comment in GUIClient.h.
-js::AABBox GUIClient::getObjectWorldAABBWS(const WorldObject& ob, const Matrix4f& to_world) const
-{
-	if(gaussian_splat_renderer.isSplatObject(ob.uid))
-		return ob.getAABBOS().transformedAABBFast(to_world);
-	return opengl_engine->getAABBWSForObjectWithTransform(*ob.opengl_engine_ob, to_world);
-}
-
-
 void GUIClient::removeAndDeleteGLObjectsForOb(WorldObject& ob)
 {
 	if(ob.opengl_engine_ob)
@@ -4001,9 +3964,9 @@ void GUIClient::updateSelectedObjectPlacementBeamAndGizmos()
 	{
 		//-------------------- Update object placement beam - a beam that goes from the object to what's below it. -----------------------
 		GLObjectRef opengl_ob = this->selected_ob->opengl_engine_ob;
-		const Matrix4f to_world = getObjectWorldTransform(*this->selected_ob); // NOT opengl_ob->ob_to_world_matrix directly - see that method's doc comment (wrong, always-identity, for a Gaussian splat object).
+		const Matrix4f to_world = obToWorldMatrix(*this->selected_ob);
 
-		const js::AABBox new_aabb_ws = getObjectWorldAABBWS(*this->selected_ob, to_world);
+		const js::AABBox new_aabb_ws = this->selected_ob->getAABBOS().transformedAABBFast(to_world);
 
 		// We need to determine where to trace down from.
 		// To find this point, first trace up *just* against the selected object.
@@ -4204,10 +4167,10 @@ void GUIClient::tryToMoveObject(WorldObjectRef ob, /*const Matrix4f& tentative_n
 		return;
 	}
 
-	Matrix4f tentative_new_to_world = getObjectWorldTransform(*this->selected_ob); // NOT opengl_ob->ob_to_world_matrix directly - see that method's doc comment (wrong, always-identity, for a Gaussian splat object).
+	Matrix4f tentative_new_to_world = obToWorldMatrix(*this->selected_ob);
 	tentative_new_to_world.setColumn(3, desired_new_ob_pos);
 
-	const js::AABBox tentative_new_aabb_ws = getObjectWorldAABBWS(*this->selected_ob, tentative_new_to_world);
+	const js::AABBox tentative_new_aabb_ws = this->selected_ob->getAABBOS().transformedAABBFast(tentative_new_to_world);
 
 	// Check parcel permissions for this object
 	bool ob_pos_in_parcel;
@@ -4298,7 +4261,13 @@ void GUIClient::doMoveAndRotateObject(WorldObjectRef ob, const Vec3d& new_ob_pos
 
 	// Set graphics object pos and update in opengl engine.
 	if(opengl_ob.nonNull())
-		setObjectGLTransform(*ob, ob->pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle), ob->scale);
+	{
+		if(!gaussian_splat_renderer.updateObjectTransform(ob->uid, ob->pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle), ob->scale.x, *opengl_engine))
+		{
+			opengl_ob->ob_to_world_matrix = Matrix4f::translationMatrix(ob->pos.toVec4fPoint()) * Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle).toMatrix() * Matrix4f::scaleMatrix(ob->scale.x, ob->scale.y, ob->scale.z);
+			opengl_engine->updateObjectTransformData(*opengl_ob);
+		}
+	}
 
 	// Update physics object
 	if(ob->physics_object)
@@ -7200,12 +7169,16 @@ void GUIClient::timerEvent(const MouseCursorState& mouse_cursor_state)
 								GLObjectRef opengl_ob = ob->opengl_engine_ob;
 
 								// Update transform
-								setObjectGLTransform(*ob, ob->pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle), ob->scale);
+								if(!gaussian_splat_renderer.updateObjectTransform(ob->uid, ob->pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle), ob->scale.x, *opengl_engine))
+								{
+									opengl_ob->ob_to_world_matrix = Matrix4f::translationMatrix(ob->pos.toVec4fPoint()) * Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle).toMatrix() * Matrix4f::scaleMatrix(ob->scale.x, ob->scale.y, ob->scale.z);
+									opengl_engine->updateObjectTransformData(*opengl_ob);
+								}
 
 								// Update materials in opengl engine.
 								// (Gaussian splat objects share one GLObject/material across the whole world splat cloud - see GaussianSplatRenderer class
 								// comment - so ob->materials is meaningless for them and must NOT be written into opengl_ob->materials[0] here; same guard as objectEdited().)
-								if(!gaussian_splat_renderer.isSplatObject(ob->uid))
+								if(!hasExtension(ob->model_url, "sog"))
 								{
 									glare::ArenaFrame frame(arena_allocator);
 									const int ob_lod_level = ob->getLODLevel(cam_controller.getPosition());
@@ -7456,7 +7429,14 @@ void GUIClient::timerEvent(const MouseCursorState& mouse_cursor_state)
 							ob->getInterpolatedTransform(cur_time, pos, rot);
 
 							if(ob->opengl_engine_ob.nonNull())
-								setObjectGLTransform(*ob, Vec4f((float)pos.x, (float)pos.y, (float)pos.z, 1.f), rot, ob->scale);
+							{
+								const Vec4f interp_tr((float)pos.x, (float)pos.y, (float)pos.z, 1.f);
+								if(!gaussian_splat_renderer.updateObjectTransform(ob->uid, interp_tr, rot, ob->scale.x, *opengl_engine))
+								{
+									ob->opengl_engine_ob->ob_to_world_matrix = Matrix4f::translationMatrix(interp_tr) * rot.toMatrix() * Matrix4f::scaleMatrix(ob->scale.x, ob->scale.y, ob->scale.z);
+									opengl_engine->updateObjectTransformData(*ob->opengl_engine_ob);
+								}
+							}
 
 							if(ob->physics_object)
 							{
@@ -10878,7 +10858,7 @@ bool GUIClient::clampObjectPositionToParcelForNewTransform(const WorldObject& ob
 	if(have_creation_perms)
 	{
 		// Get the AABB corresponding to tentative_new_ob_pos.
-		const js::AABBox ten_new_aabb_ws = getObjectWorldAABBWS(ob, tentative_to_world_matrix);
+		const js::AABBox ten_new_aabb_ws = ob.getAABBOS().transformedAABBFast(tentative_to_world_matrix);
 
 		// Constrain tentative ob pos so that the tentative new aabb lies in parcel.
 		// This will have no effect if tentative new AABB is already in the parcel.
@@ -11444,7 +11424,11 @@ void GUIClient::applyUndoOrRedoObject(const WorldObjectRef& restored_ob)
 					if(opengl_ob.nonNull())
 					{
 						// Update transform of OpenGL object
-						setObjectGLTransform(*in_world_ob, in_world_ob->pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(in_world_ob->axis), in_world_ob->angle), in_world_ob->scale);
+						if(!gaussian_splat_renderer.updateObjectTransform(in_world_ob->uid, in_world_ob->pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(in_world_ob->axis), in_world_ob->angle), in_world_ob->scale.x, *opengl_engine))
+						{
+							opengl_ob->ob_to_world_matrix = Matrix4f::translationMatrix(in_world_ob->pos.toVec4fPoint()) * Quatf::fromAxisAndAngle(normalise(in_world_ob->axis), in_world_ob->angle).toMatrix() * Matrix4f::scaleMatrix(in_world_ob->scale.x, in_world_ob->scale.y, in_world_ob->scale.z);
+							opengl_engine->updateObjectTransformData(*opengl_ob);
+						}
 
 						const int ob_lod_level = in_world_ob->getLODLevel(cam_controller.getPosition());
 
@@ -12317,7 +12301,11 @@ void GUIClient::objectTransformEdited()
 				}
 
 				// Update transform of OpenGL object
-				setObjectGLTransform(*selected_ob, new_ob_pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(selected_ob->axis), selected_ob->angle), selected_ob->scale);
+				if(!gaussian_splat_renderer.updateObjectTransform(selected_ob->uid, new_ob_pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(selected_ob->axis), selected_ob->angle), selected_ob->scale.x, *opengl_engine))
+				{
+					opengl_ob->ob_to_world_matrix = Matrix4f::translationMatrix(new_ob_pos.toVec4fPoint()) * Quatf::fromAxisAndAngle(normalise(selected_ob->axis), selected_ob->angle).toMatrix() * Matrix4f::scaleMatrix(selected_ob->scale.x, selected_ob->scale.y, selected_ob->scale.z);
+					opengl_engine->updateObjectTransformData(*opengl_ob);
+				}
 
 				// Update physics object transform
 				if(selected_ob->physics_object)
@@ -12617,7 +12605,7 @@ void GUIClient::objectEdited()
 					// world splat cloud GLObject for them (see GaussianSplatRenderer class comment), and this->selected_ob->materials is meaningless for it -
 					// writing into opengl_ob->materials[0] here would clobber the splat shader material shared by every splat object in the world.)
 					if((this->selected_ob->object_type == WorldObject::ObjectType_Generic || this->selected_ob->object_type == WorldObject::ObjectType_VoxelGroup) &&
-						!gaussian_splat_renderer.isSplatObject(this->selected_ob->uid))
+						!hasExtension(this->selected_ob->model_url, "sog"))
 					{
 						// Update materials
 						if(opengl_ob.nonNull())
@@ -12701,7 +12689,11 @@ void GUIClient::objectEdited()
 					}
 
 					// Update transform of OpenGL object
-					setObjectGLTransform(*selected_ob, new_ob_pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(selected_ob->axis), selected_ob->angle), selected_ob->scale);
+					if(!gaussian_splat_renderer.updateObjectTransform(selected_ob->uid, new_ob_pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(selected_ob->axis), selected_ob->angle), selected_ob->scale.x, *opengl_engine))
+					{
+						opengl_ob->ob_to_world_matrix = Matrix4f::translationMatrix(new_ob_pos.toVec4fPoint()) * Quatf::fromAxisAndAngle(normalise(selected_ob->axis), selected_ob->angle).toMatrix() * Matrix4f::scaleMatrix(selected_ob->scale.x, selected_ob->scale.y, selected_ob->scale.z);
+						opengl_engine->updateObjectTransformData(*opengl_ob);
+					}
 
 					// Update physics object transform
 					if(selected_ob->physics_object)
@@ -14459,7 +14451,11 @@ void GUIClient::rotateObject(WorldObjectRef ob, const Vec4f& axis, float angle)
 		if(!opengl_ob)
 			return;
 
-		setObjectGLTransform(*ob, ob->pos.toVec4fPoint(), new_q, ob->scale);
+		if(!gaussian_splat_renderer.updateObjectTransform(ob->uid, ob->pos.toVec4fPoint(), new_q, ob->scale.x, *opengl_engine))
+		{
+			opengl_ob->ob_to_world_matrix = Matrix4f::translationMatrix(ob->pos.toVec4fPoint()) * new_q.toMatrix() * Matrix4f::scaleMatrix(ob->scale.x, ob->scale.y, ob->scale.z);
+			opengl_engine->updateObjectTransformData(*opengl_ob);
+		}
 
 		// Update physics object
 		if(ob->physics_object)
@@ -14519,7 +14515,11 @@ void GUIClient::scaleObject(WorldObjectRef ob, const Vec3f& new_scale)
 		if(!ob->opengl_engine_ob)
 			return;
 
-		setObjectGLTransform(*ob, ob->pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle), ob->scale);
+		if(!gaussian_splat_renderer.updateObjectTransform(ob->uid, ob->pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle), ob->scale.x, *opengl_engine))
+		{
+			ob->opengl_engine_ob->ob_to_world_matrix = Matrix4f::translationMatrix(ob->pos.toVec4fPoint()) * Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle).toMatrix() * Matrix4f::scaleMatrix(ob->scale.x, ob->scale.y, ob->scale.z);
+			opengl_engine->updateObjectTransformData(*ob->opengl_engine_ob);
+		}
 
 		// Update physics object
 		if(ob->physics_object)
@@ -14555,7 +14555,11 @@ void GUIClient::moveObject(WorldObjectRef ob, const Vec3d& new_pos)
 		if(!ob->opengl_engine_ob)
 			return;
 
-		setObjectGLTransform(*ob, ob->pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle), ob->scale);
+		if(!gaussian_splat_renderer.updateObjectTransform(ob->uid, ob->pos.toVec4fPoint(), Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle), ob->scale.x, *opengl_engine))
+		{
+			ob->opengl_engine_ob->ob_to_world_matrix = Matrix4f::translationMatrix(ob->pos.toVec4fPoint()) * Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle).toMatrix() * Matrix4f::scaleMatrix(ob->scale.x, ob->scale.y, ob->scale.z);
+			opengl_engine->updateObjectTransformData(*ob->opengl_engine_ob);
+		}
 
 		// Update physics object
 		if(ob->physics_object)
