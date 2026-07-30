@@ -46,6 +46,8 @@ Copyright Glare Technologies Limited 2024 -
 #include "JoltUtils.h"
 #include "MiniMap.h"
 #include "PhotoModeUI.h"
+#include "BuilderAIUI.h"
+#include "../shared/ProtocolStructs.h"
 #include "GearInventoryUI.h"
 #include "CEF.h"
 #include <limits>
@@ -848,7 +850,7 @@ void GUIClient::afterGLInitInitialise(double device_pixel_ratio, Reference<OpenG
 #endif
 	}
 
-	checkCreateManagersAndMinimap();
+	checkCreateManagersAndMinimapAndBuilderAIUI();
 }
 
 
@@ -1045,6 +1047,8 @@ void GUIClient::shutdown()
 	hud_ui.destroy();
 
 	chat_ui.destroy();
+
+	builder_ai_ui = nullptr;
 
 	photo_mode_ui = nullptr;
 
@@ -4834,14 +4838,28 @@ void GUIClient::handleUploadedTexture(const OpenGLTextureKey& path, const URLStr
 				if(res2 != world_state->lod_chunks.end())
 				{
 					LODChunk* chunk = res2->second.ptr();
-					if(path == chunk->combined_array_texture_path)
+
+					if(opengl_tex->getTextureTarget() != GL_TEXTURE_2D_ARRAY)
+						conPrint("Error, loaded chunk combined texture is not a GL_TEXTURE_2D_ARRAY (path: " + std::string(path) + ")");
+
+					if(path == chunk->loading_combined_array_texture_path)
+					{
+						// This is the combined array texture for a chunk that has been rebuilt on the server.  The new chunk mesh may not have loaded yet, so hang on to
+						// the texture: handleLODChunkMeshLoaded() will use it when it does.
+						chunk->loading_combined_array_texture = opengl_tex;
+
+						if(chunk->loading_graphics_ob) // If the new chunk mesh has finished loading as well, show the new chunk graphics:
+						{
+							chunk->loading_graphics_ob->materials[0].combined_array_texture = opengl_tex;
+
+							swapInLoadedLODChunkGraphics(chunk);
+						}
+					}
+					else if(path == chunk->combined_array_texture_path)
 					{
 						if(chunk->graphics_ob)
 						{
 							// conPrint("handleLODChunkTextureLoaded(): Loading combined_array_texture " + path);
-
-							if(opengl_tex->getTextureTarget() != GL_TEXTURE_2D_ARRAY)
-								conPrint("Error, loaded chunk combined texture is not a GL_TEXTURE_2D_ARRAY (path: " + std::string(path) + ")");
 
 							chunk->graphics_ob->materials[0].combined_array_texture = opengl_tex;
 
@@ -6492,15 +6510,15 @@ void GUIClient::timerEvent(const MouseCursorState& mouse_cursor_state)
 
 	updateSelectedObjectPlacementBeamAndGizmos();
 
-	
-	if(physics_world.nonNull())
+
+	if(physics_world)
 	{
 		Lock world_state_lock(this->world_state->mutex);
 
-		// Update transforms in OpenGL of objects the physics engine has moved.
 		JPH::BodyInterface& body_interface = physics_world->physics_system->GetBodyInterface();
 
 		{
+			//--------------------------------------- Update transforms in OpenGL of objects the physics engine has moved. ---------------------------------------
 			Lock lock(physics_world->activated_obs_mutex);
 			for(auto it = physics_world->activated_obs.begin(); it != physics_world->activated_obs.end(); ++it)
 			{
@@ -6565,37 +6583,37 @@ void GUIClient::timerEvent(const MouseCursorState& mouse_cursor_state)
 							const Matrix4f ob_to_world = physics_ob->getSmoothedObToWorldMatrix();
 
 							// Update OpenGL object
-							if(ob->opengl_engine_ob.nonNull())
+							if(ob->opengl_engine_ob)
 							{
 								ob->opengl_engine_ob->ob_to_world_matrix = ob_to_world;
 
-								const js::AABBox prev_gl_aabb_ws = ob->opengl_engine_ob->aabb_ws;
+								//const js::AABBox prev_gl_aabb_ws = ob->opengl_engine_ob->aabb_ws;
 								opengl_engine->updateObjectTransformData(*ob->opengl_engine_ob);
 
 								// For objects with instances (which will have a non-null instance_matrix_vbo), we want to use the AABB we computed in evalObjectScript(), which contains all the instance AABBs,
 								// and will have been overwritten in updateObjectTransformData().
-								if(ob->opengl_engine_ob->instance_matrix_vbo.nonNull())
-									ob->opengl_engine_ob->aabb_ws = prev_gl_aabb_ws;
-								else
-								{
+								//if(ob->opengl_engine_ob->instance_matrix_vbo.nonNull())
+								//	ob->opengl_engine_ob->aabb_ws = prev_gl_aabb_ws;
+								//else
+								//{
 									ob->doTransformChanged(ob_to_world, ob->scale.toVec4fVector()); // Update info used for computing LOD level.
-								}
+								//}
 							}
 
 							// Update audio source for the object, if it has one.
-							if(ob->audio_source.nonNull())
+							if(ob->audio_source)
 							{
 								ob->audio_source->pos = ob->getCentroidWS();
 								audio_engine.sourcePositionUpdated(*ob->audio_source);
 							}
 
-							// For dynamic objects that we are physics-owner of, get some extra state needed for physics snaphots
+							// For dynamic objects that we are physics-owner of, get some extra state needed for physics snapshots
 							if(physics_ob->isDynamic() && isObjectPhysicsOwnedBySelf(*ob, global_time))
 							{
 								JPH::Vec3 linear_vel, angular_vel;
 								body_interface.GetLinearAndAngularVelocity(physics_ob->jolt_body_id, linear_vel, angular_vel);
 
-								ob->linear_vel = toVec4fVec(linear_vel);
+								ob->linear_vel  = toVec4fVec(linear_vel);
 								ob->angular_vel = toVec4fVec(angular_vel);
 
 								// Mark as from-local-physics-dirty to send a physics transform updated message to the server
@@ -7247,7 +7265,8 @@ void GUIClient::timerEvent(const MouseCursorState& mouse_cursor_state)
 
 							// If this object was (just) created by this user, select it.  NOTE: bit of a hack distinguishing newly created objects by checking numSecondsAgo().
 							// Don't select summoned vehicles though, as the intent is probably to ride them, not edit them.
-							if((ob->creator_id == this->logged_in_user_id) && (ob->created_time.numSecondsAgo() < 30) && !BitUtils::isBitSet(ob->flags, WorldObject::SUMMONED_FLAG))
+							if((ob->creator_id == this->logged_in_user_id) && (ob->created_time.numSecondsAgo() < 30) && !BitUtils::isBitSet(ob->flags, WorldObject::SUMMONED_FLAG) &&
+								!BitUtils::isBitSet(ob->flags, WorldObject::CREATED_VIA_MCP))
 								selectObject(ob, /*selected_mat_index=*/0); // select it
 
 							ob->state = WorldObject::State_Alive;
@@ -7964,6 +7983,10 @@ void GUIClient::updateLODChunkGraphics()
 			}
 
 
+			// Discard any staged combined array texture from a previous update of this chunk that we are now superseding.
+			chunk->loading_combined_array_texture = NULL;
+			chunk->loading_combined_array_texture_path.clear();
+
 			if(!chunk->combined_array_texture_url.empty())
 			{
 				this->loading_texture_URL_to_chunk_coords_map[chunk->combined_array_texture_url] = chunk->coords;
@@ -7971,7 +7994,7 @@ void GUIClient::updateLODChunkGraphics()
 				ResourceRef resource = this->resource_manager->getOrCreateResourceForURL(chunk->combined_array_texture_url);
 				
 				const OpenGLTextureKey path = OpenGLTextureKey(resource_manager->getLocalAbsPathForResource(*resource));
-				chunk->combined_array_texture_path = path;
+				chunk->loading_combined_array_texture_path = path; // Becomes combined_array_texture_path when the new graphics object is swapped in.
 
 				if(resource->getState() == Resource::State_Present)
 				{
@@ -7995,6 +8018,48 @@ void GUIClient::updateLODChunkGraphics()
 }
 
 
+// Make the graphics object that has been built in chunk->loading_graphics_ob the displayed graphics object for the chunk, removing any existing one.
+void GUIClient::swapInLoadedLODChunkGraphics(LODChunk* chunk)
+{
+	assert(chunk->loading_graphics_ob.nonNull());
+	if(chunk->loading_graphics_ob.isNull())
+		return;
+
+	// Only re-add the diagnostics object below if it is currently being displayed.  Note that diagnostics_gl_ob is left non-null when the LOD chunk diagnostics
+	// visualisation is turned off, so its non-nullness alone doesn't mean it should be shown.
+	const bool diagnostics_ob_in_engine = chunk->diagnostics_gl_ob.nonNull() && opengl_engine->isObjectAdded(chunk->diagnostics_gl_ob);
+
+	if(chunk->graphics_ob && chunk->graphics_ob_in_engine)
+	{
+		opengl_engine->removeObject(chunk->graphics_ob);
+
+		if(diagnostics_ob_in_engine)
+			opengl_engine->removeObject(chunk->diagnostics_gl_ob);
+	}
+	chunk->graphics_ob_in_engine = false;
+
+	chunk->graphics_ob                 = chunk->loading_graphics_ob;
+	chunk->mesh_manager_data           = chunk->loading_mesh_manager_data; // Dropping the reference to the previous mesh data calls meshDataBecameUnused() on it.
+	chunk->combined_array_texture_path = chunk->loading_combined_array_texture_path;
+
+	chunk->loading_graphics_ob = NULL;
+	chunk->loading_mesh_manager_data = NULL;
+	chunk->loading_combined_array_texture = NULL;
+	chunk->loading_combined_array_texture_path.clear();
+
+	const Vec4f campos = this->cam_controller.getPosition().toVec4fPoint();
+	if(shouldDisplayLODChunk(chunk->coords, campos))
+	{
+		opengl_engine->addObject(chunk->graphics_ob);
+
+		if(diagnostics_ob_in_engine)
+			opengl_engine->addObject(chunk->diagnostics_gl_ob);
+
+		chunk->graphics_ob_in_engine = true;
+	}
+}
+
+
 void GUIClient::handleLODChunkMeshLoaded(const URLString& mesh_URL, Reference<MeshData> mesh_data, WorldStateLock& lock)
 {
 	auto loading_res = loading_mesh_URL_to_chunk_coords_map.find(mesh_URL);
@@ -8007,35 +8072,48 @@ void GUIClient::handleLODChunkMeshLoaded(const URLString& mesh_URL, Reference<Me
 		if(chunk_res != world_state->lod_chunks.end())
 		{
 			LODChunk* chunk = chunk_res->second.ptr();
-	
-			assert(mesh_URL == chunk->computeMeshURL(this->server_has_optimised_meshes, this->server_opt_mesh_version));
+
+			// If the chunk has been rebuilt on the server since this mesh load was started, this is a stale load of a previous chunk mesh, so ignore it.
+			if(mesh_URL != chunk->computeMeshURL(this->server_has_optimised_meshes, this->server_opt_mesh_version))
+				return;
+
+			// If we are already displaying graphics for this chunk, then this is a rebuilt chunk mesh.  In that case keep displaying the existing
+			// graphics_ob until the new combined array texture has loaded as well, so the chunk doesn't flash untextured.
+			const bool building_replacement = chunk->graphics_ob.nonNull();
 
 			try
 			{
-				if(!chunk->graphics_ob)
 				{
+					GLObjectRef new_graphics_ob;
+
 					mesh_data->meshDataBecameUsed();
-					chunk->mesh_manager_data = mesh_data;// Hang on to a reference to the mesh data, so when object-uses of it are removed, it can be removed from the MeshManager with meshDataBecameUnused().
+					chunk->loading_mesh_manager_data = mesh_data;// Hang on to a reference to the mesh data, so when object-uses of it are removed, it can be removed from the MeshManager with meshDataBecameUnused().
 
-					chunk->graphics_ob = opengl_engine->allocateObject();
-					chunk->graphics_ob->mesh_data = mesh_data->gl_meshdata;
-					chunk->graphics_ob->ob_to_world_matrix = Matrix4f::identity();
-		
-					chunk->graphics_ob->materials.resize(myMax<size_t>(1, mesh_data->gl_meshdata->num_materials_referenced));
-					chunk->graphics_ob->materials[0].combined = true;
+					new_graphics_ob = opengl_engine->allocateObject();
+					new_graphics_ob->mesh_data = mesh_data->gl_meshdata;
+					new_graphics_ob->ob_to_world_matrix = Matrix4f::identity();
 
-					chunk->graphics_ob->materials[0].combined_array_texture = this->default_array_tex;
-					if(!chunk->combined_array_texture_path.empty())
+					new_graphics_ob->materials.resize(myMax<size_t>(1, mesh_data->gl_meshdata->num_materials_referenced));
+					new_graphics_ob->materials[0].combined = true;
+
+					const OpenGLTextureKey& use_array_texture_path = chunk->loading_combined_array_texture_path;
+
+					// The combined array texture may have finished loading before the mesh did, in which case handleLODChunkTextureLoaded() will have stored it in
+					// loading_combined_array_texture.  If not, it may still be loaded in the OpenGL engine, e.g. if the rebuilt chunk uses the same texture as before.
+					if(chunk->loading_combined_array_texture.isNull() && !use_array_texture_path.empty())
+						chunk->loading_combined_array_texture = opengl_engine->getTextureIfLoaded(use_array_texture_path);
+
+					new_graphics_ob->materials[0].combined_array_texture = this->default_array_tex;
+					if(chunk->loading_combined_array_texture)
 					{
-						OpenGLTextureRef combined_tex = opengl_engine->getTextureIfLoaded(chunk->combined_array_texture_path);
-						if(combined_tex)
-						{
-							if(combined_tex->getTextureTarget() != GL_TEXTURE_2D_ARRAY)
-								conPrint("Error, loaded chunk combined texture is not a GL_TEXTURE_2D_ARRAY (path: " + std::string(chunk->combined_array_texture_path) + ")");
+						if(chunk->loading_combined_array_texture->getTextureTarget() != GL_TEXTURE_2D_ARRAY)
+							conPrint("Error, loaded chunk combined texture is not a GL_TEXTURE_2D_ARRAY (path: " + std::string(use_array_texture_path) + ")");
 
-							chunk->graphics_ob->materials[0].combined_array_texture = combined_tex;
-						}
+						new_graphics_ob->materials[0].combined_array_texture = chunk->loading_combined_array_texture;
 					}
+
+					// If the chunk has no combined array texture, treat it as loaded, so we don't wait for it below.
+					const bool array_texture_loaded = use_array_texture_path.empty() || chunk->loading_combined_array_texture.nonNull();
 
 
 				
@@ -8073,23 +8151,23 @@ void GUIClient::handleLODChunkMeshLoaded(const URLString& mesh_URL, Reference<Me
 					const uint64 hash = XXH64(decompressed.data(), decompressed.size(), /*seed=*/1);
 
 					const OpenGLTextureKey use_mat_info_path = OpenGLTextureKey("mat_info_") + OpenGLTextureKey(toString(hash));
-					chunk->graphics_ob->materials[0].backface_albedo_texture = opengl_engine->getOrLoadOpenGLTextureForMap2D(use_mat_info_path, *map, mat_info_tex_params);
+					new_graphics_ob->materials[0].backface_albedo_texture = opengl_engine->getOrLoadOpenGLTextureForMap2D(use_mat_info_path, *map, mat_info_tex_params);
 					if(opengl_engine->runningInRenderDoc())
-						chunk->graphics_ob->materials[0].backface_albedo_texture->setDebugName(std::string(use_mat_info_path));
+						new_graphics_ob->materials[0].backface_albedo_texture->setDebugName(std::string(use_mat_info_path));
 
-					if(chunk->graphics_ob->materials.size() >= 2)
+					if(new_graphics_ob->materials.size() >= 2)
 					{
-						chunk->graphics_ob->materials[1].combined = true;
-						chunk->graphics_ob->materials[1].transparent = true;
+						new_graphics_ob->materials[1].combined = true;
+						new_graphics_ob->materials[1].transparent = true;
 					}
 
-					const Vec4f campos = this->cam_controller.getPosition().toVec4fPoint();
-					const bool should_show = shouldDisplayLODChunk(chunk->coords, campos);
-					if(should_show)
-					{
-						opengl_engine->addObject(chunk->graphics_ob);
-						chunk->graphics_ob_in_engine = true;
-					}
+					chunk->loading_graphics_ob = new_graphics_ob;
+
+					// If we don't have existing graphics for this chunk, show the new object right away, even if the combined array texture hasn't loaded yet
+					// (it will be assigned by handleLODChunkTextureLoaded() when it arrives).  Otherwise wait for the texture, so we don't replace the
+					// currently displayed chunk graphics with an untextured object.
+					if(!building_replacement || array_texture_loaded)
+						swapInLoadedLODChunkGraphics(chunk);
 				}
 			}
 			catch(glare::Exception& e)
@@ -8845,6 +8923,73 @@ inline static SubClass* checkedDowncastPtr(ThreadMessage* msg)
 
 
 // Handle any messages (chat messages etc..)
+void GUIClient::toggleBuilderAIPanel()
+{
+	if(!builder_ai_ui)
+		return;
+
+	// The Builder AI uses the normal server connection, so there is no separate connection to open or close; just
+	// show/hide the panel.  The server creates its session lazily when the first message arrives.
+	if(builder_ai_ui->isVisible())
+		builder_ai_ui->setVisible(false);
+	else
+	{
+		if(this->connection_state != ServerConnectionState_Connected)
+		{
+			showErrorNotification("You must be connected to a server to use the Builder AI.");
+			return;
+		}
+		builder_ai_ui->setVisible(true);
+	}
+}
+
+
+void GUIClient::sendBuilderAIMessage(const std::string& text)
+{
+	if(this->connection_state != ServerConnectionState_Connected)
+		return;
+
+	// Capture the spatial context the message was sent in, so the server can resolve "here".
+	BuilderAIContext context;
+	const Vec3d cam_pos      = cam_controller.getFirstPersonPosition();
+	const Vec3d cam_forwards = cam_controller.getForwardsVec();
+	context.cam_pos = cam_pos;
+	context.cam_forwards = cam_forwards;
+
+	// Trace a ray from the camera along its forwards vector to find what the user is pointing at.
+	context.crosshair_pos_valid = 0;
+	if(physics_world.nonNull())
+	{
+		RayTraceResult trace_results;
+		physics_world->traceRay(cam_pos.toVec4fPoint(), cam_forwards.toVec4fVector(), /*max_t=*/1.0e3f, /*ignore body id=*/JPH::BodyID(), trace_results);
+		if(trace_results.hit_object)
+		{
+			const Vec4f hit_pos = cam_pos.toVec4fPoint() + cam_forwards.toVec4fVector() * trace_results.hit_t;
+			context.crosshair_pos_valid = 1;
+			context.crosshair_pos = Vec3d(hit_pos[0], hit_pos[1], hit_pos[2]);
+		}
+	}
+
+	context.have_selected_ob = selected_ob.nonNull() ? 1 : 0;
+	context.selected_ob_uid  = selected_ob.nonNull() ? selected_ob->uid.value() : 0;
+
+	MessageUtils::initPacket(scratch_packet, Protocol::BuilderAIUserMessage);
+	scratch_packet.writeStringLengthFirst(text);
+	scratch_packet.writeData(&context, sizeof(context));
+	enqueueMessageToSend(*client_thread, scratch_packet);
+}
+
+
+void GUIClient::cancelBuilderAI()
+{
+	if(this->connection_state != ServerConnectionState_Connected)
+		return;
+
+	MessageUtils::initPacket(scratch_packet, Protocol::BuilderAICancel);
+	enqueueMessageToSend(*client_thread, scratch_packet);
+}
+
+
 void GUIClient::handleMessages(double global_time, double cur_time)
 {
 	PERFORMANCEAPI_INSTRUMENT("handle msgs");
@@ -9486,6 +9631,33 @@ void GUIClient::handleMessages(double global_time, double cur_time)
 					}
 				}
 			}
+		}
+		break;
+		case Msg_BuilderAITextDeltaMessage:
+		{
+			const BuilderAITextDeltaMessage* m = checkedDowncastPtr<const BuilderAITextDeltaMessage>(msg);
+			if(builder_ai_ui)
+				builder_ai_ui->appendAssistantTextDelta(m->text);
+		}
+		break;
+		case Msg_BuilderAIToolActivityMessage:
+		{
+			const BuilderAIToolActivityMessage* m = checkedDowncastPtr<const BuilderAIToolActivityMessage>(msg);
+			if(builder_ai_ui)
+				builder_ai_ui->setToolActivity(m->tool_name);
+		}
+		break;
+		case Msg_BuilderAITurnCompleteMessage:
+		{
+			if(builder_ai_ui)
+				builder_ai_ui->turnComplete();
+		}
+		break;
+		case Msg_BuilderAIErrorMessage:
+		{
+			const BuilderAIErrorMessage* m = checkedDowncastPtr<const BuilderAIErrorMessage>(msg);
+			if(builder_ai_ui)
+				builder_ai_ui->showError(m->msg);
 		}
 		break;
 		case Msg_InfoMessage:
@@ -13229,6 +13401,8 @@ void GUIClient::disconnectFromServerAndClearAllObjects() // Remove any WorldObje
 
 	minimap = nullptr;
 
+	builder_ai_ui = nullptr; // We want to reset the Builder AI UI state (turn in progress etc.) so just close the builder AI UI on disconnect from server.
+
 	clearAllObjects();
 	world_state = nullptr;
 
@@ -13332,6 +13506,9 @@ void GUIClient::clearAllObjects()
 				chunk->graphics_ob = NULL;
 				chunk->mesh_manager_data = NULL;
 			}
+			chunk->loading_graphics_ob = NULL; // Discard any partially loaded replacement graphics for the chunk.
+			chunk->loading_mesh_manager_data = NULL;
+			chunk->loading_combined_array_texture = NULL;
 		}
 
 		world_state->clear();
@@ -13463,7 +13640,8 @@ void GUIClient::connectToServer(const URLParseResults& parse_res)
 #endif
 
 	minimap = nullptr;
-	checkCreateManagersAndMinimap();
+	builder_ai_ui = nullptr;
+	checkCreateManagersAndMinimapAndBuilderAIUI();
 
 	// Note that getFirstPersonPosition() is used for consistency with proximity_loader.updateCamPos() calls, where getFirstPersonPosition() is used also.
 	const js::AABBox initial_aabb = proximity_loader.setCameraPosForNewConnection(this->cam_controller.getFirstPersonPosition().toVec4fPoint());
@@ -13568,7 +13746,8 @@ void GUIClient::changeToDifferentWorld(const URLParseResults& parse_res)
 
 
 	minimap = nullptr;
-	checkCreateManagersAndMinimap();
+	builder_ai_ui = nullptr;
+	checkCreateManagersAndMinimapAndBuilderAIUI();
 
 
 	// Send CreateAvatar packet for this client's avatar
@@ -13638,7 +13817,8 @@ void GUIClient::checkCreateResourceDownloadThreads()
 }
 
 
-void GUIClient::checkCreateManagersAndMinimap()
+// These objects are created once we are connecting to a server, but they also require the OpenGL engine to be initialised.
+void GUIClient::checkCreateManagersAndMinimapAndBuilderAIUI()
 {
 	if(opengl_engine && async_texture_loader && gl_ui)
 	{
@@ -13650,6 +13830,25 @@ void GUIClient::checkCreateManagersAndMinimap()
 
 		if(!minimap)
 			minimap = new MiniMap(opengl_engine, /*gui_client_=*/this, gl_ui);
+
+		if(!builder_ai_ui)
+		{
+			builder_ai_ui = new BuilderAIUI(/*gui_client_=*/this, gl_ui);
+			if(false) // Testing:
+			{
+				builder_ai_ui->on_send_message = [this](const std::string& text)
+				{
+					this->builder_ai_ui->appendAssistantTextDelta("Hello\nWhat's up?");
+					this->builder_ai_ui->turnComplete();
+				};
+				builder_ai_ui->on_cancel       = [this]() { this->cancelBuilderAI(); };
+			}
+			else
+			{
+				builder_ai_ui->on_send_message = [this](const std::string& text) { this->sendBuilderAIMessage(text); };
+				builder_ai_ui->on_cancel       = [this]() { this->cancelBuilderAI(); };
+			}
+		}
 	}
 }
 
@@ -14398,6 +14597,8 @@ void GUIClient::mouseMoved(MouseEvent& mouse_event)
 		}
 
 		chat_ui.handleMouseMoved(mouse_event);
+		if(builder_ai_ui)
+			builder_ai_ui->handleMouseMoved(mouse_event);
 		if(minimap)
 			minimap->handleMouseMoved(mouse_event);
 	}
@@ -15067,6 +15268,8 @@ void GUIClient::viewportResized(int w, int h)
 	}
 
 	chat_ui.viewportResized(w, h);
+	if(builder_ai_ui)
+		builder_ai_ui->viewportResized(w, h);
 	if(photo_mode_ui)
 		photo_mode_ui->viewportResized(w, h);
 	if(gear_inventory_ui)

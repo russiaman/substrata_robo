@@ -2040,7 +2040,7 @@ void MainWindow::on_actionAddHypercard_triggered()
 	new_world_object->angle = Maths::roundToMultipleFloating((float)gui_client.cam_controller.getAngles().x - Maths::pi_2<float>(), Maths::pi_4<float>()); // Round to nearest 45 degree angle.
 	new_world_object->scale = Vec3f(0.4f);
 	new_world_object->content = "Select the object \nto edit this text";
-	new_world_object->setAABBOS(js::AABBox(Vec4f(0,0,0,1), Vec4f(1,0,1,1)));
+	new_world_object->setAABBOS(WorldObject::getHypercardAABBos());
 
 	// Send CreateObject message to server
 	{
@@ -2088,7 +2088,7 @@ void MainWindow::on_actionAdd_Text_triggered()
 	new_world_object->angle = total_rot_angle;
 	new_world_object->scale = Vec3f(0.4f);
 	new_world_object->content = "Some Text";
-	new_world_object->setAABBOS(js::AABBox(Vec4f(0,0,0,1), Vec4f(1,0,1,1)));
+	new_world_object->setAABBOS(js::AABBox(Vec4f(0,0,0,1), Vec4f(10,1,0,1))); // TEMP HACK NOTE: actually depends on text content.
 
 	new_world_object->materials.resize(1);
 	new_world_object->materials[0] = new WorldMaterial();
@@ -2143,9 +2143,7 @@ void MainWindow::on_actionAdd_Spotlight_triggered()
 	// Spotlight housing material
 	new_world_object->materials.push_back(new WorldMaterial());
 
-	const float fixture_w = 0.1;
-	const js::AABBox aabb_os = js::AABBox(Vec4f(-fixture_w/2, -fixture_w/2, 0,1), Vec4f(fixture_w/2,  fixture_w/2, 0,1));
-	new_world_object->setAABBOS(aabb_os);
+	new_world_object->setAABBOS(WorldObject::getSpotlightAABBos());
 
 
 	// Send CreateObject message to server
@@ -2237,7 +2235,7 @@ void MainWindow::on_actionAdd_Portal_triggered()
 	new_world_object->angle = Maths::roundToMultipleFloating((float)gui_client.cam_controller.getAngles().x - Maths::pi_2<float>(), Maths::pi_4<float>()); // Round to nearest 45 degree angle, facing player.
 	new_world_object->scale = Vec3f(1.f);
 
-	new_world_object->setAABBOS(gui_client.spotlight_opengl_mesh->aabb_os);
+	new_world_object->setAABBOS(WorldObject::getPortalAABBos());
 
 
 	// Send CreateObject message to server
@@ -2287,8 +2285,7 @@ void MainWindow::on_actionAdd_Web_View_triggered()
 	new_world_object->materials[0]->colour_rgb = Colour3f(1.f);
 	new_world_object->materials[1] = new WorldMaterial();
 
-	const js::AABBox aabb_os = gui_client.image_cube_shape.getAABBOS();
-	new_world_object->setAABBOS(aabb_os);
+	new_world_object->setAABBOS(WorldObject::getWebViewAABBos());
 
 
 	// Send CreateObject message to server
@@ -2371,8 +2368,7 @@ void MainWindow::on_actionAdd_Video_triggered()
 			new_world_object->materials[0]->emission_texture_url = use_URL; // Video URL is stored in emission_texture_url. (need to put here so it is a resource dependency)
 			new_world_object->materials[1] = new WorldMaterial();
 
-			const js::AABBox aabb_os = gui_client.image_cube_shape.getAABBOS();
-			new_world_object->setAABBOS(aabb_os);
+			new_world_object->setAABBOS(WorldObject::getVideoAABBos());
 
 
 			// Send CreateObject message to server
