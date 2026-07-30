@@ -270,6 +270,8 @@ public:
 	void applyWorldSettingsToOpenGLEngine();
 public:
 	void rotateObject(WorldObjectRef ob, const Vec4f& axis, float angle);
+	void tryToScaleObject(WorldObjectRef ob, const Vec3f& new_scale);
+	void tryToFinaliseObjectScale(WorldObjectRef ob); // Called once when a scale gizmo drag ends. Reverts to scale_at_gizmo_grab if the final scale doesn't fit in the parcel.
 	void selectObject(const WorldObjectRef& ob, int selected_mat_index);
 	void deleteSelectedObject();
 	void deselectObject();
@@ -695,6 +697,8 @@ public:
 
 	glare::AudioEngine audio_engine;
 	UndoBuffer undo_buffer;
+
+	Vec3f scale_at_gizmo_grab; // Object scale captured in onGrabStart, used to revert if the final scale after a gizmo scale drag doesn't fit in the parcel.
 
 	glare::AudioSourceRef wind_audio_source;
 

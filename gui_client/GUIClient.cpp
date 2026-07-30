@@ -13715,7 +13715,7 @@ struct GUIClientGizmoDelegate : public GizmoDelegateInterface
 	void onUniformScaleDrag(float delta_scale) override
 	{
 		if(client->selected_ob)
-			client->scaleObject(client->selected_ob, client->selected_ob->scale * delta_scale);
+			client->tryToScaleObject(client->selected_ob, client->selected_ob->scale * delta_scale);
 	}
 
 	void onTwoAxisScaleDrag(int plane_index, float delta_scale) override
@@ -13726,20 +13726,26 @@ struct GUIClientGizmoDelegate : public GizmoDelegateInterface
 		Vec3f s = client->selected_ob->scale;
 		s[plane_axes[plane_index][0]] *= delta_scale;
 		s[plane_axes[plane_index][1]] *= delta_scale;
-		client->scaleObject(client->selected_ob, s);
+		client->tryToScaleObject(client->selected_ob, s);
 	}
 
 	void onGrabStart(bool /*is_rotation*/) override
 	{
 		client->ui_interface->setCamRotationOnMouseDragEnabled(false);
 		if(client->selected_ob)
+		{
 			client->undo_buffer.startWorldObjectEdit(*client->selected_ob);
+			client->scale_at_gizmo_grab = client->selected_ob->scale;
+		}
 	}
 
 	void onGrabEnd() override
 	{
 		if(client->selected_ob)
+		{
+			client->tryToFinaliseObjectScale(client->selected_ob);
 			client->undo_buffer.finishWorldObjectEdit(*client->selected_ob);
+		}
 	}
 
 	GUIClient* client;
@@ -14504,6 +14510,67 @@ void GUIClient::rotateObject(WorldObjectRef ob, const Vec4f& axis, float angle)
 		//ob->flags |= WorldObject::LIGHTMAP_NEEDS_COMPUTING_FLAG;
 		//objs_with_lightmap_rebuild_needed.insert(ob);
 		//lightmap_flag_timer->start(/*msec=*/2000); 
+	}
+}
+
+
+void GUIClient::tryToScaleObject(WorldObjectRef ob, const Vec3f& new_scale)
+{
+	const bool allow_modification = objectModificationAllowedWithMsg(*ob, "scale");
+	if(allow_modification)
+	{
+		ob->scale = new_scale;
+
+		const Matrix4f new_ob_to_world = obToWorldMatrix(*ob);
+
+		GLObjectRef opengl_ob = ob->opengl_engine_ob;
+		if(!opengl_ob)
+			return;
+
+		opengl_ob->ob_to_world_matrix = new_ob_to_world;
+		opengl_engine->updateObjectTransformData(*opengl_ob);
+
+		if(ob->physics_object)
+			physics_world->setNewObToWorldTransform(*ob->physics_object, ob->pos.toVec4fVector(), Quatf::fromAxisAndAngle(normalise(ob->axis), ob->angle), useScaleForWorldOb(ob->scale).toVec4fVector());
+
+		ui_interface->startObEditorTimerIfNotActive();
+
+		ob->transformChanged();
+
+		ob->last_modified_time = TimeStamp::currentTime();
+
+		{
+			Lock lock(world_state->mutex);
+			ob->from_local_transform_dirty = true;
+			this->world_state->dirty_from_local_objects.insert(ob);
+		}
+
+		if(this->terrain_system.nonNull() && ::hasPrefix(ob->content, "biome:"))
+			this->terrain_system->invalidateVegetationMap(ob->getAABBWS());
+	}
+}
+
+
+// Called once when a scale gizmo drag ends (mouse released). Live per-frame updates during the drag (tryToScaleObject()) don't
+// check parcel bounds, for responsiveness. Here we check, without shifting position (unlike tryToMoveObject), whether the
+// final scaled AABB still fits in the parcel; if not, revert to the scale captured when the drag started.
+void GUIClient::tryToFinaliseObjectScale(WorldObjectRef ob)
+{
+	GLObjectRef opengl_ob = ob->opengl_engine_ob;
+	if(opengl_ob.isNull())
+		return;
+
+	const Matrix4f cur_to_world = opengl_ob->ob_to_world_matrix; // Already has the live (final) scale applied by tryToScaleObject() during the drag.
+
+	js::Vector<EdgeMarker, 16> edge_markers;
+	Vec3d new_ob_pos;
+	const bool valid = clampObjectPositionToParcelForNewTransform(*ob, opengl_ob, ob->pos, cur_to_world, edge_markers, new_ob_pos);
+
+	// Reject if it doesn't fit at all, or if it would require shifting position to fit (we don't want to move the object during a scale drag).
+	if(!valid || new_ob_pos.x != ob->pos.x || new_ob_pos.y != ob->pos.y || new_ob_pos.z != ob->pos.z)
+	{
+		tryToScaleObject(ob, scale_at_gizmo_grab);
+		showErrorNotification("New object transform is not valid - Object must be entirely in a parcel that you have write permissions for.");
 	}
 }
 
