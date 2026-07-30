@@ -13729,6 +13729,14 @@ struct GUIClientGizmoDelegate : public GizmoDelegateInterface
 		client->tryToScaleObject(client->selected_ob, s);
 	}
 
+	void onAxisScaleDrag(int axis_index, float delta_scale) override
+	{
+		if(!client->selected_ob) return;
+		Vec3f s = client->selected_ob->scale;
+		s[axis_index] *= delta_scale;
+		client->tryToScaleObject(client->selected_ob, s);
+	}
+
 	void onGrabStart(bool /*is_rotation*/) override
 	{
 		client->ui_interface->setCamRotationOnMouseDragEnabled(false);

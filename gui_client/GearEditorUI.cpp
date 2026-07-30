@@ -171,6 +171,9 @@ struct GearGizmoDelegate : public GizmoDelegateInterface
 	void onTwoAxisScaleDrag(int /*plane_index*/, float /*delta_scale*/) override
 	{}
 
+	void onAxisScaleDrag(int /*axis_index*/, float /*delta_scale*/) override
+	{}
+
 	void onGrabStart(bool) override
 	{
 		ui->on_grab_gear_transform = ui->gear_item->gearObToBoneSpaceMatrix();
