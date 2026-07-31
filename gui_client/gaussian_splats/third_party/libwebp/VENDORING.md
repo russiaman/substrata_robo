@@ -20,4 +20,13 @@ dependency reasoning.
 
 ## Modifications
 
-None. Files are byte-for-byte copies from upstream at the commit above.
+`src/dsp/cpu.h`: added a `!defined(WEBP_FORCE_SCALAR_DSP)` guard around the
+`WEBP_MSC_SSE2`/`WEBP_MSC_SSE41`/`WEBP_MSC_AVX2` auto-detection block. Native
+MSVC builds (unlike Emscripten/Clang) turn these on unconditionally for any
+x86/x64 target regardless of compile flags, which made this decode-only
+scalar build reference `WebP*InitSSE2()`/`InitSSE41()`/etc. dispatch
+functions from dsp/*.c variants that were deliberately not vendored (see
+"Scope" above) -> LNK2019 on the native desktop build. `libwebp_decode.cmake`
+defines `WEBP_FORCE_SCALAR_DSP` for these source files to force the scalar
+path on MSVC too, mirroring the existing `-U__SSE2__`/`-U__SSE4_1__` handling
+already in place for Clang/Emscripten.

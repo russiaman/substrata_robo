@@ -46,7 +46,7 @@
 //------------------------------------------------------------------------------
 // x86 defines.
 
-#if !defined(HAVE_CONFIG_H)
+#if !defined(HAVE_CONFIG_H) && !defined(WEBP_FORCE_SCALAR_DSP)
 #if defined(_MSC_VER) && _MSC_VER > 1310 && \
     (defined(_M_X64) || defined(_M_IX86))
 #define WEBP_MSC_SSE2  // Visual C++ SSE2 targets

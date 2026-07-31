@@ -67,11 +67,17 @@ ${WEBPDECDIR}/src/webp/types.h
 
 SOURCE_GROUP(gaussian_splats\\libwebp FILES ${webp_decode_sources})
 
-# This vendored copy is decode-only, scalar (no SSE2/SSE4.1 dsp/*.c variants - see comment at top of this file).
-# The gui_client target as a whole compiles with -msse4.1 (for basis_universal's SSE-optimised transcoder, via Emscripten's
-# SSE-to-WASM-SIMD compatibility headers), which makes the compiler predefine __SSE2__/__SSE4_1__ project-wide. libwebp's own
-# dsp/cpu.h treats those predefines as "SSE2/SSE4.1 available" (see WEBP_USE_SSE2/WEBP_USE_SSE41 in dsp/cpu.h) and emits calls
-# to WebP*InitSSE2()/WebP*InitSSE41() dispatch-table functions - which are never linked in here, since we deliberately didn't
-# vendor the SSE-specific dsp/*_sse2.c / dsp/*_sse41.c files. Undefine the predefines for just these source files so libwebp
-# takes its plain scalar path instead, without touching the global -msse4.1 flag (which other, unrelated files still need).
-set_source_files_properties(${webp_decode_sources} PROPERTIES COMPILE_OPTIONS "-U__SSE2__;-U__SSE4_1__")
+# This vendored copy is decode-only, scalar (no SSE2/SSE4.1/AVX2 dsp/*.c variants - see comment at top of this file).
+# On Emscripten/Clang: the gui_client target as a whole compiles with -msse4.1 (for basis_universal's SSE-optimised
+# transcoder, via Emscripten's SSE-to-WASM-SIMD compatibility headers), which makes the compiler predefine
+# __SSE2__/__SSE4_1__ project-wide. libwebp's own dsp/cpu.h treats those predefines as "SSE2/SSE4.1 available"
+# (see WEBP_USE_SSE2/WEBP_USE_SSE41 in dsp/cpu.h) and emits calls to WebP*InitSSE2()/WebP*InitSSE41() dispatch-table
+# functions. Undefine the predefines for just these source files so libwebp takes its plain scalar path instead,
+# without touching the global -msse4.1 flag (which other, unrelated files still need).
+# On MSVC (native desktop build): cl.exe never predefines __SSE2__/__SSE4_1__, but dsp/cpu.h independently turns on
+# WEBP_MSC_SSE2/SSE41/AVX2 for ANY x64/x86 MSVC build regardless of compiler flags (see WEBP_MSC_* in dsp/cpu.h) -
+# same problem, different trigger. WEBP_FORCE_SCALAR_DSP (a guard added to our vendored dsp/cpu.h, not upstream)
+# disables that MSVC auto-detection block too.
+set_source_files_properties(${webp_decode_sources} PROPERTIES
+	COMPILE_OPTIONS "-U__SSE2__;-U__SSE4_1__"
+	COMPILE_DEFINITIONS "WEBP_FORCE_SCALAR_DSP")
