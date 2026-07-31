@@ -443,6 +443,13 @@ GLObjectRef GaussianSplatRenderer::addObject(const UID& world_object_id, const G
 		mat.shader_prog = shader_prog;
 		mat.auto_assign_shader = false;
 		mat.transparent = true; // Routes the object through OpenGLEngine::drawTransparentMaterialBatches() - see gaussian_splat_frag_shader.glsl for the blend mode this assumes.
+		// Each splat's screen-space billboard quad is built in the vertex shader from an eigenvector basis (axis1/axis2) whose sign/handedness isn't
+		// pinned down by the covariance math (see the eigen-decomposition in gaussian_splat_vert_shader.glsl) - it can effectively flip as the camera
+		// moves, changing the resulting quad's winding order. Without this, OpenGLEngine's default single-sided face culling (faceCullBits() culls
+		// unless simple_double_sided/fancy_double_sided is set - neither was set here) would then incorrectly cull whichever splats happen to wind
+		// "backwards" for the current camera angle, which is exactly the "splats disappear/the object turns inside out as the camera orbits it" bug
+		// (session025).
+		mat.simple_double_sided = true;
 		mat.user_uniform_vals.resize(3); // viewport_dims_px, focal_len_px, splat_tex_width - set by think().
 		mat.user_uniform_vals[2].intval = (int)splat_tex_width;
 		// mat.albedo_texture is set below by ensureGpuCapacity()'s first call.
