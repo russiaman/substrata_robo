@@ -58,6 +58,7 @@ signals:;
 private slots:;
 	void on_actionAvatarSettings_triggered();
 	void on_actionAddObject_triggered();
+	void addGaussianSplatTriggered(); // "Add Gaussian Splat..." Edit-menu action - connected manually in the MainWindow constructor, not via the on_action* auto-connect naming convention (the action itself is created in code, not in mainwindow.ui).
 	void on_actionAddHypercard_triggered();
 	void on_actionAdd_Text_triggered();
 	void on_actionAdd_Voxels_triggered();

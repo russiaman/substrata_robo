@@ -324,6 +324,7 @@ void GaussianSplatRenderer::rebuildVAO(OpenGLEngine& /*opengl_engine*/)
 	world_ob->vert_vao = new VAO(vertex_spec);
 #endif
 	world_ob->instance_matrix_vbo = instance_index_vbo; // Keep the VBO referenced-alive via the object; also gives think()/the depth-sort code access to it for VBO::updateData().
+	world_ob->instance_vbo_stride_B = sizeof(uint32_t); // Per-splat draw indices are 4-byte uint32, not 64-byte instance matrices.
 }
 
 
@@ -442,7 +443,7 @@ GLObjectRef GaussianSplatRenderer::addObject(const UID& world_object_id, const G
 		OpenGLMaterial& mat = world_ob->materials[0];
 		mat.shader_prog = shader_prog;
 		mat.auto_assign_shader = false;
-		mat.transparent = true; // Routes the object through OpenGLEngine::drawTransparentMaterialBatches() - see gaussian_splat_frag_shader.glsl for the blend mode this assumes.
+		mat.alpha_blend = true; // Routes the object through OpenGLEngine::drawAlphaBlendedObjects() - uses GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA blending (same visual formula as the web build's GL_ONE, GL_ONE_MINUS_SRC_ALPHA with a premultiplied shader output, but achieved with non-premultiplied output here).
 		// Each splat's screen-space billboard quad is built in the vertex shader from an eigenvector basis (axis1/axis2) whose sign/handedness isn't
 		// pinned down by the covariance math (see the eigen-decomposition in gaussian_splat_vert_shader.glsl) - it can effectively flip as the camera
 		// moves, changing the resulting quad's winding order. Without this, OpenGLEngine's default single-sided face culling (faceCullBits() culls

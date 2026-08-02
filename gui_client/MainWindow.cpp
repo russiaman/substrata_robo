@@ -435,6 +435,15 @@ void MainWindow::initialiseUI()
 #endif
 	ui->menuWindow->addAction(ui->diagnosticsDockWidget->toggleViewAction());
 
+	// "Add Gaussian Splat..." Edit-menu action - the Qt counterpart of the SDL client's ImGui "Gaussian splats" panel add-button
+	// (see UIInterface::PICK_GAUSSIAN_SPLAT handling in SDLClient.cpp); both feed GUIClient::createGaussianSplatObjectFromLocalFile().
+	// Added in code rather than mainwindow.ui since it needs no designer layout beyond a menu entry.
+	{
+		QAction* add_splat_action = new QAction("Add Gaussian Splat...", this);
+		ui->menuEdit->insertAction(ui->actionAddHypercard, add_splat_action); // Right after "Add Object" in the Edit menu.
+		connect(add_splat_action, &QAction::triggered, this, &MainWindow::addGaussianSplatTriggered);
+	}
+
 
 	// Always disable MDI for now, seems to be slower in general in Substrata
 	// 
@@ -2009,6 +2018,29 @@ void MainWindow::on_actionAddObject_triggered()
 			m.showMessage(QtUtils::toQString(e.what()));
 			m.exec();
 		}
+	}
+}
+
+
+void MainWindow::addGaussianSplatTriggered()
+{
+	const QString qpath = QFileDialog::getOpenFileName(this, "Add Gaussian Splat", QString(), "SOG Gaussian splat files (*.sog)");
+	if(qpath.isEmpty())
+		return;
+
+	try
+	{
+		const std::string path = QtUtils::toStdString(qpath);
+		std::vector<unsigned char> file_data;
+		FileUtils::readEntireFile(path, file_data);
+		gui_client.createGaussianSplatObjectFromLocalFile(path, file_data.data(), file_data.size()); // Same entry point the SDL client's ImGui panel uses - uploads to the server and creates the object in front of the camera.
+	}
+	catch(glare::Exception& e)
+	{
+		print(e.what());
+		QErrorMessage m;
+		m.showMessage(QtUtils::toQString(e.what()));
+		m.exec();
 	}
 }
 

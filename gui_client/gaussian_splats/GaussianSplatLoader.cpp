@@ -13,6 +13,7 @@ Generated at Mon Jul 27 06:16:15 2026
 #include <utils/Exception.h>
 #include <utils/JSONParser.h>
 #include <utils/Platform.h>
+#include <graphics/SRGBUtils.h>
 #include <cmath>
 
 
@@ -200,7 +201,8 @@ GaussianSplatDataRef GaussianSplatLoader::loadFromBuffer(const uint8_t* data, si
 		const float g = 0.5f + (float)sh0_codebook[sh0_img.data[px + 1]] * SH_C0;
 		const float bl = 0.5f + (float)sh0_codebook[sh0_img.data[px + 2]] * SH_C0;
 		const float op = sh0_img.data[px + 3] / 255.f;
-		result->colours[i] = Vec4f(r, g, bl, op);
+		Colour3f linear_col = toLinearSRGB(Colour3f(r, g, bl));
+		result->colours[i] = Vec4f(linear_col.r, linear_col.g, linear_col.b, op);
 	}
 
 	result->aabb_os = aabb;

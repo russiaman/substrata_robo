@@ -9,5 +9,5 @@
 	<!--<webserver_public_files_dir></webserver_public_files_dir>-->
 	
 	<!-- Location where webclient files are found -->
-	<!--<webclient_dir></webclient_dir>-->
+	<webclient_dir>C:/Work/ai/ClaudeCode/Substrata/working_dir/substrata_output/test_builds</webclient_dir>
 </config>
