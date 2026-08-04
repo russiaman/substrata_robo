@@ -2731,6 +2731,7 @@ void GUIClient::loadModelForObject(WorldObject* ob, WorldStateLock& world_state_
 
 							// Do the model loading (conversion of voxel group to triangle mesh) in a different thread
 							Reference<LoadModelTask> load_model_task = new LoadModelTask();
+							load_model_task->gaussian_splat_lod_base = this->gaussian_splat_lod_base;
 
 							load_model_task->lod_model_url = pseudo_lod_model_url;
 							load_model_task->model_lod_level = ob_model_lod_level;
@@ -2852,6 +2853,7 @@ void GUIClient::loadModelForObject(WorldObject* ob, WorldStateLock& world_state_
 						{
 							// Do the model loading in a different thread
 							Reference<LoadModelTask> load_model_task = new LoadModelTask();
+							load_model_task->gaussian_splat_lod_base = this->gaussian_splat_lod_base;
 
 							load_model_task->resource = resource_manager->getOrCreateResourceForURL(lod_model_url);
 							load_model_task->lod_model_url = lod_model_url;
@@ -3357,6 +3359,7 @@ void GUIClient::loadModelForAvatar(Avatar* avatar)
 					{
 						// Do the model loading in a different thread
 						Reference<LoadModelTask> load_model_task = new LoadModelTask();
+						load_model_task->gaussian_splat_lod_base = this->gaussian_splat_lod_base;
 
 						load_model_task->resource = resource_manager->getOrCreateResourceForURL(lod_model_url);
 						load_model_task->lod_model_url = lod_model_url;
@@ -3432,6 +3435,7 @@ void GUIClient::loadModelForAvatar(Avatar* avatar)
 
 						// Do the model loading in a different thread
 						Reference<LoadModelTask> load_model_task = new LoadModelTask();
+						load_model_task->gaussian_splat_lod_base = this->gaussian_splat_lod_base;
 
 						load_model_task->resource = resource_manager->getOrCreateResourceForURL(lod_model_url);
 						load_model_task->lod_model_url = lod_model_url;
@@ -7955,7 +7959,8 @@ void GUIClient::updateLODChunkGraphics()
 					const std::string path = resource_manager->getLocalAbsPathForResource(*resource);
 
 					Reference<LoadModelTask> load_model_task = new LoadModelTask();
-					
+					load_model_task->gaussian_splat_lod_base = this->gaussian_splat_lod_base;
+
 					load_model_task->resource = resource;
 					load_model_task->lod_model_url = use_mesh_url;
 					load_model_task->model_lod_level = 0;
@@ -9976,6 +9981,7 @@ void GUIClient::handleMessages(double global_time, double cur_time)
 								{
 									// Start loading the model
 									Reference<LoadModelTask> load_model_task = new LoadModelTask();
+									load_model_task->gaussian_splat_lod_base = this->gaussian_splat_lod_base;
 
 									load_model_task->resource = resource;
 									load_model_task->lod_model_url = URL;
@@ -10174,6 +10180,11 @@ std::string GUIClient::getDiagnosticsString(bool do_graphics_diagnostics, bool d
 					", traversals completed: " + toString(s.num_traversals_completed);
 				msg += "  ";
 				appendWordWrapped(msg, line, /*max_line_len=*/150, /*indent=*/"      ");
+
+				// See PerfStats::last_traversal_hit_budget_cap's comment in GaussianSplatRenderer.h - detail is being limited by max_splats_budget, not by what the scene actually needs. Made loud
+				// ("!WARNING!") since a capped budget looks like ordinary correct behaviour otherwise (a smaller, valid-looking frontier), not an obvious error - easy to miss without this.
+				if(s.last_traversal_hit_budget_cap)
+					msg += "  !WARNING! LoD traversal hit max_splats_budget - detail is capped, not converged (see Gaussian Splats settings)\n";
 			}
 
 			// Per-object breakdown - answers "is THIS specific object showing full detail right now, or a coarse LoD stand-in?", which the aggregate world-wide totals above can't (see PerObjectStats' comment).

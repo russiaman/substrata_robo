@@ -193,6 +193,15 @@ public:
 
 	void shutdown();
 
+	// Live-tunable traversal/resort parameters (Claude_LOD_plan.md stage 7 - "Gaussian Splats settings" dock widget on Qt / equivalent on SDL). Take effect on the NEXT traversal/sort kick-off in think() -
+	// no rebuild or reload needed, unlike lod_base (a tree-build-time parameter, owned by the caller of buildGaussianSplatLodTree() - see LoadModelTask - not by this class at all).
+	float getPixelScaleLimit() const { return pixel_scale_limit; }
+	void setPixelScaleLimit(float v) { pixel_scale_limit = v; }
+	size_t getMaxSplatsBudget() const { return max_splats_budget; }
+	void setMaxSplatsBudget(size_t v) { max_splats_budget = v; }
+	float getResortMoveThreshold() const { return resort_move_threshold_ws; }
+	void setResortMoveThreshold(float v) { resort_move_threshold_ws = v; }
+
 	// Exposed for the in-world performance-diagnostics overlay (GUIClient) - not used by the rendering path itself.
 	struct PerfStats
 	{
@@ -204,6 +213,9 @@ public:
 		double last_traversal_duration_s; // Wall-clock time the most recently completed LoD traversal (stage 5) took, or -1 if none has completed yet.
 		size_t last_traversal_num_selected; // How many nodes the most recently completed traversal's frontier contained - i.e. what current_instance_indices was set to (before the subsequent depth-sort, which never changes the count).
 		uint64 num_traversals_completed;
+		bool last_traversal_hit_budget_cap; // True if the most recently completed traversal's while loop stopped because expanding the next node would have exceeded max_splats_budget, rather than because
+			// every remaining frontier node was already small enough on screen (see GaussianSplatLodTraversalTask::run()) - i.e. detail is being limited by the budget, not by what the scene actually needs.
+			// Surfaced as a "!WARNING!" line in GUIClient::getDiagnosticsString() when true, so it's obvious (not just inferred by eyeballing whether last_traversal_num_selected ~= max_splats_budget).
 	};
 	void getPerfStats(std::vector<PerfStats>& stats_out) const;
 
@@ -296,6 +308,13 @@ private:
 	double last_traversal_duration_s;
 	size_t last_traversal_num_selected;
 	uint64 num_traversals_completed;
+	bool last_traversal_hit_budget_cap;
 
 	ThreadSafeQueue<Reference<ThreadMessage> > traversal_result_queue; // Written to by GaussianSplatLodTraversalTask::run() (worker thread), drained by think() (main thread).
+
+	// Live-tunable via getPixelScaleLimit()/setPixelScaleLimit() etc. above - defaults match the constants these replaced (Claude_LOD_plan.md stage 5/6), except max_splats_budget's default was raised from
+	// 2,000,000 (stage 5's original conservative pick) to 10,000,000 after real-scale testing on an 8.6M-splat scene showed 2M was the binding constraint on close-up detail for a single large object.
+	float pixel_scale_limit;
+	size_t max_splats_budget;
+	float resort_move_threshold_ws;
 };

@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>GaussianSplatSettingsWidget</class>
+ <widget class="QWidget" name="GaussianSplatSettingsWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>440</width>
+    <height>220</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <layout class="QFormLayout" name="formLayout">
+     <item row="0" column="0">
+      <widget class="QLabel" name="lodBaseLabel">
+       <property name="toolTip">
+        <string>Grid-step growth factor between LoD tree levels, used when the tree is built (Spark's Tiny-LoD approach). Smaller = more levels, deeper tree, smoother LoD transitions, slower to build. Larger = fewer levels, faster to build, more visible &quot;popping&quot; between levels. Default 1.5.
+
+REQUIRES CLIENT RELOAD (or re-adding the splat) to take effect - only affects trees built AFTER the change, not ones already built.</string>
+       </property>
+       <property name="text">
+        <string>LoD base</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QDoubleSpinBox" name="lodBaseDoubleSpinBox">
+       <property name="toolTip">
+        <string>Grid-step growth factor between LoD tree levels, used when the tree is built (Spark's Tiny-LoD approach). Smaller = more levels, deeper tree, smoother LoD transitions, slower to build. Larger = fewer levels, faster to build, more visible &quot;popping&quot; between levels. Default 1.5.
+
+REQUIRES CLIENT RELOAD (or re-adding the splat) to take effect - only affects trees built AFTER the change, not ones already built.</string>
+       </property>
+       <property name="decimals">
+        <number>2</number>
+       </property>
+       <property name="minimum">
+        <double>1.010000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>5.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.050000000000000</double>
+       </property>
+       <property name="value">
+        <double>1.500000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0" colspan="2">
+      <widget class="QLabel" name="lodBaseNoteLabel">
+       <property name="styleSheet">
+        <string notr="true">color: #a06000;</string>
+       </property>
+       <property name="text">
+        <string>(requires client reload to take effect - only affects newly (re)loaded splats)</string>
+       </property>
+       <property name="wordWrap">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="0">
+      <widget class="QLabel" name="pixelScaleLimitLabel">
+       <property name="toolTip">
+        <string>How small (in screen pixels) a LoD tree node's projected size must be before traversal stops refining past it. Smaller = more aggressive refinement (more detail everywhere, more nodes drawn, slower). Larger = coarser (fewer nodes, faster, blockier). Takes effect on the next traversal - no reload needed. Default 1.0.</string>
+       </property>
+       <property name="text">
+        <string>Pixel scale limit</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="QDoubleSpinBox" name="pixelScaleLimitDoubleSpinBox">
+       <property name="toolTip">
+        <string>How small (in screen pixels) a LoD tree node's projected size must be before traversal stops refining past it. Smaller = more aggressive refinement (more detail everywhere, more nodes drawn, slower). Larger = coarser (fewer nodes, faster, blockier). Takes effect on the next traversal - no reload needed. Default 1.0.</string>
+       </property>
+       <property name="decimals">
+        <number>2</number>
+       </property>
+       <property name="minimum">
+        <double>0.100000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>20.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.100000000000000</double>
+       </property>
+       <property name="value">
+        <double>1.000000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="0">
+      <widget class="QLabel" name="maxSplatsBudgetLabel">
+       <property name="toolTip">
+        <string>Hard cap on how many LoD tree nodes traversal will ever select in one frame, across all splat objects combined - a safety valve against a pathologically large scene, not a quality dial. If hit, detail is capped below what the scene would otherwise show (flagged as &quot;!WARNING!&quot; in Diagnostics when it happens). Takes effect on the next traversal - no reload needed. Default 10,000,000.</string>
+       </property>
+       <property name="text">
+        <string>Max splats budget</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="1">
+      <widget class="QSpinBox" name="maxSplatsBudgetSpinBox">
+       <property name="toolTip">
+        <string>Hard cap on how many LoD tree nodes traversal will ever select in one frame, across all splat objects combined - a safety valve against a pathologically large scene, not a quality dial. If hit, detail is capped below what the scene would otherwise show (flagged as &quot;!WARNING!&quot; in Diagnostics when it happens). Takes effect on the next traversal - no reload needed. Default 10,000,000.</string>
+       </property>
+       <property name="minimum">
+        <number>1</number>
+       </property>
+       <property name="maximum">
+        <number>200000000</number>
+       </property>
+       <property name="singleStep">
+        <number>100000</number>
+       </property>
+       <property name="value">
+        <number>10000000</number>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="0">
+      <widget class="QLabel" name="resortMoveThresholdLabel">
+       <property name="toolTip">
+        <string>How far (in world-space metres) the camera must move since the last LoD traversal/depth-sort before another one is worth kicking off. Smaller = LoD/sort updates more eagerly as you move (more CPU work). Larger = updates less often (cheaper, but detail/depth-order visibly lags behind camera movement, especially near large objects). Takes effect immediately - no reload needed. Default 0.1.</string>
+       </property>
+       <property name="text">
+        <string>Resort move threshold (m)</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="1">
+      <widget class="QDoubleSpinBox" name="resortMoveThresholdDoubleSpinBox">
+       <property name="toolTip">
+        <string>How far (in world-space metres) the camera must move since the last LoD traversal/depth-sort before another one is worth kicking off. Smaller = LoD/sort updates more eagerly as you move (more CPU work). Larger = updates less often (cheaper, but detail/depth-order visibly lags behind camera movement, especially near large objects). Takes effect immediately - no reload needed. Default 0.1.</string>
+       </property>
+       <property name="decimals">
+        <number>2</number>
+       </property>
+       <property name="minimum">
+        <double>0.010000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>10.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.050000000000000</double>
+       </property>
+       <property name="value">
+        <double>0.100000000000000</double>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

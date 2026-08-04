@@ -433,6 +433,36 @@
     </layout>
    </widget>
   </widget>
+  <widget class="QDockWidget" name="gaussianSplatSettingsDockWidget">
+   <property name="windowTitle">
+    <string>Gaussian Splats settings</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>8</number>
+   </attribute>
+   <widget class="QWidget" name="gaussianSplatSettingsDockWidgetContents">
+    <layout class="QVBoxLayout" name="verticalLayout_12">
+     <property name="spacing">
+      <number>0</number>
+     </property>
+     <property name="leftMargin">
+      <number>0</number>
+     </property>
+     <property name="topMargin">
+      <number>0</number>
+     </property>
+     <property name="rightMargin">
+      <number>0</number>
+     </property>
+     <property name="bottomMargin">
+      <number>0</number>
+     </property>
+     <item>
+      <widget class="GaussianSplatSettingsWidget" name="gaussianSplatSettingsWidget" native="true"/>
+     </item>
+    </layout>
+   </widget>
+  </widget>
   <widget class="QDockWidget" name="environmentDockWidget">
    <property name="windowTitle">
     <string>Environment</string>
@@ -827,6 +857,12 @@
    <class>DiagnosticsWidget</class>
    <extends>QWidget</extends>
    <header>DiagnosticsWidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>GaussianSplatSettingsWidget</class>
+   <extends>QWidget</extends>
+   <header>GaussianSplatSettingsWidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>

@@ -36,10 +36,15 @@ Generated at Mon Jul 27 06:16:15 2026
 #include <queue>
 
 
-// Camera position must move at least this far (in world-space metres) since the world splat cloud's last kicked-off depth-sort before another one is worth
-// kicking off - avoids resorting every single frame for a static or near-static viewpoint. Position is the *only* thing that can invalidate the sort order,
-// since the order is by distance from the camera, which a pure rotation doesn't change - see the class comment in GaussianSplatRenderer.h.
-static const float resort_move_threshold_ws = 0.1f;
+// GaussianSplatRenderer::resort_move_threshold_ws's default (Claude_LOD_plan.md stage 7 - now a live-tunable member, see getResortMoveThreshold()/setResortMoveThreshold() in the .h): camera position must
+// move at least this far (in world-space metres) since the world splat cloud's last kicked-off depth-sort/traversal before another one is worth kicking off - avoids rerunning either every single frame
+// for a static or near-static viewpoint. Position is the *only* thing that invalidates the sort order, since it's by distance from the camera, which a pure rotation doesn't change - see think().
+static const float default_resort_move_threshold_ws = 0.1f;
+
+// GaussianSplatLodTraversalTask defaults (Claude_LOD_plan.md stage 5/6 - now live-tunable members, see GaussianSplatRenderer::getPixelScaleLimit()/getMaxSplatsBudget() etc. in the .h).
+// max_splats_budget's default was raised from an original conservative 2,000,000 to 10,000,000 after real-scale testing on an 8.6M-splat scene showed 2M was the binding constraint on close-up detail.
+static const float default_lod_traversal_pixel_scale_limit = 1.0f;
+static const size_t default_lod_traversal_max_splats_budget = 10000000;
 
 
 // Reusable working buffers for the world splat cloud's background depth-sorts (forward-declared in GaussianSplatRenderer.h, held by GaussianSplatRenderer::sort_scratch).
@@ -282,15 +287,9 @@ public:
 	uint64 topology_generation; // GaussianSplatRenderer::topology_generation as of when this traversal was kicked off - see that field's comment.
 	Reference<GaussianSplatLodTraversalScratch> scratch; // Holds this run's output_indices, and keeps it alive even if shutdown() was called while the traversal ran.
 	double duration_s;
+	bool hit_budget_cap; // True if this run's while loop below stopped because expanding the next node would have exceeded max_splats_budget, rather than because every remaining frontier node was already
+		// small enough on screen - see GaussianSplatRenderer::PerfStats::last_traversal_hit_budget_cap's comment in the .h for why this is surfaced to the diagnostics overlay.
 };
-
-
-// Frontier size cap for the traversal (Claude_LOD_plan.md §4's "max_splats budget") - deliberately conservative and not yet exposed for tuning (plan §6.7/stage 7). Exists purely so a pathological scene
-// (or a bug) can't produce an unbounded frontier; the pixel_scale stopping condition below is what normally ends the walk long before this many nodes are ever selected.
-static const size_t lod_traversal_max_splats_budget = 2000000;
-
-// How small (in screen pixels) a node's feature_size must project to before the traversal stops refining past it - Spark's own guidance is "about 1px" for this kind of frontier selection, see Claude_LOD_plan.md §4.
-static const float lod_traversal_pixel_scale_limit = 1.0f;
 
 
 // Walks every loaded splat object's LoD tree, best-first (Claude_LOD_plan.md §4: a max-heap on "how many screen pixels this node's feature_size currently subtends"), to pick the combined cross-object
@@ -298,9 +297,13 @@ static const float lod_traversal_pixel_scale_limit = 1.0f;
 class GaussianSplatLodTraversalTask : public glare::Task
 {
 public:
+	// pixel_scale_limit_/max_splats_budget_: snapshot of GaussianSplatRenderer::pixel_scale_limit/max_splats_budget as of kick-off (Claude_LOD_plan.md stage 7 - live-tunable, see the .h) - taken here rather
+	// than read directly from the renderer at run() time, since this runs on a worker thread and the renderer's members are otherwise only ever touched from the main thread (same snapshot-at-kickoff
+	// discipline as cam_pos_ws/focal_px below, not just for the world-data concurrency reasons the class comment in GaussianSplatRenderer.h documents for positions_snapshot/entries_snapshot).
 	GaussianSplatLodTraversalTask(uint64 topology_generation_, const Reference<GaussianSplatLodTraversalScratch>& scratch_, const Vec4f& cam_pos_ws_, float focal_px_,
-		ThreadSafeQueue<Reference<ThreadMessage> >* result_queue_)
-	:	topology_generation(topology_generation_), scratch(scratch_), cam_pos_ws(cam_pos_ws_), focal_px(focal_px_), result_queue(result_queue_)
+		float pixel_scale_limit_, size_t max_splats_budget_, ThreadSafeQueue<Reference<ThreadMessage> >* result_queue_)
+	:	topology_generation(topology_generation_), scratch(scratch_), cam_pos_ws(cam_pos_ws_), focal_px(focal_px_),
+		pixel_scale_limit(pixel_scale_limit_), max_splats_budget(max_splats_budget_), result_queue(result_queue_)
 	{}
 
 	virtual void run(size_t /*thread_index*/) override
@@ -351,10 +354,11 @@ public:
 		// Best-first refine: repeatedly expand whichever frontier node currently looks coarsest on screen, until the worst of them is already small enough, or expanding it would blow the budget - see
 		// Claude_LOD_plan.md §4. Every entry's nodes share ONE heap/output here, not traversed and emitted per-entry, precisely so the result is already the single combined, cross-object frontier §4a
 		// requires - a per-object selection stage here would silently reintroduce the cross-object depth-blending bug session019/020 already fixed once (see the class comment in GaussianSplatRenderer.h).
+		bool hit_budget_cap = false;
 		while(!heap.empty())
 		{
 			const HeapItem top = heap.top(); // Copy - still needed below even in the budget-exceeded case, where it's pushed to output unpopped.
-			if(top.pixel_scale <= lod_traversal_pixel_scale_limit)
+			if(top.pixel_scale <= pixel_scale_limit)
 				break; // Worst node left is already small enough on screen - no point refining further; it and everything else still in the heap becomes the output as-is, below.
 
 			const GaussianSplatLodNode& node = scratch->entries_snapshot[top.entry_idx].object_space_data->lod_tree[top.local_node_idx];
@@ -366,9 +370,12 @@ public:
 			}
 
 			// Conservative budget check: assumes every OTHER node currently sitting in the heap (heap.size() - 1, excluding the one being considered for expansion) will end up going to output unexpanded -
-			// the worst case, since some might get expanded further themselves later. Good enough for the MVP's "don't let a pathological scene run away" purpose - see the two constants' comments above.
-			if(output.size() + (heap.size() - 1) + node.child_count > lod_traversal_max_splats_budget)
+			// the worst case, since some might get expanded further themselves later. Good enough for the MVP's "don't let a pathological scene run away" purpose.
+			if(output.size() + (heap.size() - 1) + node.child_count > max_splats_budget)
+			{
+				hit_budget_cap = true;
 				break; // Would exceed budget - stop, dump the rest of the heap (this node included, unexpanded) as-is, below.
+			}
 
 			heap.pop();
 			const size_t entry_offset = scratch->entries_snapshot[top.entry_idx].offset;
@@ -407,6 +414,7 @@ public:
 		msg->topology_generation = topology_generation;
 		msg->scratch = scratch;
 		msg->duration_s = timer.elapsed();
+		msg->hit_budget_cap = hit_budget_cap;
 		result_queue->enqueue(msg);
 	}
 
@@ -415,6 +423,8 @@ private:
 	Reference<GaussianSplatLodTraversalScratch> scratch;
 	Vec4f cam_pos_ws;
 	float focal_px;
+	float pixel_scale_limit;
+	size_t max_splats_budget;
 	ThreadSafeQueue<Reference<ThreadMessage> >* result_queue;
 };
 
@@ -425,7 +435,9 @@ private:
 GaussianSplatRenderer::GaussianSplatRenderer()
 :	gpu_capacity_splats(0), total_splats(0), structure_generation(0), topology_generation(0), sort_in_flight(false), have_last_sort_cam_pos(false),
 	last_coarse_sort_duration_s(-1.0), last_sort_duration_s(-1.0), num_sorts_completed(0),
-	traversal_in_flight(false), have_last_traversal_cam_pos(false), last_traversal_duration_s(-1.0), last_traversal_num_selected(0), num_traversals_completed(0)
+	traversal_in_flight(false), have_last_traversal_cam_pos(false), last_traversal_duration_s(-1.0), last_traversal_num_selected(0), num_traversals_completed(0),
+	last_traversal_hit_budget_cap(false),
+	pixel_scale_limit(default_lod_traversal_pixel_scale_limit), max_splats_budget(default_lod_traversal_max_splats_budget), resort_move_threshold_ws(default_resort_move_threshold_ws)
 {}
 
 
@@ -895,6 +907,7 @@ void GaussianSplatRenderer::think(OpenGLEngine& opengl_engine, glare::TaskManage
 			traversal_in_flight = false;
 			last_traversal_duration_s = msg->duration_s;
 			num_traversals_completed++;
+			last_traversal_hit_budget_cap = msg->hit_budget_cap;
 
 			// An addObject()/removeObject() since this traversal was kicked off has changed which entries/nodes exist - this result no longer reflects the current world (unlike the sort's structure_generation,
 			// which addObject() deliberately leaves alone, this one bumps on every entries change - see topology_generation's declaration comment). Drop it.
@@ -982,7 +995,7 @@ void GaussianSplatRenderer::think(OpenGLEngine& opengl_engine, glare::TaskManage
 		have_last_traversal_cam_pos = true;
 		last_traversal_cam_pos_ws = cam_pos_ws;
 
-		task_manager.addTask(new GaussianSplatLodTraversalTask(topology_generation, traversal_scratch, cam_pos_ws, 0.5f * (focal_x + focal_y), &traversal_result_queue));
+		task_manager.addTask(new GaussianSplatLodTraversalTask(topology_generation, traversal_scratch, cam_pos_ws, 0.5f * (focal_x + focal_y), pixel_scale_limit, max_splats_budget, &traversal_result_queue));
 	}
 }
 
@@ -1002,6 +1015,7 @@ void GaussianSplatRenderer::getPerfStats(std::vector<PerfStats>& stats_out) cons
 	s.last_traversal_duration_s = last_traversal_duration_s;
 	s.last_traversal_num_selected = last_traversal_num_selected;
 	s.num_traversals_completed = num_traversals_completed;
+	s.last_traversal_hit_budget_cap = last_traversal_hit_budget_cap;
 	stats_out.push_back(s);
 }
 

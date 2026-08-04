@@ -615,6 +615,11 @@ public:
 
 	GaussianSplatRenderer gaussian_splat_renderer;
 
+	// LoD tree build-time setting (Claude_LOD_plan.md stage 7 - "Gaussian Splats settings" dock widget on Qt) - read into LoadModelTask::gaussian_splat_lod_base at every construction site of that task
+	// (GUIClient.cpp), which is what actually threads it through to buildGaussianSplatLodTree(). Unlike gaussian_splat_renderer's own live-tunable traversal/resort settings, changing this does NOT affect
+	// splat objects already loaded (their tree is already built) - only ones loaded/reloaded after the change, since rebuilding an existing tree is expensive (see LoadModelTask.h's comment on the field).
+	float gaussian_splat_lod_base = 1.5f;
+
 	// How many Gaussian Splat LoD tree builds (Claude_LOD_plan.md, stage 3) are currently running on LoadModelTask worker threads - a count, not a bool, since more than one .sog file can be loading at once
 	// (e.g. several splat objects already placed in a world you're joining). Driven entirely by Msg_GaussianSplatLodBuildStatusMessage in handleMessages() (see ThreadMessages.h) - goes from 0 to >0 (and calls
 	// ui_interface->setGaussianSplatLodBuildInProgress(true)) on the first build to start, back to 0 (and (false)) once the last one finishes. See LoadModelTask.cpp for where these messages are sent, and why

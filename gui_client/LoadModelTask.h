@@ -107,6 +107,11 @@ public:
 	Reference<glare::Allocator> worker_allocator;
 
 	Reference<OpenGLUploadThread> upload_thread;
+
+	// Only used for the .sog (Gaussian splat) branch of run() - the grid-step growth factor buildGaussianSplatLodTree() uses (Claude_LOD_plan.md §3), now a live-tunable setting (stage 7 - "Gaussian
+	// Splats settings" dock widget on Qt, see GUIClient::gaussian_splat_lod_base) rather than that function's own hardcoded default. Set by the caller from the current setting at construction time - a
+	// setting change only affects splat objects loaded/reloaded AFTER the change, not trees already built, since building one is expensive (tens of seconds at multi-million-splat scale).
+	float gaussian_splat_lod_base;
 };
 #ifdef _WIN32
 #pragma warning(pop)

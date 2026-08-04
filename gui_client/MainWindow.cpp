@@ -436,6 +436,7 @@ void MainWindow::initialiseUI()
 	ui->menuWindow->addAction(ui->indigoViewDockWidget->toggleViewAction());
 #endif
 	ui->menuWindow->addAction(ui->diagnosticsDockWidget->toggleViewAction());
+	ui->menuWindow->addAction(ui->gaussianSplatSettingsDockWidget->toggleViewAction());
 
 	// "Add Gaussian Splat..." Edit-menu action - the Qt counterpart of the SDL client's ImGui "Gaussian splats" panel add-button
 	// (see UIInterface::PICK_GAUSSIAN_SPLAT handling in SDLClient.cpp); both feed GUIClient::createGaussianSplatObjectFromLocalFile().
@@ -538,6 +539,11 @@ void MainWindow::initialiseUI()
 	ui->diagnosticsWidget->init(settings);
 	connect(ui->diagnosticsWidget, SIGNAL(settingsChangedSignal()), this, SLOT(diagnosticsWidgetChanged()));
 	connect(ui->diagnosticsWidget, SIGNAL(reloadTerrainSignal()), this, SLOT(diagnosticsReloadTerrain()));
+
+	ui->gaussianSplatSettingsWidget->init(settings, gui_client.gaussian_splat_lod_base, gui_client.gaussian_splat_renderer.getPixelScaleLimit(), gui_client.gaussian_splat_renderer.getMaxSplatsBudget(),
+		gui_client.gaussian_splat_renderer.getResortMoveThreshold());
+	connect(ui->gaussianSplatSettingsWidget, SIGNAL(settingsChangedSignal()), this, SLOT(gaussianSplatSettingsChanged()));
+	gaussianSplatSettingsChanged(); // Push whatever init() just loaded (restored from settings, or the passed-in defaults on a first-ever run) into gui_client - init() only populates the widget's own controls, it can't reach into gui_client itself.
 
 	ui->environmentOptionsWidget->init(settings);
 	connect(ui->environmentOptionsWidget, SIGNAL(settingChanged()), this, SLOT(environmentSettingChangedSlot()));
@@ -4064,6 +4070,17 @@ void MainWindow::diagnosticsReloadTerrain()
 	}
 
 	// Just leave terrain_system null, will be reinitialised in MainWindow::updateGroundPlane().
+}
+
+
+void MainWindow::gaussianSplatSettingsChanged()
+{
+	// pixel_scale_limit/max_splats_budget/resort_move_threshold_ws take effect on the next traversal/sort kick-off in GaussianSplatRenderer::think() - no other wiring needed. gaussian_splat_lod_base
+	// only affects splat objects loaded/reloaded AFTER this point - see that field's comment in GUIClient.h - so there's deliberately no "rebuild existing trees now" call here.
+	gui_client.gaussian_splat_lod_base = (float)ui->gaussianSplatSettingsWidget->lodBaseDoubleSpinBox->value();
+	gui_client.gaussian_splat_renderer.setPixelScaleLimit((float)ui->gaussianSplatSettingsWidget->pixelScaleLimitDoubleSpinBox->value());
+	gui_client.gaussian_splat_renderer.setMaxSplatsBudget((size_t)ui->gaussianSplatSettingsWidget->maxSplatsBudgetSpinBox->value());
+	gui_client.gaussian_splat_renderer.setResortMoveThreshold((float)ui->gaussianSplatSettingsWidget->resortMoveThresholdDoubleSpinBox->value());
 }
 
 
