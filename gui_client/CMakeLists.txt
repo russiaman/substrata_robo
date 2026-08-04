@@ -180,6 +180,8 @@ ${CMAKE_SOURCE_DIR}/gui_client/GUIClient.h
 ${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatData.h
 ${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatLoader.cpp
 ${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatLoader.h
+${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatLodTree.cpp
+${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatLodTree.h
 ${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatRenderer.cpp
 ${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatRenderer.h
 ${CMAKE_SOURCE_DIR}/gui_client/gaussian_splats/GaussianSplatZipReader.cpp

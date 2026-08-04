@@ -309,6 +309,7 @@ MainWindow::MainWindow(const std::string& base_dir_path_, const std::string& app
 	parsed_args(args),
 	QMainWindow(parent),
 	need_help_info_dock_widget_position(false),
+	gaussian_splat_lod_build_overlay_label(NULL),
 	log_window(NULL),
 	in_CEF_message_loop(false),
 	should_close(false),
@@ -4417,6 +4418,54 @@ void MainWindow::setHelpInfoLabelToDefaultText()
 void MainWindow::setHelpInfoLabel(const std::string& text)
 {
 	this->ui->helpInfoLabel->setText(QtUtils::toQString(text));
+}
+
+
+// See UIInterface.h's comment on this method for why it exists (no ImGui on this - the Qt - desktop client, unlike the SDL/web client, so a Gaussian Splat LoD build's "Processing..." indicator needs a native
+// Qt implementation here). A small, centred, dialog-sized QLabel over the GL viewport (not a QDialog - no title bar/window chrome needed for something this transient) rather than covering the whole viewport in
+// black, which read as too jarring/heavy-handed for what's meant to be a brief, unobtrusive status notice (feedback from an actual test run - the original full-viewport version was functionally fine but
+// visually excessive).
+//
+// Deliberately does NOT disable ui->glWidget (an earlier version of this method did, to block camera/click input for the duration - matching what the SDL/web client used to do by forcing its ImGui-capture-
+// input flags on). Removed both sides of that (2026-08-04) after the SDL/web version's forced capture was found to swallow a movement key's release event if it happened to land during the (now guaranteed
+// >= 2s, see GUIClient.h's gaussian_splat_lod_overlay_hide_pending comment) display window, sticking that key's "is held" state on forever with no way to release it - see SDLClient.cpp's comment on
+// imgui_captures_keyboard_ev for the full story. Qt's disabled-widget event delivery isn't known to have the exact same failure mode, but it's the same *class* of risk (a boolean gate that can apply to a
+// key-down and not the matching key-up, or vice versa, depending on timing) for the same reason (blocking input around an unpredictable-length async operation), so it's removed here too rather than trust
+// that Qt happens to handle it more symmetrically. The indicator is shown either way; only the input-blocking side of it is gone.
+void MainWindow::setGaussianSplatLodBuildInProgress(bool in_progress)
+{
+	if(!gaussian_splat_lod_build_overlay_label)
+	{
+		gaussian_splat_lod_build_overlay_label = new QLabel(ui->glWidget);
+		gaussian_splat_lod_build_overlay_label->setAlignment(Qt::AlignCenter);
+		gaussian_splat_lod_build_overlay_label->setWordWrap(true);
+		gaussian_splat_lod_build_overlay_label->setStyleSheet(
+			"background-color: rgba(25, 25, 25, 235);"
+			"color: white;"
+			"font-size: 24pt;" // 2x the original 12pt - box itself is 3x (below), but text at 3x would look oversized/cartoonish relative to the box's padding/proportions.
+			"border: 1px solid rgba(255, 255, 255, 60);"
+			"border-radius: 8px;"
+			"padding: 16px;"
+		);
+		gaussian_splat_lod_build_overlay_label->setText("Building Gaussian Splat LoD tree...");
+		gaussian_splat_lod_build_overlay_label->hide();
+	}
+
+	if(in_progress)
+	{
+		// Small fixed-size box, centred over the viewport - a dialog-like footprint rather than the whole GL widget. 3x the original 340x90 (feedback from an actual test: text was getting clipped in the
+		// smaller box, and it read as too subtle/easy to miss - see the font-size bump above too).
+		const int box_w = 1020, box_h = 270;
+		const QRect viewport_rect = ui->glWidget->rect();
+		const QRect box_rect(viewport_rect.center().x() - box_w / 2, viewport_rect.center().y() - box_h / 2, box_w, box_h);
+		gaussian_splat_lod_build_overlay_label->setGeometry(box_rect);
+		gaussian_splat_lod_build_overlay_label->show();
+		gaussian_splat_lod_build_overlay_label->raise();
+	}
+	else
+	{
+		gaussian_splat_lod_build_overlay_label->hide();
+	}
 }
 
 

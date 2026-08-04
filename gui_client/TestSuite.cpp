@@ -11,6 +11,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "TerrainTests.h"
 #include "URLParser.h"
 #include "CameraController.h"
+#include "gaussian_splats/GaussianSplatLodTree.h"
 #include "../shared/VoxelMeshBuilding.h"
 #include "../shared/LODGeneration.h"
 #include "../shared/ImageDecoding.h"
@@ -168,6 +169,7 @@ void TestSuite::test()
 	runTest([&]() { BitUtils::test(); });
 	runTest([&]() { quaternionTests(); });
 	runTest([&]() { Matrix3f::test(); });
+	runTest([&]() { GaussianSplatLodTreeTests::test(); });
 	runTest([&]() { circularBufferTest(); });
 	runTest([&]() { glare::testPoolAllocator(); });
 	//runTest([&]() { TextureLoadingTests::test(); });

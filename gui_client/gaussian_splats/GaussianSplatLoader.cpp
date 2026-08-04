@@ -201,8 +201,15 @@ GaussianSplatDataRef GaussianSplatLoader::loadFromBuffer(const uint8_t* data, si
 		const float g = 0.5f + (float)sh0_codebook[sh0_img.data[px + 1]] * SH_C0;
 		const float bl = 0.5f + (float)sh0_codebook[sh0_img.data[px + 2]] * SH_C0;
 		const float op = sh0_img.data[px + 3] / 255.f;
-		Colour3f linear_col = toLinearSRGB(Colour3f(r, g, bl));
+#if !defined(EMSCRIPTEN)
+		// SOG stores SH0 colour in gamma-space (sRGB) - the native/desktop pipeline renders in linear-HDR (Format_RGBA_Linear_Half), so it needs converting on the way in (session026, 2026-08-01). The web
+		// build's pipeline is direct sRGB 8-bit output, not linear-HDR - converting there too double-applies gamma, producing washed-out/whitish splats (caught 2026-08-04 on the first web rebuild since this
+		// conversion was added - it had only ever been tested on the native build until then).
+		const Colour3f linear_col = toLinearSRGB(Colour3f(r, g, bl));
 		result->colours[i] = Vec4f(linear_col.r, linear_col.g, linear_col.b, op);
+#else
+		result->colours[i] = Vec4f(r, g, bl, op);
+#endif
 	}
 
 	result->aabb_os = aabb;

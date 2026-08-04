@@ -10,6 +10,7 @@ Copyright Glare Technologies Limited 2025 -
 #include "ThreadMessages.h"
 #include "ModelLoading.h"
 #include "gaussian_splats/GaussianSplatLoader.h"
+#include "gaussian_splats/GaussianSplatLodTree.h"
 #include "../shared/ResourceManager.h"
 #include <opengl/OpenGLEngine.h>
 #include <opengl/OpenGLMeshRenderData.h>
@@ -19,8 +20,29 @@ Copyright Glare Technologies Limited 2025 -
 #include <utils/FileUtils.h>
 #include <utils/UniqueRef.h>
 #include <utils/MemMappedFile.h>
+#include <utils/Mutex.h>
+#include <utils/Lock.h>
 #include <graphics/FormatDecoderSubVox.h>
 #include <tracy/Tracy.hpp>
+#include <unordered_map>
+
+
+namespace
+{
+
+
+// Cache of already-decoded-and-LoD-tree-built Gaussian splat clouds, keyed by model URL (which is content-hash-based - see ResourceManager::URLForPathAndHash() - so same URL always means same file bytes,
+// making this safe to share the same GaussianSplatDataRef across every WorldObject that happens to reference that URL). Exists because loadModelForObject() (GUIClient.cpp) re-triggers a LoadModelTask for an
+// object whenever its *raw* object LOD level changes (crosses a getLODLevel() distance band), even though the *model* LOD level it actually resolves to is unaffected (splats have no model-LOD-level variants
+// at all, max_model_lod_level == 0) - the model-LOD-level-based skip-if-unchanged check in loadModelForObject() only applies inside the ObjectType_Generic branch, downstream of that raw-level check, so for an
+// object sitting near a raw LOD-level boundary this can still fire repeatedly on small camera movements. Without this cache, each of those redundant reloads would redecode the whole file and rebuild its LoD
+// tree from scratch, and (worse, from a user's perspective) re-show the "Building..." indicator every time - found 2026-08-04 when a splat placed within a couple of metres of a LOD-level boundary made the
+// indicator pop up on every few steps. Cheap fix: skip straight to the cached result instead of re-decoding/re-building.
+Mutex g_gaussian_splat_cache_mutex;
+std::unordered_map<std::string, GaussianSplatDataRef> g_gaussian_splat_cache GUARDED_BY(g_gaussian_splat_cache_mutex);
+
+
+} // end anonymous namespace
 
 
 LoadModelTask::LoadModelTask()
@@ -110,7 +132,53 @@ void LoadModelTask::run(size_t thread_index)
 					// Gaussian splat cloud: just decode it (CPU-only work, no GL calls) and send it straight back - no mesh/physics geometry to build, so skip the rest of the pipeline below
 					// (vert/index data extraction, upload_thread/VBO-pool path) entirely. See GUIClient::handleUploadedGaussianSplat() for the consuming side.
 					Reference<ModelLoadedThreadMessage> msg = new ModelLoadedThreadMessage();
-					msg->splat_data = GaussianSplatLoader::loadFromBuffer(model_buffer.data(), model_buffer.size());
+
+					const std::string cache_key = toStdString(lod_model_url);
+					GaussianSplatDataRef cached_splat_data;
+					{
+						Lock lock(g_gaussian_splat_cache_mutex);
+						auto it = g_gaussian_splat_cache.find(cache_key);
+						if(it != g_gaussian_splat_cache.end())
+							cached_splat_data = it->second;
+					}
+
+					if(cached_splat_data.nonNull())
+					{
+						// See the cache's declaration comment (top of file) for why this reload is happening at all (a raw object-LOD-level change near a boundary, not an actual content change) and why
+						// skipping straight to the already-built result - no re-decode, no LoD rebuild, no "Building..." indicator - is correct here, not just faster: same URL guarantees same file bytes.
+						msg->splat_data = cached_splat_data;
+					}
+					else
+					{
+						msg->splat_data = GaussianSplatLoader::loadFromBuffer(model_buffer.data(), model_buffer.size()); // Can throw - if it does, none of the LoD-build code below ever runs, so there's no
+							// Msg_GaussianSplatLodBuildStatusMessage(starting=true) to reconcile; the outer catch blocks handle this exactly as they did before this feature existed.
+
+						// Build the on-the-fly LoD tree (Claude_LOD_plan.md, stage 3) - also CPU-only, safe to do right here on this worker thread, still before result_msg_queue->enqueue(msg) below hands the
+						// splat cloud back to the main thread. Bracketed with start/finish status messages so GUIClient can show/hide a "Building..." indicator for however long this takes (see
+						// GUIClient::num_gaussian_splat_lod_builds_in_progress and ThreadMessages.h's GaussianSplatLodBuildStatusMessage) - large/dense scenes are the whole reason this feature exists, so
+						// unlike the fast (already-been-here-for-months) decode step above, this step can genuinely take long enough to be worth telling the user about.
+						if(msg->splat_data.nonNull() && msg->splat_data->numSplats() > 0)
+						{
+							result_msg_queue->enqueue(new GaussianSplatLodBuildStatusMessage(/*starting=*/true));
+							try
+							{
+								msg->splat_data->lod_tree = buildGaussianSplatLodTree(msg->splat_data->positions.data(), msg->splat_data->scales.data(), msg->splat_data->rotations.data(),
+									msg->splat_data->colours.data(), msg->splat_data->numSplats());
+							}
+							catch(std::exception&)
+							{
+								// The LoD tree is a nice-to-have, not something the splat cloud needs in order to render at all (stage 4, GPU upload of the tree, isn't wired up yet as of this comment, and
+								// even once it is, GaussianSplatRenderer must already treat an empty lod_tree as "no LoD, render every splat" for the not-yet-built case above - reuse that same fallback here
+								// rather than failing the whole upload over a LoD-only problem). msg->splat_data->lod_tree is left empty (default-constructed) by this catch.
+							}
+							result_msg_queue->enqueue(new GaussianSplatLodBuildStatusMessage(/*starting=*/false)); // Always sent if starting=true was - the try/catch above guarantees that, whatever
+								// buildGaussianSplatLodTree() does, we still reach this line and don't leave GUIClient's counter incremented forever.
+
+							Lock lock(g_gaussian_splat_cache_mutex);
+							g_gaussian_splat_cache[cache_key] = msg->splat_data;
+						}
+					}
+
 					msg->lod_model_url = lod_model_url;
 					msg->model_lod_level = model_lod_level;
 					msg->built_dynamic_physics_ob = this->build_dynamic_physics_ob;

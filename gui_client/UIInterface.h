@@ -166,4 +166,14 @@ public:
 	static const int PICK_GAUSSIAN_SPLAT = 2;
 
 	virtual std::string showOpenFileDialog(const std::string& caption, const std::vector<FileTypeFilter>& file_type_filters, const std::string& settings_key, int file_picker_id) = 0; // Returns path to file selected or empty string if cancelled.
+
+
+	// Gaussian Splat LoD tree build progress indicator (Claude_LOD_plan.md, stage 3). Why this needs its own UIInterface method rather than reusing something existing: the two concrete UI backends behind this
+	// interface aren't symmetric here. The SDL/web client (SDLUIInterface) has ImGui wired up and can just show an overlay window with it, but the Qt desktop client (MainWindow, built with USE_SDL=OFF) never
+	// initialises ImGui at all - ImGui's NewFrame()/Render() calls only exist in SDLClient.cpp. So each side needs to show "building..." using whatever native UI mechanism it actually has - same reason
+	// showLodChunksVisEnabled() above is implemented twice rather than shared. Purely a visual indicator - does NOT block camera/game input while in_progress is true. An earlier version did (Qt: disable the GL
+	// widget; SDL: force the existing ImGui-capture-input flags on) but both were removed 2026-08-04: the SDL side's forced capture could swallow a movement key's key-up event if it landed during the (>= 2s
+	// minimum, see GUIClient.h) display window, leaving that key stuck "held" forever with no way to release it (see SDLClient.cpp's comment on imgui_captures_keyboard_ev). The Qt side was removed too as the
+	// same class of risk (a boolean input-block gate with no guaranteed press/release symmetry), not because it was observed to fail the same way.
+	virtual void setGaussianSplatLodBuildInProgress(bool in_progress) = 0;
 };

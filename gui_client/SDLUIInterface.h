@@ -134,6 +134,11 @@ public:
 	// File selection
 	virtual std::string showOpenFileDialog(const std::string& caption, const std::vector<FileTypeFilter>& file_type_filters, const std::string& settings_key, int file_picker_id) override; // Returns path to file selected or empty string if cancelled.
 
+	virtual void setGaussianSplatLodBuildInProgress(bool in_progress) override; // See UIInterface.h's comment on this method for why the Qt and SDL/web implementations differ (no ImGui on the Qt desktop client).
+
+	// Read directly by SDLClient.cpp's main loop (via the global sdl_ui_interface pointer) to draw the "building..." ImGui window and to force-block camera/game input for the duration - see setGaussianSplatLodBuildInProgress()'s definition in SDLUIInterface.cpp and its usage in SDLClient.cpp.
+	// Default member initialiser (rather than a constructor) because SDLUIInterface has no constructor of its own - SDLClient.cpp default-constructs it and sets fields individually afterwards (see sdl_ui_interface = new SDLUIInterface(); in SDLClient.cpp).
+	bool gaussian_splat_lod_build_in_progress = false;
 
 	SDL_Window* window;
 	SDL_GLContext gl_context;

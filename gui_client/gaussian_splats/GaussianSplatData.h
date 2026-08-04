@@ -7,6 +7,7 @@ Generated at Mon Jul 27 06:16:15 2026
 #pragma once
 
 
+#include "GaussianSplatLodTree.h"
 #include <maths/vec3.h>
 #include <maths/Vec4f.h>
 #include <physics/jscol_aabbox.h>
@@ -36,6 +37,13 @@ public:
 	std::vector<Vec4f> colours; // (r, g, b, opacity), all in [0, 1].
 
 	js::AABBox aabb_os; // Bounding box in object space, over splat centres only (does not account for splat extents).
+
+	// On-the-fly LoD tree (Claude_LOD_plan.md), built asynchronously from positions/scales/rotations/colours above by LoadModelTask right after this GaussianSplatData is decoded - see LoadModelTask.cpp's
+	// .sog branch. Built once, in this same object space, so that GaussianSplatRenderer::updateObjectTransform() can re-bake every node (leaves and merged internal nodes alike) into world space the same way it
+	// already does for individual leaf splats, rather than rebuilding the tree on every move (see buildGaussianSplatLodTree()'s declaration comment for why a merged node transforms identically to a leaf one
+	// under a rigid + uniform-scale transform). Empty if the build hasn't happened yet, or failed (a missing tree isn't fatal to rendering the splat cloud - see LoadModelTask.cpp) - GaussianSplatRenderer must
+	// treat empty the same as "not built yet, fall back to rendering every splat with no LoD" (stage 4, not implemented yet as of this comment).
+	std::vector<GaussianSplatLodNode> lod_tree;
 };
 
 

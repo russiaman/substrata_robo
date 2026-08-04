@@ -326,6 +326,8 @@ public:
 
 	// File selection
 	virtual std::string showOpenFileDialog(const std::string& caption, const std::vector<FileTypeFilter>& file_type_filters, const std::string& settings_key, int file_picker_id) override; // Returns path to file selected or empty string if cancelled.
+
+	virtual void setGaussianSplatLodBuildInProgress(bool in_progress) override; // See UIInterface.h's comment on this method for why the Qt and SDL/web implementations differ (no ImGui on the Qt desktop client).
 	//------------------------------------------------- End UIInterface -----------------------------------------------------------
 
 public:
@@ -373,7 +375,11 @@ public:
 private:
 	bool need_help_info_dock_widget_position; // We may need to position the Help info dock widget to the bottom right of the GL view.
 	// But we need to wait until the gl view has been resized before we do this, so set this flag to do in a timer event.
-	
+
+	// Gaussian Splat LoD build progress overlay (see setGaussianSplatLodBuildInProgress()) - a plain QLabel child of ui->glWidget, created lazily on first use rather than in the constructor since it's needed
+	// rarely (only while a LoD tree is actually being built) and every other overlay/dialog widget in this class already exists for the whole app lifetime, which this one doesn't need to.
+	QLabel* gaussian_splat_lod_build_overlay_label;
+
 	QTimer* update_ob_editor_transform_timer;
 	QTimer* lightmap_flag_timer;
 	int main_timer_id; // ID of Main QT timer.

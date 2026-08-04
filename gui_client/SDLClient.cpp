@@ -922,9 +922,19 @@ static void doOneMainLoopIter()
 	SDL_Event e;
 	while(SDL_PollEvent(&e))
 	{
-		if(show_imgui_info_window)
+		// A Gaussian Splat LoD tree build in progress (see UIInterface.h's setGaussianSplatLodBuildInProgress()) needs ImGui events processed too, independent of the F1 debug window toggle, since it draws its
+		// own "Building..." window below regardless of show_imgui_info_window.
+		const bool lod_build_in_progress = sdl_ui_interface->gaussian_splat_lod_build_in_progress;
+
+		if(show_imgui_info_window || lod_build_in_progress)
 			ImGui_ImplSDL2_ProcessEvent(&e); // Pass event onto ImGUI
 
+		// Deliberately NOT forcing these true while lod_build_in_progress (an earlier version of this code did, to block camera/game input for the duration, matching the Qt desktop client disabling its GL
+		// widget for the same reason - see MainWindow::setGaussianSplatLodBuildInProgress()). Found the hard way (2026-08-04): SDL_KEYUP handling below is gated on !imgui_captures_keyboard_ev, so forcing it
+		// true for the ~2+ second minimum display time (see GUIClient.h's gaussian_splat_lod_overlay_hide_pending comment) could swallow a key-up that happened to land in that window - e.g. releasing the
+		// "move forward" key right as a splat finished loading - leaving that key's "is held" state stuck on with no matching release ever delivered, so the avatar walks forward forever with no way to stop
+		// it short of restarting. The Qt side's widget-disable approach doesn't have this specific failure mode (Qt's own focus/event delivery handles a disabled widget more symmetrically), so it's left as
+		// is; this client just shows the indicator without blocking input, which is a safe trade rather than a real fix for the same risk here.
 		const bool imgui_captures_mouse_ev    = show_imgui_info_window && ImGui::GetIO().WantCaptureMouse;
 		const bool imgui_captures_keyboard_ev = show_imgui_info_window && ImGui::GetIO().WantCaptureKeyboard;
 
@@ -1502,6 +1512,26 @@ static void doOneMainLoopIter()
 			ImGui::EndPopup();
 		}
 
+		ImGui::End();
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+	}
+
+	// Gaussian Splat LoD tree build progress indicator (see UIInterface.h's setGaussianSplatLodBuildInProgress() comment for why this exists specifically for the SDL/web client - the Qt desktop client has no
+	// ImGui to draw with, so it shows a native Qt overlay instead, see MainWindow::setGaussianSplatLodBuildInProgress()). Deliberately a separate ImGui frame from the one above rather than folded into it,
+	// since this one needs to show regardless of show_imgui_info_window (the F1 debug window can be closed while a splat file is loading) - a second independent NewFrame()/Render() pair per real frame is
+	// normal ImGui usage, not a hack, it just costs a little more than reusing the block above on the (rare) frames both happen to be showing at once.
+	if(sdl_ui_interface->gaussian_splat_lod_build_in_progress)
+	{
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplSDL2_NewFrame();
+		ImGui::NewFrame();
+
+		const ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+		ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+		ImGui::Begin("##gaussian_splat_lod_build_progress", /*p_open=*/NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::TextUnformatted("Building Gaussian Splat LoD tree...");
 		ImGui::End();
 
 		ImGui::Render();
