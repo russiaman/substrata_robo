@@ -1531,6 +1531,7 @@ static void doOneMainLoopIter()
 		const ImVec2 center = ImGui::GetMainViewport()->GetCenter();
 		ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
 		ImGui::Begin("##gaussian_splat_lod_build_progress", /*p_open=*/NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::SetWindowFontScale(3.0f); // Match the Qt desktop overlay's enlarged size (session027 feedback: default size was too small to read) - AlwaysAutoResize grows the window to fit the scaled text.
 		ImGui::TextUnformatted("Building Gaussian Splat LoD tree...");
 		ImGui::End();
 
