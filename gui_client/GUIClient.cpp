@@ -10112,6 +10112,41 @@ void GUIClient::handleMessages(double global_time, double cur_time)
 #endif
 
 
+// Appends 'text' to 'msg_out' word-wrapped to at most max_line_len characters per line (breaking on spaces, never mid-word), with 'indent' prepended to every wrapped continuation line (not the first,
+// which the caller is expected to have already indented as part of 'text' itself) - then a trailing newline. Used for the Gaussian splat diagnostics section below, whose per-stat-field lines would
+// otherwise run to 250+ characters: Qt's QPlainTextEdit soft-wraps long lines on its own, but the SDL/web ImGui text display doesn't, and just gets clipped at the window edge instead - see the owner's
+// feedback that prompted this.
+static void appendWordWrapped(std::string& msg_out, const std::string& text, size_t max_line_len, const std::string& indent)
+{
+	size_t line_len = 0;
+	size_t pos = 0;
+	while(pos < text.size())
+	{
+		size_t next_space = text.find(' ', pos);
+		if(next_space == std::string::npos)
+			next_space = text.size();
+		const size_t word_len = next_space - pos; // Not including the space itself, if any.
+
+		if(line_len > 0 && (line_len + 1 + word_len) > max_line_len) // +1 for the space that would otherwise separate this word from the previous one on the same line.
+		{
+			msg_out += "\n" + indent;
+			line_len = indent.size();
+		}
+		else if(line_len > 0)
+		{
+			msg_out += " ";
+			line_len += 1;
+		}
+
+		msg_out += text.substr(pos, word_len);
+		line_len += word_len;
+
+		pos = next_space + 1; // Skips the space itself; harmless no-op past the end when next_space == text.size().
+	}
+	msg_out += "\n";
+}
+
+
 std::string GUIClient::getDiagnosticsString(bool do_graphics_diagnostics, bool do_physics_diagnostics, bool do_terrain_diagnostics, bool do_splat_diagnostics, double last_timerEvent_CPU_work_elapsed, double last_updateGL_time)
 {
 	std::string msg;
@@ -10130,13 +10165,15 @@ std::string GUIClient::getDiagnosticsString(bool do_graphics_diagnostics, bool d
 			for(size_t i = 0; i < splat_stats.size(); ++i)
 			{
 				const GaussianSplatRenderer::PerfStats& s = splat_stats[i];
-				msg += "  [" + toString(i) + "] source: " + s.source_name + ", num_splats (nodes, incl. LoD tree internals): " + toString(s.num_splats) +
+				const std::string line = "[" + toString(i) + "] source: " + s.source_name + ", num_splats (nodes, incl. LoD tree internals): " + toString(s.num_splats) +
 					", last coarse depth-sort time: " + (s.last_coarse_sort_duration_s >= 0.0 ? (doubleToStringNSigFigs(s.last_coarse_sort_duration_s * 1000, 3) + " ms") : std::string("(none yet)")) +
 					", last precise depth-sort time: " + (s.last_sort_duration_s >= 0.0 ? (doubleToStringNSigFigs(s.last_sort_duration_s * 1000, 3) + " ms") : std::string("(none yet)")) +
 					", sorts completed: " + toString(s.num_sorts_completed) +
 					", last LoD traversal time: " + (s.last_traversal_duration_s >= 0.0 ? (doubleToStringNSigFigs(s.last_traversal_duration_s * 1000, 3) + " ms") : std::string("(none yet)")) +
 					", last traversal selected: " + toString(s.last_traversal_num_selected) +
-					", traversals completed: " + toString(s.num_traversals_completed) + "\n";
+					", traversals completed: " + toString(s.num_traversals_completed);
+				msg += "  ";
+				appendWordWrapped(msg, line, /*max_line_len=*/150, /*indent=*/"      ");
 			}
 
 			// Per-object breakdown - answers "is THIS specific object showing full detail right now, or a coarse LoD stand-in?", which the aggregate world-wide totals above can't (see PerObjectStats' comment).
@@ -10158,10 +10195,12 @@ std::string GUIClient::getDiagnosticsString(bool do_graphics_diagnostics, bool d
 							name = stripResourceHashSuffixForDisplay(toStdString(res.getValue()->model_url));
 					}
 
-					msg += "  [" + toString(i) + "] " + name + ": " +
+					const std::string line = "[" + toString(i) + "] " + name + ": " +
 						(s.has_tree ?
 							(toString(s.num_selected_now) + " / " + toString(s.num_tree_nodes) + " tree nodes currently drawn (" + toString(s.num_leaf_splats) + " leaf splats total)") :
-							("no LoD tree yet - drawing all " + toString(s.num_leaf_splats) + " leaf splats")) + "\n";
+							("no LoD tree yet - drawing all " + toString(s.num_leaf_splats) + " leaf splats"));
+					msg += "  ";
+					appendWordWrapped(msg, line, /*max_line_len=*/150, /*indent=*/"      ");
 				}
 			}
 
