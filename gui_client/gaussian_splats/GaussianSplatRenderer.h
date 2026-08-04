@@ -119,7 +119,9 @@ GaussianSplatLodTraversalTask (background worker, same TaskManager as the depth-
 repeatedly expanding whichever frontier node currently subtends the most screen pixels (pixel_scale = feature_size / distance * focal_px) until either the worst-offending node is already small enough
 (<= ~1px) or expanding it would exceed the splat budget, at which point the whole remaining frontier (across ALL entries, in ONE combined heap/output - see §4a and the concurrency note below) becomes
 the new current_instance_indices, exactly like a fresh addObject() would set it, which in turn forces a fresh depth-sort of that selection (have_last_sort_cam_pos = false) - the sort itself needed zero
-changes for this, since positions_snapshot/index_snapshot already generalised from "the whole world" to "whatever's currently selected" back in stage 4.
+changes for this, since positions_snapshot/index_snapshot already generalised from "the whole world" to "whatever's currently selected" back in stage 4. The frontier arrives from the worker thread already
+sorted farthest-first (GaussianSplatLodTraversalTask::run() does this itself, using the same positions_snapshot it walked the tree with) - not just heap-pop order - so it's never drawn unsorted even for
+one frame; an earlier version sorted it on the main thread instead, right when applied here, which was correct but visibly dropped FPS on a large (500K+ selected node) scene - see that function's comment.
 
 Concurrency note for the traversal (mirrors the depth-sort's, above, but wider): the worker must never touch the live world_positions/world_scales vectors OR any entry's object_space_data->lod_tree
 topology while the main thread could be mutating them. Unlike the sort - whose input set is already fixed by the time it's kicked off (current_instance_indices) - traversal *discovers* which nodes it

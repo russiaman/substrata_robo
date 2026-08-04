@@ -384,6 +384,25 @@ public:
 			heap.pop();
 		}
 
+		// Sort the frontier by camera distance, farthest-first (back-to-front, matching the depth-sort's own convention - see resort_move_threshold_ws's comment) - done HERE, on this worker thread, not
+		// deferred to the main thread. This is a brand new SET of nodes about to replace what's currently displayed, not just a reorder of an already-sorted selection (which the existing async depth-sort
+		// pipeline in GaussianSplatRenderer::think() exists for) - drawing it in raw heap-pop order even for one frame shows visibly wrong alpha-blended overlap until that pipeline catches up (this was
+		// the "artifacts during camera movement, settles once it stops" bug found during stage 5's first visual test). An earlier version of this fix did the sort on the main thread instead, right when
+		// the result was applied - correct, but at large frontier sizes (500K+ nodes, seen testing an 8.6M-splat scene) that std::sort call itself became expensive enough on the main thread to visibly
+		// drop FPS, made worse by recomputing each node's getDist() (a sqrt) fresh on every single comparison rather than once - decorating with a precomputed distance up front (below) and doing the
+		// whole thing off the main thread fixes both problems at once.
+		{
+			struct DistIdx { float dist; uint32 idx; };
+			std::vector<DistIdx> dist_idx(output.size());
+			for(size_t i = 0; i < output.size(); ++i)
+				dist_idx[i] = DistIdx{ scratch->positions_snapshot[output[i]].getDist(cam_pos_ws_3), output[i] };
+
+			std::sort(dist_idx.begin(), dist_idx.end(), [](const DistIdx& a, const DistIdx& b) { return a.dist > b.dist; }); // Farthest first - each element's distance was computed exactly once, above.
+
+			for(size_t i = 0; i < output.size(); ++i)
+				output[i] = dist_idx[i].idx;
+		}
+
 		Reference<GaussianSplatLodTraversalResultMsg> msg = new GaussianSplatLodTraversalResultMsg();
 		msg->topology_generation = topology_generation;
 		msg->scratch = scratch;
@@ -882,28 +901,16 @@ void GaussianSplatRenderer::think(OpenGLEngine& opengl_engine, glare::TaskManage
 			if(msg->topology_generation != topology_generation)
 				continue;
 
-			// Full overwrite, not a partial/prefix update like the sort's - traversal can change the SET of selected nodes (which entries' which nodes), not just their draw order.
+			// Full overwrite, not a partial/prefix update like the sort's - traversal can change the SET of selected nodes (which entries' which nodes), not just their draw order. Already sorted
+			// farthest-first by GaussianSplatLodTraversalTask::run() itself, on the worker thread - see that function's comment for why doing that sort here on the main thread instead (an earlier version
+			// of this code did) turned out to visibly drop FPS on a large (500K+ selected node) scene.
 			current_instance_indices = msg->scratch->output_indices;
-
-			// Sort synchronously, right here, before this ever reaches the GPU - traversal's own output is in raw heap-pop order, not camera-distance order. This is NOT redundant with the async depth-sort
-			// kicked off just below: that one only starts catching up a frame (or several, at multi-million-splat scale) later, and in the meantime this is a brand new SET of alpha-blended nodes replacing
-			// what's on screen (unlike an ordinary async resort of an already-displayed, already-sorted selection) - drawing it even briefly in unsorted order shows visibly wrong overlap/colour bleeding.
-			// This is exactly the "artifacts while the camera moves, settles the instant it stops" symptom - confirmed by it appearing under third-person orbit-turning (which moves the camera position, so
-			// re-traverses) but not first-person look-only turning (which doesn't). A plain std::sort here is cheap relative to the traversal that already ran on a worker thread to produce this (budget-
-			// capped, see lod_traversal_max_splats_budget) set; only a scene near that budget ceiling could make this noticeably hitch - not a concern at MVP scale, see that constant's comment.
-			{
-				const Vec3f cam_pos_ws_3 = toVec3f(cam_pos_ws);
-				std::sort(current_instance_indices.begin(), current_instance_indices.end(), [&](uint32 a, uint32 b)
-				{
-					return world_positions[a].getDist(cam_pos_ws_3) > world_positions[b].getDist(cam_pos_ws_3); // Farthest-first (back-to-front), matching the async sort's convention - see resort_move_threshold_ws's comment.
-				});
-			}
 
 			last_traversal_num_selected = current_instance_indices.size();
 			world_ob->num_instances_to_draw = (int)current_instance_indices.size();
 			instance_index_vbo->updateData(0, current_instance_indices.data(), current_instance_indices.size() * sizeof(uint32));
 
-			have_last_sort_cam_pos = false; // Still force a fresh async resort - the synchronous sort above is a good-enough-for-one-frame placeholder, not as precise/optimised as the real two-stage radix-sort pipeline.
+			have_last_sort_cam_pos = false; // Still force a fresh async precise resort - the traversal's own sort is farthest-first exact (not an approximation), but doing the existing radix-sort pipeline's coarse+precise passes too is cheap and keeps this path uniform with every other case that sets current_instance_indices.
 		}
 	}
 
