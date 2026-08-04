@@ -10258,10 +10258,13 @@ std::string GUIClient::getDiagnosticsString(bool do_graphics_diagnostics, bool d
 			for(size_t i = 0; i < splat_stats.size(); ++i)
 			{
 				const GaussianSplatRenderer::PerfStats& s = splat_stats[i];
-				msg += "  [" + toString(i) + "] source: " + s.source_name + ", num_splats: " + toString(s.num_splats) +
+				msg += "  [" + toString(i) + "] source: " + s.source_name + ", num_splats (nodes, incl. LoD tree internals): " + toString(s.num_splats) +
 					", last coarse depth-sort time: " + (s.last_coarse_sort_duration_s >= 0.0 ? (doubleToStringNSigFigs(s.last_coarse_sort_duration_s * 1000, 3) + " ms") : std::string("(none yet)")) +
 					", last precise depth-sort time: " + (s.last_sort_duration_s >= 0.0 ? (doubleToStringNSigFigs(s.last_sort_duration_s * 1000, 3) + " ms") : std::string("(none yet)")) +
-					", sorts completed: " + toString(s.num_sorts_completed) + "\n";
+					", sorts completed: " + toString(s.num_sorts_completed) +
+					", last LoD traversal time: " + (s.last_traversal_duration_s >= 0.0 ? (doubleToStringNSigFigs(s.last_traversal_duration_s * 1000, 3) + " ms") : std::string("(none yet)")) +
+					", last traversal selected: " + toString(s.last_traversal_num_selected) +
+					", traversals completed: " + toString(s.num_traversals_completed) + "\n";
 			}
 			msg += "----------------------------------------\n";
 		}
@@ -15712,6 +15715,8 @@ void GUIClient::createGaussianSplatObjectFromLocalFile(const std::string& local_
 	// Guard against this file pushing the WORLD's total splat count (not just this file's own) over what a single data texture can hold - see
 	// GaussianSplatRenderer::maxSupportedSplats() doc comment (every splat object in the world shares one texture now, see the class comment in
 	// GaussianSplatRenderer.h) - checked against the real driver GL_MAX_TEXTURE_SIZE, not the WebGL2-guaranteed minimum, since real hardware commonly supports much more.
+	// Known MVP gap (Claude_LOD_plan.md §1.3, accepted, not fixed here): summary.num_splats is a LEAF count, but once this object's LoD tree is built (async, after this check), GaussianSplatRenderer
+	// actually uploads every tree NODE (leaves + merged internal nodes - real trees run ~1.3x-1.8x the leaf count), so this check can under-estimate the GPU cost of a file that's right at the ceiling.
 	const size_t max_splats = GaussianSplatRenderer::maxSupportedSplats(opengl_engine->max_texture_size);
 	const size_t splats_already_in_world = gaussian_splat_renderer.numSplatsInWorld();
 	if((summary.num_splats > 0) && (summary.num_splats > max_splats - myMin(max_splats, splats_already_in_world)))

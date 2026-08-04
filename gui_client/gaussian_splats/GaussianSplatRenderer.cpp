@@ -33,6 +33,7 @@ Generated at Mon Jul 27 06:16:15 2026
 #include <algorithm>
 #include <cstring>
 #include <limits>
+#include <queue>
 
 
 // Camera position must move at least this far (in world-space metres) since the world splat cloud's last kicked-off depth-sort before another one is worth
@@ -53,7 +54,8 @@ public:
 		uint32 splat_index;
 	};
 
-	js::Vector<Vec3f, 16> positions_snapshot; // A frozen copy of world_positions[0, num_splats) taken synchronously on the main thread when a sort is kicked off - see the concurrency note in GaussianSplatRenderer.h. The worker thread only ever reads this, never the live, growable world_positions vector.
+	js::Vector<Vec3f, 16> positions_snapshot; // A frozen copy of world_positions[gi] for each gi in the CURRENT selection (GaussianSplatRenderer::current_instance_indices as of kickoff - see the stage 4 note there), taken synchronously on the main thread when a sort is kicked off - see the concurrency note in GaussianSplatRenderer.h. The worker thread only ever reads this, never the live, growable world_positions vector. Parallel to index_snapshot below (same index i means the same splat/node in both).
+	js::Vector<uint32, 16> index_snapshot; // index_snapshot[i] is the GLOBAL world_positions/world_* index that positions_snapshot[i] was copied from - what GaussianSplatSortTask writes back into each SortItem::splat_index, so the sorted result is already in terms of real GPU instance indices, not positions_snapshot's own [0, n) numbering (which, since stage 4, is a selected subset of the world, not the whole thing - see the class comment in GaussianSplatRenderer.h).
 
 	js::Vector<SortItem, 16> items; // Sort input, and the precise stage's output.
 	js::Vector<SortItem, 16> working_space; // Scratch space the Sort:: routines need, and the coarse stage's output.
@@ -64,6 +66,26 @@ public:
 	js::Vector<uint32, 16> precise_indices;
 
 	js::Vector<uint32, 16> temp_counts; // Bucket counts Sort::radixSort32BitKey() needs.
+};
+
+
+// Reusable working buffers for the world splat cloud's background LoD traversal (Claude_LOD_plan.md stage 5) - forward-declared in GaussianSplatRenderer.h, held by GaussianSplatRenderer::traversal_scratch.
+// See the class comment in GaussianSplatRenderer.h ("Concurrency note for the traversal") for why this snapshots the WHOLE world (not just the current selection, unlike GaussianSplatSortScratch above) -
+// the traversal discovers which nodes it needs to look at as it walks the priority queue, so it can't know in advance which subset to copy.
+class GaussianSplatLodTraversalScratch : public RefCounted
+{
+public:
+	struct EntrySnapshot
+	{
+		size_t offset; // This entry's node range's start within positions_snapshot/scales_snapshot below - also the base every one of its tree's LOCAL child_start/child_count indices must be added to, to get a GLOBAL node index.
+		GaussianSplatDataRef object_space_data; // Keeps object_space_data->lod_tree (the tree TOPOLOGY the traversal walks - read-only, never re-baked) alive for the task's duration, independent of any concurrent removeObject() on the main thread - ref-counting, not a raw copy, since the tree itself can be large.
+	};
+
+	std::vector<Vec3f> positions_snapshot; // A frozen copy of the WHOLE world_positions array (index-for-index - positions_snapshot[gi] is always world_positions[gi] as of kickoff), not just the current selection.
+	std::vector<Vec3f> scales_snapshot; // Ditto for world_scales - traversal needs both position (for camera distance) and scale (for feature_size/pixel_scale) of any node it might visit.
+	std::vector<EntrySnapshot> entries_snapshot; // A frozen copy of GaussianSplatRenderer::entries, trimmed to only what the traversal needs.
+
+	std::vector<uint32> output_indices; // This run's result: the combined frontier's GLOBAL node indices across every entry, in no particular depth order yet - ready to become the new current_instance_indices, which the next depth-sort will then order.
 };
 
 
@@ -196,7 +218,7 @@ public:
 			const Vec3f& p = positions[i];
 			const float dist = maskWToZero(world_to_cam * Vec4f(p.x, p.y, p.z, 1.f)).length(); // world_to_cam's rotation+translation preserves lengths, so this is the true world-space camera distance.
 			items[i].key = bitCast<uint32>(dist);
-			items[i].splat_index = (uint32)i;
+			items[i].splat_index = scratch->index_snapshot[i]; // The real GPU instance index this position was copied from, NOT i itself - see index_snapshot's declaration comment.
 			min_dist = myMin(min_dist, dist);
 			max_dist = myMax(max_dist, dist);
 		}
@@ -252,12 +274,139 @@ private:
 };
 
 
+// Result of a background LoD traversal, handed from the worker thread (GaussianSplatLodTraversalTask::run()) back to the main thread via GaussianSplatRenderer::traversal_result_queue. Matched up against
+// GaussianSplatRenderer::topology_generation in think(); if an addObject()/removeObject() happened since this traversal was kicked off, the generation will have moved on and the (now stale) result is dropped.
+class GaussianSplatLodTraversalResultMsg : public ThreadMessage
+{
+public:
+	uint64 topology_generation; // GaussianSplatRenderer::topology_generation as of when this traversal was kicked off - see that field's comment.
+	Reference<GaussianSplatLodTraversalScratch> scratch; // Holds this run's output_indices, and keeps it alive even if shutdown() was called while the traversal ran.
+	double duration_s;
+};
+
+
+// Frontier size cap for the traversal (Claude_LOD_plan.md §4's "max_splats budget") - deliberately conservative and not yet exposed for tuning (plan §6.7/stage 7). Exists purely so a pathological scene
+// (or a bug) can't produce an unbounded frontier; the pixel_scale stopping condition below is what normally ends the walk long before this many nodes are ever selected.
+static const size_t lod_traversal_max_splats_budget = 2000000;
+
+// How small (in screen pixels) a node's feature_size must project to before the traversal stops refining past it - Spark's own guidance is "about 1px" for this kind of frontier selection, see Claude_LOD_plan.md §4.
+static const float lod_traversal_pixel_scale_limit = 1.0f;
+
+
+// Walks every loaded splat object's LoD tree, best-first (Claude_LOD_plan.md §4: a max-heap on "how many screen pixels this node's feature_size currently subtends"), to pick the combined cross-object
+// frontier of nodes that should actually be drawn this frame - entirely on a worker thread (glare::TaskManager), no GL calls here, same idiom as GaussianSplatSortTask above.
+class GaussianSplatLodTraversalTask : public glare::Task
+{
+public:
+	GaussianSplatLodTraversalTask(uint64 topology_generation_, const Reference<GaussianSplatLodTraversalScratch>& scratch_, const Vec4f& cam_pos_ws_, float focal_px_,
+		ThreadSafeQueue<Reference<ThreadMessage> >* result_queue_)
+	:	topology_generation(topology_generation_), scratch(scratch_), cam_pos_ws(cam_pos_ws_), focal_px(focal_px_), result_queue(result_queue_)
+	{}
+
+	virtual void run(size_t /*thread_index*/) override
+	{
+		Timer timer;
+
+		struct HeapItem
+		{
+			float pixel_scale;
+			uint32 entry_idx; // Index into scratch->entries_snapshot.
+			uint32 local_node_idx; // Index into that entry's object_space_data->lod_tree.
+			uint32 global_idx; // entries_snapshot[entry_idx].offset + local_node_idx, precomputed once per item so the hot loop below never has to redo the addition.
+		};
+		struct HeapItemLess { bool operator () (const HeapItem& a, const HeapItem& b) const { return a.pixel_scale < b.pixel_scale; } }; // std::priority_queue's default max-heap semantics on operator< - the currently coarsest-looking (largest pixel_scale) node is always top().
+
+		const Vec3f cam_pos_ws_3 = toVec3f(cam_pos_ws);
+
+		auto pixelScaleFor = [&](uint32 global_idx) -> float
+		{
+			const Vec3f& scale = scratch->scales_snapshot[global_idx];
+			const float feature_size = 2.f * myMax(scale.x, myMax(scale.y, scale.z));
+			const float dist = scratch->positions_snapshot[global_idx].getDist(cam_pos_ws_3);
+			return (feature_size / myMax(dist, 1.0e-6f)) * focal_px;
+		};
+
+		std::priority_queue<HeapItem, std::vector<HeapItem>, HeapItemLess> heap;
+
+		std::vector<uint32>& output = scratch->output_indices;
+		output.clear();
+
+		// Seed the heap with every entry's root - or, for an entry whose tree isn't built yet/failed (see GaussianSplatData.h), every one of its leaves goes straight to output unconditionally, same
+		// fallback rebuildCurrentInstanceIndices() uses synchronously in GaussianSplatRenderer.cpp for the "no tree" case.
+		for(size_t e = 0; e < scratch->entries_snapshot.size(); ++e)
+		{
+			const GaussianSplatLodTraversalScratch::EntrySnapshot& entry = scratch->entries_snapshot[e];
+			if(entry.object_space_data->lod_tree.empty())
+			{
+				for(size_t i = 0; i < entry.object_space_data->numSplats(); ++i)
+					output.push_back((uint32)(entry.offset + i));
+			}
+			else
+			{
+				const uint32 global_idx = (uint32)entry.offset; // Root is always local index 0 - see buildGaussianSplatLodTree()'s doc comment in GaussianSplatLodTree.h.
+				heap.push(HeapItem{ pixelScaleFor(global_idx), (uint32)e, 0u, global_idx });
+			}
+		}
+
+		// Best-first refine: repeatedly expand whichever frontier node currently looks coarsest on screen, until the worst of them is already small enough, or expanding it would blow the budget - see
+		// Claude_LOD_plan.md §4. Every entry's nodes share ONE heap/output here, not traversed and emitted per-entry, precisely so the result is already the single combined, cross-object frontier §4a
+		// requires - a per-object selection stage here would silently reintroduce the cross-object depth-blending bug session019/020 already fixed once (see the class comment in GaussianSplatRenderer.h).
+		while(!heap.empty())
+		{
+			const HeapItem top = heap.top(); // Copy - still needed below even in the budget-exceeded case, where it's pushed to output unpopped.
+			if(top.pixel_scale <= lod_traversal_pixel_scale_limit)
+				break; // Worst node left is already small enough on screen - no point refining further; it and everything else still in the heap becomes the output as-is, below.
+
+			const GaussianSplatLodNode& node = scratch->entries_snapshot[top.entry_idx].object_space_data->lod_tree[top.local_node_idx];
+			if(node.child_count == 0)
+			{
+				output.push_back(top.global_idx);
+				heap.pop();
+				continue;
+			}
+
+			// Conservative budget check: assumes every OTHER node currently sitting in the heap (heap.size() - 1, excluding the one being considered for expansion) will end up going to output unexpanded -
+			// the worst case, since some might get expanded further themselves later. Good enough for the MVP's "don't let a pathological scene run away" purpose - see the two constants' comments above.
+			if(output.size() + (heap.size() - 1) + node.child_count > lod_traversal_max_splats_budget)
+				break; // Would exceed budget - stop, dump the rest of the heap (this node included, unexpanded) as-is, below.
+
+			heap.pop();
+			const size_t entry_offset = scratch->entries_snapshot[top.entry_idx].offset;
+			for(uint32 c = node.child_start, end = node.child_start + node.child_count; c < end; ++c)
+			{
+				const uint32 global_c = (uint32)(entry_offset + c);
+				heap.push(HeapItem{ pixelScaleFor(global_c), top.entry_idx, c, global_c });
+			}
+		}
+		while(!heap.empty())
+		{
+			output.push_back(heap.top().global_idx);
+			heap.pop();
+		}
+
+		Reference<GaussianSplatLodTraversalResultMsg> msg = new GaussianSplatLodTraversalResultMsg();
+		msg->topology_generation = topology_generation;
+		msg->scratch = scratch;
+		msg->duration_s = timer.elapsed();
+		result_queue->enqueue(msg);
+	}
+
+private:
+	uint64 topology_generation;
+	Reference<GaussianSplatLodTraversalScratch> scratch;
+	Vec4f cam_pos_ws;
+	float focal_px;
+	ThreadSafeQueue<Reference<ThreadMessage> >* result_queue;
+};
+
+
 } // end anonymous namespace
 
 
 GaussianSplatRenderer::GaussianSplatRenderer()
-:	gpu_capacity_splats(0), total_splats(0), structure_generation(0), sort_in_flight(false), have_last_sort_cam_pos(false),
-	last_coarse_sort_duration_s(-1.0), last_sort_duration_s(-1.0), num_sorts_completed(0)
+:	gpu_capacity_splats(0), total_splats(0), structure_generation(0), topology_generation(0), sort_in_flight(false), have_last_sort_cam_pos(false),
+	last_coarse_sort_duration_s(-1.0), last_sort_duration_s(-1.0), num_sorts_completed(0),
+	traversal_in_flight(false), have_last_traversal_cam_pos(false), last_traversal_duration_s(-1.0), last_traversal_num_selected(0), num_traversals_completed(0)
 {}
 
 
@@ -456,9 +605,12 @@ GLObjectRef GaussianSplatRenderer::addObject(const UID& world_object_id, const G
 		// mat.albedo_texture is set below by ensureGpuCapacity()'s first call.
 	}
 
-	const size_t num_new_splats = object_space_data->numSplats();
+	// Stage 4 (Claude_LOD_plan.md): if this object's LoD tree has already been built (async, by LoadModelTask - see GaussianSplatData.h), upload every node of it (leaves AND merged internal nodes), not just
+	// the leaf splats - see the class comment's "On-the-fly LoD" paragraph. An object whose tree isn't built yet (or failed) falls back to exactly the old leaf-only behaviour.
+	const bool has_tree = !object_space_data->lod_tree.empty();
+	const size_t num_new_nodes = has_tree ? object_space_data->lod_tree.size() : object_space_data->numSplats();
 	const size_t old_total = total_splats;
-	const size_t new_total = old_total + num_new_splats;
+	const size_t new_total = old_total + num_new_nodes;
 
 	// Bake object-space positions/scales/rotations into world space (see class comment for why the sort's snapshotting makes an append like this safe even while a sort is in flight).
 	world_positions.resize(new_total);
@@ -467,11 +619,15 @@ GLObjectRef GaussianSplatRenderer::addObject(const UID& world_object_id, const G
 	world_colours.resize(new_total);
 
 	js::AABBox new_range_aabb_ws = js::AABBox::emptyAABBox();
-	for(size_t i = 0; i < num_new_splats; ++i)
+	for(size_t i = 0; i < num_new_nodes; ++i)
 	{
-		const Vec3f& os_pos   = object_space_data->positions[i];
-		const Vec3f& os_scale = object_space_data->scales[i];
-		const Vec4f& os_rot   = object_space_data->rotations[i]; // (x, y, z, w)
+		// A tree node's centre_ws/scale/rotation/colour fields hold exactly the same object-space-at-load-time convention as the plain positions/scales/rotations/colours arrays below (see the field
+		// comment in GaussianSplatLodTree.h) - a merged node bakes into world space identically to a leaf one under this same rigid + uniform-scale transform (Claude_LOD_plan.md §0.6), which is why
+		// no separate code path is needed here beyond picking which source array element i refers to.
+		const Vec3f& os_pos   = has_tree ? object_space_data->lod_tree[i].centre_ws : object_space_data->positions[i];
+		const Vec3f& os_scale = has_tree ? object_space_data->lod_tree[i].scale      : object_space_data->scales[i];
+		const Vec4f& os_rot   = has_tree ? object_space_data->lod_tree[i].rotation   : object_space_data->rotations[i]; // (x, y, z, w)
+		const Vec4f& os_col   = has_tree ? object_space_data->lod_tree[i].colour     : object_space_data->colours[i];
 
 		const Vec4f rotated = rotation_ws.rotateVector(Vec4f(uniform_scale_ws * os_pos.x, uniform_scale_ws * os_pos.y, uniform_scale_ws * os_pos.z, 0.f));
 		const Vec4f world_pos = translation_ws + rotated; // translation_ws.w == 1, rotated.w == 0, so world_pos.w == 1, as a point should be.
@@ -482,17 +638,26 @@ GLObjectRef GaussianSplatRenderer::addObject(const UID& world_object_id, const G
 		world_positions[old_total + i] = toVec3f(world_pos);
 		world_scales[old_total + i] = os_scale * uniform_scale_ws;
 		world_rotations[old_total + i] = world_quat.v; // Quat::v is already (x, y, z, w), matching our storage convention.
-		world_colours[old_total + i] = object_space_data->colours[i]; // Colour/opacity isn't affected by the object's pose.
+		world_colours[old_total + i] = os_col; // Colour/opacity isn't affected by the object's pose.
 
 		new_range_aabb_ws.enlargeToHoldPoint(world_pos);
 	}
 
 	total_splats = new_total;
 
+	// Registered before rebuildCurrentInstanceIndices() below, which needs to see this object's entry to include it in the selection - see that function's comment.
+	WorldSplatEntry entry;
+	entry.world_object_id = world_object_id;
+	entry.object_space_data = object_space_data;
+	entry.offset = old_total;
+	entry.count = num_new_nodes;
+	entries.push_back(entry);
+	topology_generation++; // See its declaration comment - unlike structure_generation, this bumps on every entries change (append included), so an in-flight traversal from before this add gets dropped as stale rather than silently omitting the new object.
+
 	// Set num_instances_to_draw and enlarge the world AABB *before* possibly opengl_engine.addObject()-ing world_ob below, so that call never sees a stale
 	// instance count or the placeholder empty box makeInstancedQuadMeshData() started it as - see class comment's "Growable GPU buffers" paragraph for the
 	// general "fully ready before add" principle this follows (matches the original per-object design's ordering, which set these before its own addObject() call).
-	world_ob->num_instances_to_draw = (int)new_total;
+	rebuildCurrentInstanceIndices(); // Sets world_ob->num_instances_to_draw; doesn't touch instance_index_vbo yet (may not exist until ensureGpuCapacity() below runs, on the very first call).
 	world_ob->mesh_data->aabb_os.enlargeToHoldAABBox(new_range_aabb_ws); // Only ever enlarged incrementally here - removeObject() recomputes it exactly on removal, see rebuildWorldAABB().
 
 	ensureGpuCapacity(new_total, opengl_engine, /*ob_already_in_engine=*/!creating_world_ob); // May repack + reupload everything (rare); if it does, the partial upload below is redundant but harmless (same data).
@@ -503,26 +668,16 @@ GLObjectRef GaussianSplatRenderer::addObject(const UID& world_object_id, const G
 	if(creating_world_ob)
 		opengl_engine.addObject(world_ob);
 
-	uploadTexelRowsForSplatRange(old_total, num_new_splats); // Partial upload of just the newly-appended rows - if ensureGpuCapacity() just repacked everything above, this re-uploads the same (correct) data for those rows again, which is harmless.
+	uploadTexelRowsForSplatRange(old_total, num_new_nodes); // Partial upload of just the newly-appended rows - if ensureGpuCapacity() just repacked everything above, this re-uploads the same (correct) data for those rows again, which is harmless.
 
-	// Extend instance_index_vbo's identity-order tail to cover the newly appended splats (ensureGpuCapacity(), if it ran, already rebuilt the whole thing in identity order, making this redundant-but-harmless too - same reasoning as above).
-	{
-		std::vector<uint32> new_indices(num_new_splats);
-		for(size_t i = 0; i < num_new_splats; ++i)
-			new_indices[i] = (uint32)(old_total + i);
-		instance_index_vbo->updateData(old_total * sizeof(uint32), new_indices.data(), new_indices.size() * sizeof(uint32));
-	}
+	// instance_index_vbo is guaranteed to exist now (ensureGpuCapacity() just above always creates it if missing/undersized) - write the freshly-rebuilt selection into it. If ensureGpuCapacity() didn't
+	// reallocate (common case), this overwrites whatever the previous addObject()/removeObject() call left there with the same-or-larger, still-correct selection - redundant on the unchanged prefix, harmless.
+	instance_index_vbo->updateData(0, current_instance_indices.data(), current_instance_indices.size() * sizeof(uint32));
 
 	opengl_engine.updateObjectTransformData(*world_ob); // Refreshes aabb_ws from the aabb_os enlarged above; ob_to_world_matrix itself never changes (stays identity). Redundant but harmless on the very first call (buildObjectData(), inside the addObject() call above, already computed aabb_ws fresh from the by-then-already-correct aabb_os).
 
-	WorldSplatEntry entry;
-	entry.world_object_id = world_object_id;
-	entry.object_space_data = object_space_data;
-	entry.offset = old_total;
-	entry.count = num_new_splats;
-	entries.push_back(entry);
-
-	have_last_sort_cam_pos = false; // Force a fresh resort next think() - the newly-appended splats are in arbitrary (identity) order relative to the rest.
+	have_last_sort_cam_pos = false; // Force a fresh resort next think() - the newly-appended nodes are in arbitrary (identity-ish) order relative to the rest.
+	have_last_traversal_cam_pos = false; // Force a fresh traversal next think() too, regardless of whether the camera has moved - see topology_generation's comment for why this matters even for a pure append.
 	(void)source_name; // Currently only surfaced in aggregate via getPerfStats(); kept as a parameter for future per-source breakdown / logging.
 
 	return world_ob;
@@ -537,13 +692,15 @@ bool GaussianSplatRenderer::updateObjectTransform(const UID& world_object_id, co
 		{
 			WorldSplatEntry& entry = entries[e];
 			const GaussianSplatData& os_data = *entry.object_space_data;
+			const bool has_tree = !os_data.lod_tree.empty(); // Must match the has_tree this entry was added under (addObject()) - object_space_data/its lod_tree never change after that, so this is stable.
 
 			js::AABBox new_range_aabb_ws = js::AABBox::emptyAABBox();
 			for(size_t i = 0; i < entry.count; ++i)
 			{
-				const Vec3f& os_pos   = os_data.positions[i];
-				const Vec3f& os_scale = os_data.scales[i];
-				const Vec4f& os_rot   = os_data.rotations[i];
+				// Every node (leaf or merged) re-bakes identically under a rigid + uniform-scale transform - see Claude_LOD_plan.md §0.6 and the matching comment in addObject().
+				const Vec3f& os_pos   = has_tree ? os_data.lod_tree[i].centre_ws : os_data.positions[i];
+				const Vec3f& os_scale = has_tree ? os_data.lod_tree[i].scale     : os_data.scales[i];
+				const Vec4f& os_rot   = has_tree ? os_data.lod_tree[i].rotation  : os_data.rotations[i];
 
 				const Vec4f rotated = rotation_ws.rotateVector(Vec4f(uniform_scale_ws * os_pos.x, uniform_scale_ws * os_pos.y, uniform_scale_ws * os_pos.z, 0.f));
 				const Vec4f world_pos = translation_ws + rotated;
@@ -603,21 +760,19 @@ bool GaussianSplatRenderer::removeObject(const UID& world_object_id)
 
 			total_splats -= count;
 			structure_generation++; // Invalidates any in-flight sort's result - see class comment.
+			topology_generation++; // Invalidates any in-flight traversal's result too - see its declaration comment.
 
 			// Full re-upload: repack everything that's left (capacity/texture size is unchanged - removal never shrinks GPU storage, see class comment's "не переусложнять" stance on capacity management).
 			uploadTexelRowsForSplatRange(0, total_splats);
 
-			std::vector<uint32> identity_indices(total_splats);
-			for(size_t i = 0; i < total_splats; ++i)
-				identity_indices[i] = (uint32)i;
-			if(total_splats > 0)
-				instance_index_vbo->updateData(0, identity_indices.data(), identity_indices.size() * sizeof(uint32));
-
-			world_ob->num_instances_to_draw = (int)total_splats;
+			rebuildCurrentInstanceIndices(); // Sets world_ob->num_instances_to_draw; entries (used above) is already the post-removal list.
+			if(!current_instance_indices.empty())
+				instance_index_vbo->updateData(0, current_instance_indices.data(), current_instance_indices.size() * sizeof(uint32));
 
 			rebuildWorldAABB();
 
 			have_last_sort_cam_pos = false; // Force a fresh resort of the now-renumbered world.
+			have_last_traversal_cam_pos = false; // Force a fresh traversal of the now-renumbered world too.
 
 			return true;
 		}
@@ -635,10 +790,35 @@ void GaussianSplatRenderer::rebuildWorldAABB()
 }
 
 
+void GaussianSplatRenderer::rebuildCurrentInstanceIndices()
+{
+	// Synchronous placeholder selection, called from addObject()/removeObject() so there's always something reasonable to draw the instant entries changes - the real per-frame selection is
+	// GaussianSplatLodTraversalTask (stage 5, see the class comment's traversal concurrency note), which runs asynchronously and overwrites current_instance_indices again shortly after (think() forces
+	// a fresh traversal on any entries change via have_last_traversal_cam_pos - see addObject()/removeObject()). For an entry whose tree has been built, this picks ONLY its root node (index entry.offset +
+	// 0 - buildGaussianSplatLodTree() guarantees the root is always local index 0, see its doc comment in GaussianSplatLodTree.h) - visibly one big blob standing in for the whole cloud until the first real
+	// traversal result lands. An entry with no tree yet (still building, or failed - see GaussianSplatData.h) falls back to drawing every one of its leaves - the traversal uses this exact same fallback too.
+	current_instance_indices.clear();
+	current_instance_indices.reserve(total_splats);
+	for(size_t e = 0; e < entries.size(); ++e)
+	{
+		const WorldSplatEntry& entry = entries[e];
+		if(!entry.object_space_data->lod_tree.empty())
+			current_instance_indices.push_back((uint32)entry.offset);
+		else
+			for(size_t i = 0; i < entry.count; ++i)
+				current_instance_indices.push_back((uint32)(entry.offset + i));
+	}
+	world_ob->num_instances_to_draw = (int)current_instance_indices.size();
+}
+
+
 void GaussianSplatRenderer::think(OpenGLEngine& opengl_engine, glare::TaskManager& task_manager)
 {
 	if(world_ob.isNull())
 		return;
+
+	const OpenGLScene* scene = opengl_engine.getCurrentScene();
+	const Vec4f cam_pos_ws = scene->cam_to_world.getColumn(3); // Needed early - the traversal-result drain block below uses it too (see the synchronous sort there), not just the kick-off logic further down.
 
 	// Drain any completed background sort result (non-blocking) and write it straight to instance_index_vbo - the only GL call in this whole depth-sort
 	// pipeline, which is why it has to happen here on the main/GL thread rather than in the worker task itself (see VBO::updateData()/VBO.cpp - no thread-safety of its own).
@@ -676,19 +856,61 @@ void GaussianSplatRenderer::think(OpenGLEngine& opengl_engine, glare::TaskManage
 			if(!superseded_this_frame)
 			{
 				const js::Vector<uint32, 16>& sorted_indices = msg->sortedIndices();
-				// The snapshot this was computed from may be a (strict prefix) of the current, possibly-since-grown world - see class comment. Only ever write as many bytes as the result actually covers; any appended tail beyond it already holds valid identity-order indices written by addObject() itself.
+				// The snapshot this was computed from may cover a (strict prefix of the) older, smaller current_instance_indices, if an addObject() appended a new entry since this sort was kicked off - see
+				// class comment. Only ever write as many bytes as the result actually covers; any tail beyond it already holds the correct (if unsorted-relative-to-this-result) selection that addObject()
+				// itself wrote when it appended the new entry - see current_instance_indices' declaration comment.
 				instance_index_vbo->updateData(0, sorted_indices.data(), sorted_indices.size() * sizeof(uint32));
 			}
 		}
 	}
 
+	// Drain any completed background LoD traversal result (non-blocking) and apply it as the new current_instance_indices - see the class comment's traversal concurrency note. Deliberately drained BEFORE
+	// the sort kick-off below, so a freshly-applied traversal result gets its own fresh depth-sort kicked off this same frame (have_last_sort_cam_pos is reset below) rather than waiting a frame for it.
+	{
+		js::Vector<Reference<ThreadMessage>, 16> completed_msgs;
+		traversal_result_queue.dequeueAnyQueuedItems(completed_msgs);
+		for(size_t i = 0; i < completed_msgs.size(); ++i)
+		{
+			const GaussianSplatLodTraversalResultMsg* msg = static_cast<const GaussianSplatLodTraversalResultMsg*>(completed_msgs[i].ptr());
+
+			traversal_in_flight = false;
+			last_traversal_duration_s = msg->duration_s;
+			num_traversals_completed++;
+
+			// An addObject()/removeObject() since this traversal was kicked off has changed which entries/nodes exist - this result no longer reflects the current world (unlike the sort's structure_generation,
+			// which addObject() deliberately leaves alone, this one bumps on every entries change - see topology_generation's declaration comment). Drop it.
+			if(msg->topology_generation != topology_generation)
+				continue;
+
+			// Full overwrite, not a partial/prefix update like the sort's - traversal can change the SET of selected nodes (which entries' which nodes), not just their draw order.
+			current_instance_indices = msg->scratch->output_indices;
+
+			// Sort synchronously, right here, before this ever reaches the GPU - traversal's own output is in raw heap-pop order, not camera-distance order. This is NOT redundant with the async depth-sort
+			// kicked off just below: that one only starts catching up a frame (or several, at multi-million-splat scale) later, and in the meantime this is a brand new SET of alpha-blended nodes replacing
+			// what's on screen (unlike an ordinary async resort of an already-displayed, already-sorted selection) - drawing it even briefly in unsorted order shows visibly wrong overlap/colour bleeding.
+			// This is exactly the "artifacts while the camera moves, settles the instant it stops" symptom - confirmed by it appearing under third-person orbit-turning (which moves the camera position, so
+			// re-traverses) but not first-person look-only turning (which doesn't). A plain std::sort here is cheap relative to the traversal that already ran on a worker thread to produce this (budget-
+			// capped, see lod_traversal_max_splats_budget) set; only a scene near that budget ceiling could make this noticeably hitch - not a concern at MVP scale, see that constant's comment.
+			{
+				const Vec3f cam_pos_ws_3 = toVec3f(cam_pos_ws);
+				std::sort(current_instance_indices.begin(), current_instance_indices.end(), [&](uint32 a, uint32 b)
+				{
+					return world_positions[a].getDist(cam_pos_ws_3) > world_positions[b].getDist(cam_pos_ws_3); // Farthest-first (back-to-front), matching the async sort's convention - see resort_move_threshold_ws's comment.
+				});
+			}
+
+			last_traversal_num_selected = current_instance_indices.size();
+			world_ob->num_instances_to_draw = (int)current_instance_indices.size();
+			instance_index_vbo->updateData(0, current_instance_indices.data(), current_instance_indices.size() * sizeof(uint32));
+
+			have_last_sort_cam_pos = false; // Still force a fresh async resort - the synchronous sort above is a good-enough-for-one-frame placeholder, not as precise/optimised as the real two-stage radix-sort pipeline.
+		}
+	}
+
 	const Vec2i viewport_dims = opengl_engine.getViewportDims();
-	const OpenGLScene* scene = opengl_engine.getCurrentScene();
 	// Focal length in pixels, derived the same way as OpenGLEngine's own screen-space projections (see e.g. OpenGLEngine::getPixelForPoint()/l_over_w, l_over_h): focal_px = viewport_px * (lens_sensor_dist / sensor_size).
 	const float focal_x = (float)viewport_dims.x * scene->lens_sensor_dist / scene->use_sensor_width;
 	const float focal_y = (float)viewport_dims.y * scene->lens_sensor_dist / scene->use_sensor_height;
-
-	const Vec4f cam_pos_ws = scene->cam_to_world.getColumn(3);
 
 	OpenGLMaterial& mat = world_ob->materials[0];
 	mat.user_uniform_vals[0].vec2 = Vec2f((float)viewport_dims.x, (float)viewport_dims.y);
@@ -699,7 +921,7 @@ void GaussianSplatRenderer::think(OpenGLEngine& opengl_engine, glare::TaskManage
 	// since the last one was kicked off to be worth it. Camera rotation deliberately isn't tracked: the sort orders splats by distance from the camera, which
 	// rotating on the spot doesn't change - see resort_move_threshold_ws's comment above and the class comment in GaussianSplatRenderer.h.
 	const bool moved_enough = !have_last_sort_cam_pos || cam_pos_ws.getDist(last_sort_cam_pos_ws) >= resort_move_threshold_ws;
-	if(total_splats > 0 && !sort_in_flight && moved_enough)
+	if(!current_instance_indices.empty() && !sort_in_flight && moved_enough)
 	{
 		Matrix4f world_to_cam;
 		scene->cam_to_world.getInverseForAffine3Matrix(world_to_cam); // world_to_camera_space_matrix itself is private to OpenGLScene; cam_to_world (its inverse, public) is available instead.
@@ -707,15 +929,53 @@ void GaussianSplatRenderer::think(OpenGLEngine& opengl_engine, glare::TaskManage
 		if(sort_scratch.isNull())
 			sort_scratch = new GaussianSplatSortScratch();
 
-		// Freeze a snapshot of the current world positions on the main thread, synchronously, before handing off to the worker - see the concurrency note in the class comment for why the worker must never touch the live, growable world_positions vector directly.
-		sort_scratch->positions_snapshot.resizeNoCopy(total_splats);
-		std::memcpy(sort_scratch->positions_snapshot.data(), world_positions.data(), total_splats * sizeof(Vec3f));
+		// Freeze a snapshot of the CURRENTLY SELECTED world positions on the main thread, synchronously, before handing off to the worker - see the concurrency note in the class comment for why the worker
+		// must never touch the live, growable world_positions vector directly. Only positions_snapshot.size() ( == current_instance_indices.size() as of this moment) many splats/nodes are sorted, not the
+		// whole world - see current_instance_indices' declaration comment (stage 4: a naive root-only selection; stage 5+: real traversal output) - index_snapshot carries each slot's real GPU index so the
+		// sort's result can be written straight back as instance indices (see GaussianSplatSortTask::run()).
+		const size_t num_selected = current_instance_indices.size();
+		sort_scratch->positions_snapshot.resizeNoCopy(num_selected);
+		sort_scratch->index_snapshot.resizeNoCopy(num_selected);
+		for(size_t i = 0; i < num_selected; ++i)
+		{
+			const uint32 gi = current_instance_indices[i];
+			sort_scratch->positions_snapshot[i] = world_positions[gi];
+			sort_scratch->index_snapshot[i] = gi;
+		}
 
 		sort_in_flight = true;
 		have_last_sort_cam_pos = true;
 		last_sort_cam_pos_ws = cam_pos_ws;
 
 		task_manager.addTask(new GaussianSplatSortTask(structure_generation, sort_scratch, world_to_cam, &sort_result_queue));
+	}
+
+	// LoD traversal (Claude_LOD_plan.md stage 5): kick off a background re-traversal on the same "not already in flight, camera moved far enough since last kickoff" idea as the depth-sort above, but
+	// gated on its own last-kickoff camera position (have_last_traversal_cam_pos/last_traversal_cam_pos_ws - see their comments) since the two pipelines run independently. addObject()/removeObject() force
+	// this to re-run regardless of camera movement by resetting have_last_traversal_cam_pos directly (see their comments and topology_generation's) - a pure "moved enough" gate here wouldn't catch a
+	// topology change with a stationary camera.
+	const bool traversal_moved_enough = !have_last_traversal_cam_pos || cam_pos_ws.getDist(last_traversal_cam_pos_ws) >= resort_move_threshold_ws;
+	if(!entries.empty() && !traversal_in_flight && traversal_moved_enough)
+	{
+		if(traversal_scratch.isNull())
+			traversal_scratch = new GaussianSplatLodTraversalScratch();
+
+		// Freeze a snapshot of the WHOLE world (not just the current selection - see the class comment's traversal concurrency note, this is genuinely different from the sort's snapshot above) on the
+		// main thread, synchronously, before handing off to the worker - the traversal doesn't know in advance which nodes it'll need to look at, so it can't snapshot just a subset.
+		traversal_scratch->positions_snapshot.assign(world_positions.begin(), world_positions.end());
+		traversal_scratch->scales_snapshot.assign(world_scales.begin(), world_scales.end());
+		traversal_scratch->entries_snapshot.resize(entries.size());
+		for(size_t e = 0; e < entries.size(); ++e)
+		{
+			traversal_scratch->entries_snapshot[e].offset = entries[e].offset;
+			traversal_scratch->entries_snapshot[e].object_space_data = entries[e].object_space_data; // Ref-counted copy - keeps this entry's lod_tree topology alive for the worker even if removeObject() erases the live entry meanwhile.
+		}
+
+		traversal_in_flight = true;
+		have_last_traversal_cam_pos = true;
+		last_traversal_cam_pos_ws = cam_pos_ws;
+
+		task_manager.addTask(new GaussianSplatLodTraversalTask(topology_generation, traversal_scratch, cam_pos_ws, 0.5f * (focal_x + focal_y), &traversal_result_queue));
 	}
 }
 
@@ -732,6 +992,9 @@ void GaussianSplatRenderer::getPerfStats(std::vector<PerfStats>& stats_out) cons
 	s.last_coarse_sort_duration_s = last_coarse_sort_duration_s;
 	s.last_sort_duration_s = last_sort_duration_s;
 	s.num_sorts_completed = num_sorts_completed;
+	s.last_traversal_duration_s = last_traversal_duration_s;
+	s.last_traversal_num_selected = last_traversal_num_selected;
+	s.num_traversals_completed = num_traversals_completed;
 	stats_out.push_back(s);
 }
 
@@ -741,6 +1004,7 @@ void GaussianSplatRenderer::shutdown()
 	world_ob = NULL;
 	instance_index_vbo = NULL;
 	entries.clear();
+	current_instance_indices.clear();
 	world_positions.clear();
 	world_scales.clear();
 	world_rotations.clear();

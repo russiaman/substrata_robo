@@ -22,6 +22,7 @@ Generated at Mon Jul 27 06:16:15 2026
 
 namespace glare { class TaskManager; }
 class GaussianSplatSortScratch; // Defined in GaussianSplatRenderer.cpp - the reusable working buffers the background depth-sort needs, see GaussianSplatRenderer::sort_scratch.
+class GaussianSplatLodTraversalScratch; // Defined in GaussianSplatRenderer.cpp - the reusable working buffers the background LoD traversal needs (Claude_LOD_plan.md stage 5), see GaussianSplatRenderer::traversal_scratch.
 
 
 /*=====================================================================
@@ -108,6 +109,26 @@ result whose generation doesn't match current on arrival (same "stale result,
 just drop it" idiom the original per-object design used, generalised from
 "object id no longer found" to "generation moved on").
 
+On-the-fly LoD (Claude_LOD_plan.md, stage 4): when a splat WorldObject's object_space_data->lod_tree has been built (async, by LoadModelTask - see GaussianSplatData.h), addObject() bakes and uploads
+EVERY node of that tree (leaves AND merged internal nodes) into the shared world_* arrays/texture, not just the leaf splats - each object's nodes occupy a stable [offset, offset+count) range exactly like
+the leaf-only case did before, so a node's GLOBAL index (usable as a texelFetch/instance index) is always entry.offset + <the node's own index within object_space_data->lod_tree>. A splat object whose tree
+hasn't been built yet (or failed to build - not fatal, see GaussianSplatData.h) still gets its plain leaf list baked/uploaded exactly as before - see the has_tree branches in addObject()/updateObjectTransform().
+What's actually DRAWN is a separate concern from what's uploaded - see rebuildCurrentInstanceIndices()/current_instance_indices. Stage 4 wired up GPU upload of every node and a synchronous placeholder
+"root only" selection (still used as the very first frame's content for a newly-added object, before its first real traversal result lands - see addObject()). Stage 5 (implemented) adds the real thing:
+GaussianSplatLodTraversalTask (background worker, same TaskManager as the depth-sort) does a best-first priority-queue walk per Spark's Tiny-LoD approach (plan §4) - starting from every entry's root,
+repeatedly expanding whichever frontier node currently subtends the most screen pixels (pixel_scale = feature_size / distance * focal_px) until either the worst-offending node is already small enough
+(<= ~1px) or expanding it would exceed the splat budget, at which point the whole remaining frontier (across ALL entries, in ONE combined heap/output - see §4a and the concurrency note below) becomes
+the new current_instance_indices, exactly like a fresh addObject() would set it, which in turn forces a fresh depth-sort of that selection (have_last_sort_cam_pos = false) - the sort itself needed zero
+changes for this, since positions_snapshot/index_snapshot already generalised from "the whole world" to "whatever's currently selected" back in stage 4.
+
+Concurrency note for the traversal (mirrors the depth-sort's, above, but wider): the worker must never touch the live world_positions/world_scales vectors OR any entry's object_space_data->lod_tree
+topology while the main thread could be mutating them. Unlike the sort - whose input set is already fixed by the time it's kicked off (current_instance_indices) - traversal *discovers* which nodes it
+needs to look at as it walks the heap, so it can't pre-copy just the nodes it'll touch; instead it snapshots the WHOLE world_positions/world_scales arrays (a Reference-kept copy of the per-entry
+{offset, object_space_data} list too, which keeps every touched entry's lod_tree alive via GaussianSplatDataRef's ref-counting regardless of what removeObject() does to the live `entries` vector
+meanwhile) - see GaussianSplatLodTraversalScratch in the .cpp. Staleness on arrival is checked against topology_generation, NOT structure_generation: unlike the sort (which only cares that indices still
+mean the same splat, something only removeObject() can break), a stale traversal result is wrong the moment ANY entry is added or removed (a just-added object's root wouldn't be in an older traversal's
+frontier at all, and applying that older result would make it vanish until the next cycle) - see topology_generation's own comment for why addObject() bumps it too, unlike structure_generation.
+
 Not handled yet (see architecture contract §6.3 - documented, not silent):
  - Order-independent transparency (an optional native-only engine feature,
    not present in the web build regardless - see the .cpp's fragment shader
@@ -158,11 +179,14 @@ public:
 	// numSplatsInWorld() over this before spending any effort on upload/decode - addObject() itself has no such guard.
 	static size_t maxSupportedSplats(int gl_max_texture_size);
 
+	// Since stage 4 (Claude_LOD_plan.md), this is actually a NODE count where a tree has been built for an object (leaves + merged internal nodes, typically ~1.3x-1.8x that object's real leaf/splat count -
+	// see the class comment's "On-the-fly LoD" paragraph), not a pure leaf count - see the known-gap note at GUIClient::createGaussianSplatObjectFromLocalFile()'s maxSupportedSplats() check.
 	size_t numSplatsInWorld() const { return total_splats; }
 
-	// Per-frame update: refreshes the viewport-size / focal-length user uniforms the world cloud's shader needs for the EWA covariance projection, drains
-	// any completed background depth-sort result, and kicks off a new depth-sort task if the camera has moved past the re-sort threshold since the last
-	// one was kicked off. Call once per frame, after the frame's camera transform has been set on opengl_engine.
+	// Per-frame update: refreshes the viewport-size / focal-length user uniforms the world cloud's shader needs for the EWA covariance projection, drains any
+	// completed background LoD traversal result (applying it as the new current_instance_indices - see class comment) and depth-sort result, and kicks off a
+	// new traversal and/or depth-sort task if the camera has moved past the relevant re-run threshold since the last one of each was kicked off. Call once
+	// per frame, after the frame's camera transform has been set on opengl_engine.
 	void think(OpenGLEngine& opengl_engine, glare::TaskManager& task_manager);
 
 	void shutdown();
@@ -175,6 +199,9 @@ public:
 		double last_coarse_sort_duration_s; // Wall-clock time (from task start) the most recently completed background sort's fast/approximate stage 1 took, or -1 if none has completed yet.
 		double last_sort_duration_s; // Wall-clock time (from task start) the most recently completed background sort's precise stage 2 took, or -1 if none has completed yet.
 		uint64 num_sorts_completed;
+		double last_traversal_duration_s; // Wall-clock time the most recently completed LoD traversal (stage 5) took, or -1 if none has completed yet.
+		size_t last_traversal_num_selected; // How many nodes the most recently completed traversal's frontier contained - i.e. what current_instance_indices was set to (before the subsequent depth-sort, which never changes the count).
+		uint64 num_traversals_completed;
 	};
 	void getPerfStats(std::vector<PerfStats>& stats_out) const;
 
@@ -194,6 +221,12 @@ private:
 	void uploadTexelRowsForSplatRange(size_t first_splat, size_t num_splats_to_upload); // Repacks and re-uploads just the texture rows spanning [first_splat, first_splat+num_splats_to_upload).
 	void rebuildWorldAABB(); // Recomputes world_ob->mesh_data->aabb_os as the union of every entry's current world AABB. O(num entries), not O(num splats).
 
+	// Recomputes current_instance_indices from entries (see that field's comment) and sets world_ob->num_instances_to_draw to match. Does NOT touch instance_index_vbo itself - callers (addObject()/
+	// removeObject()) write current_instance_indices to it explicitly, once instance_index_vbo is known to exist (it doesn't yet on the very first-ever addObject() call, before ensureGpuCapacity() has
+	// run) - see those functions for why the ordering matters. Call whenever entries/topology changes; NOT needed from updateObjectTransform() (a move/scale re-bakes node attributes in place but never
+	// changes which entries exist or their offsets, so the selected index set itself stays valid).
+	void rebuildCurrentInstanceIndices();
+
 	Reference<OpenGLProgram> shader_prog;
 	std::string shader_source_hash;
 
@@ -212,11 +245,22 @@ private:
 	{
 		UID world_object_id;
 		GaussianSplatDataRef object_space_data; // Original, untransformed splat data - kept so move/scale (updateObjectTransform()) can re-bake from scratch with a new pose rather than accumulating floating-point drift over repeated re-bakes.
-		size_t offset, count; // This entry's range within the world_* arrays above (and within the GPU texture/VBO, in splats - texel offset is offset * texels_per_splat).
+		size_t offset, count; // This entry's range within the world_* arrays above (and within the GPU texture/VBO, in nodes - texel offset is offset * texels_per_splat). If object_space_data->lod_tree is
+			// non-empty, this range covers EVERY node of that tree (leaves and merged internal nodes alike, in the tree's own linearised order - see GaussianSplatLodTree.h), not just the leaf splats -
+			// see the class comment's "On-the-fly LoD" paragraph. Otherwise (no tree built yet/failed) it's the plain leaf list, same as before stage 4.
 	};
 	std::vector<WorldSplatEntry> entries;
 
+	// The world-node GLOBAL indices (i.e. directly usable as texelFetch/instance indices, already offset by whichever entry they belong to) currently selected for drawing - written into instance_index_vbo
+	// (in this exact order) by whoever last set it, and consumed by think() as the *input* to the depth-sort (see positions_snapshot/index_snapshot in the .cpp) rather than sorting the whole world_positions
+	// array. Two different things write it, at two different rates: rebuildCurrentInstanceIndices() (synchronous, called from addObject()/removeObject() - see that method's comment) sets an immediate
+	// "root node only per tree-having entry, all leaves otherwise" placeholder the instant entries changes, and GaussianSplatLodTraversalTask's result (async, applied in think() - see the class comment's
+	// traversal concurrency note) overwrites it again shortly after with the real per-frame camera-based best-first frontier. Whichever one last ran wins; nothing else in this class (the sort, the VBO
+	// write, the draw call) cares which - only what's actually IN this vector matters to them.
+	std::vector<uint32> current_instance_indices;
+
 	uint64 structure_generation; // Bumped by removeObject() (which renumbers/repacks everything); NOT bumped by addObject() (a pure append is safe for an in-flight sort - see class comment). Sort results carry the generation they were computed against and are dropped on arrival if it's gone stale.
+	uint64 topology_generation; // Bumped by addObject() AND removeObject() alike (unlike structure_generation, which addObject() deliberately leaves untouched) - a stale LoD traversal result is wrong the instant entries changes at all, not only on removal, see the class comment's traversal concurrency note.
 
 	bool sort_in_flight; // True from when a sort task is kicked off until its *precise* (stage 2) result is applied - the fast coarse (stage 1) result doesn't clear this, see think().
 	Vec4f last_sort_cam_pos_ws; // World-space camera position as of the last sort *kicked off* (not necessarily completed) - used to decide when a re-sort is worth doing.
@@ -228,4 +272,16 @@ private:
 	uint64 num_sorts_completed;
 
 	ThreadSafeQueue<Reference<ThreadMessage> > sort_result_queue; // Written to by GaussianSplatSortTask::run() (worker thread), drained by think() (main thread).
+
+	// LoD traversal (Claude_LOD_plan.md stage 5) - same "kick off in think(), drain the result queue, generation-gate staleness" idiom as the depth-sort above, see the class comment's traversal concurrency note.
+	bool traversal_in_flight; // True from when a traversal task is kicked off until its result is applied (traversal has no coarse/precise split like the sort - one stage only).
+	Vec4f last_traversal_cam_pos_ws; // World-space camera position as of the last traversal *kicked off* - used to decide when a re-traversal is worth doing (same idea as last_sort_cam_pos_ws, tracked separately since the two tasks run independently).
+	bool have_last_traversal_cam_pos;
+	Reference<GaussianSplatLodTraversalScratch> traversal_scratch; // Working buffers for the traversal, reused across runs (allocated on first use) - see GaussianSplatSortScratch's comment for why Reference<> (not owned outright).
+
+	double last_traversal_duration_s;
+	size_t last_traversal_num_selected;
+	uint64 num_traversals_completed;
+
+	ThreadSafeQueue<Reference<ThreadMessage> > traversal_result_queue; // Written to by GaussianSplatLodTraversalTask::run() (worker thread), drained by think() (main thread).
 };
