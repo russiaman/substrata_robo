@@ -56,6 +56,7 @@ Copyright Glare Technologies Limited 2024 -
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QErrorMessage>
 #include <QtWidgets/QStyle>
+#include <QtWidgets/QScrollBar>
 #include <QtGamepad/QGamepadManager>
 #include <QtGamepad/QGamepad>
 #include "../qt/QtUtils.h"
@@ -1411,12 +1412,20 @@ void MainWindow::updateDiagnostics()
 		const bool do_graphics_diagnostics = ui->diagnosticsWidget->graphicsDiagnosticsCheckBox->isChecked();
 		const bool do_physics_diagnostics = ui->diagnosticsWidget->physicsDiagnosticsCheckBox->isChecked();
 		const bool do_terrain_diagnostics = ui->diagnosticsWidget->terrainDiagnosticsCheckBox->isChecked();
+		const bool do_splat_diagnostics = ui->diagnosticsWidget->showSplatDiagnosticsCheckBox->isChecked();
 
-		const std::string msg = gui_client.getDiagnosticsString(do_graphics_diagnostics, do_physics_diagnostics, do_terrain_diagnostics, last_timerEvent_CPU_work_elapsed, last_updateGL_time);
+		const std::string msg = gui_client.getDiagnosticsString(do_graphics_diagnostics, do_physics_diagnostics, do_terrain_diagnostics, do_splat_diagnostics, last_timerEvent_CPU_work_elapsed, last_updateGL_time);
 
 		// Don't update diagnostics string when part of it is selected, so user can actually copy it.
 		if(!ui->diagnosticsWidget->diagnosticsTextEdit->textCursor().hasSelection())
+		{
+			// setPlainText() below replaces the whole document, which resets the scrollbar to the top - QPlainTextEdit has no "replace text but keep scroll position" call of its own. Save/restore the
+			// scrollbar value around it so scrolling down to read something (e.g. the Gaussian splat LoD breakdown) survives this ~once-a-second refresh instead of jumping back to the top mid-read.
+			QScrollBar* vbar = ui->diagnosticsWidget->diagnosticsTextEdit->verticalScrollBar();
+			const int scroll_val = vbar->value();
 			ui->diagnosticsWidget->diagnosticsTextEdit->setPlainText(QtUtils::toQString(msg));
+			vbar->setValue(scroll_val);
+		}
 	}
 }
 

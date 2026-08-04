@@ -10112,9 +10112,62 @@ void GUIClient::handleMessages(double global_time, double cur_time)
 #endif
 
 
-std::string GUIClient::getDiagnosticsString(bool do_graphics_diagnostics, bool do_physics_diagnostics, bool do_terrain_diagnostics, double last_timerEvent_CPU_work_elapsed, double last_updateGL_time)
+std::string GUIClient::getDiagnosticsString(bool do_graphics_diagnostics, bool do_physics_diagnostics, bool do_terrain_diagnostics, bool do_splat_diagnostics, double last_timerEvent_CPU_work_elapsed, double last_updateGL_time)
 {
 	std::string msg;
+
+	// Placed FIRST, ahead of every other section below, deliberately - requested by the owner so the splat/LoD breakdown is always the first thing visible without scrolling, since the diagnostics text
+	// edit's content gets replaced (and its scroll position lost) roughly once a second - see the DiagnosticsWidget consumers (MainWindow.cpp/SDLClient.cpp) for the scroll-position-preserving fix that
+	// goes with this. Gated behind its own checkbox ("Show Gaussian splat LOD details"), same idiom as the graphics/physics/terrain sections further down - the per-object breakdown below does a
+	// world_state lookup per splat object every time this string is rebuilt, not worth paying for when nobody's looking at it.
+	if(do_splat_diagnostics)
+	{
+		std::vector<GaussianSplatRenderer::PerfStats> splat_stats;
+		gaussian_splat_renderer.getPerfStats(splat_stats);
+		if(!splat_stats.empty())
+		{
+			msg += "------------Gaussian splats------------\n";
+			for(size_t i = 0; i < splat_stats.size(); ++i)
+			{
+				const GaussianSplatRenderer::PerfStats& s = splat_stats[i];
+				msg += "  [" + toString(i) + "] source: " + s.source_name + ", num_splats (nodes, incl. LoD tree internals): " + toString(s.num_splats) +
+					", last coarse depth-sort time: " + (s.last_coarse_sort_duration_s >= 0.0 ? (doubleToStringNSigFigs(s.last_coarse_sort_duration_s * 1000, 3) + " ms") : std::string("(none yet)")) +
+					", last precise depth-sort time: " + (s.last_sort_duration_s >= 0.0 ? (doubleToStringNSigFigs(s.last_sort_duration_s * 1000, 3) + " ms") : std::string("(none yet)")) +
+					", sorts completed: " + toString(s.num_sorts_completed) +
+					", last LoD traversal time: " + (s.last_traversal_duration_s >= 0.0 ? (doubleToStringNSigFigs(s.last_traversal_duration_s * 1000, 3) + " ms") : std::string("(none yet)")) +
+					", last traversal selected: " + toString(s.last_traversal_num_selected) +
+					", traversals completed: " + toString(s.num_traversals_completed) + "\n";
+			}
+
+			// Per-object breakdown - answers "is THIS specific object showing full detail right now, or a coarse LoD stand-in?", which the aggregate world-wide totals above can't (see PerObjectStats' comment).
+			std::vector<GaussianSplatRenderer::PerObjectStats> per_ob_stats;
+			gaussian_splat_renderer.getPerObjectStats(per_ob_stats);
+			if(!per_ob_stats.empty())
+			{
+				msg += "  --- per-object breakdown ---\n";
+				for(size_t i = 0; i < per_ob_stats.size(); ++i)
+				{
+					const GaussianSplatRenderer::PerObjectStats& s = per_ob_stats[i];
+
+					std::string name = "UID " + toString(s.world_object_id.value()); // Fallback if the object can't be found below (shouldn't normally happen - a splat entry always corresponds to a live WorldObject).
+					if(this->world_state)
+					{
+						WorldStateLock lock(this->world_state->mutex);
+						auto res = this->world_state->objects.find(s.world_object_id);
+						if(res != this->world_state->objects.end())
+							name = stripResourceHashSuffixForDisplay(toStdString(res.getValue()->model_url));
+					}
+
+					msg += "  [" + toString(i) + "] " + name + ": " +
+						(s.has_tree ?
+							(toString(s.num_selected_now) + " / " + toString(s.num_tree_nodes) + " tree nodes currently drawn (" + toString(s.num_leaf_splats) + " leaf splats total)") :
+							("no LoD tree yet - drawing all " + toString(s.num_leaf_splats) + " leaf splats")) + "\n";
+				}
+			}
+
+			msg += "----------------------------------------\n";
+		}
+	}
 
 	if(selected_ob.nonNull())
 	{
@@ -10248,28 +10301,6 @@ std::string GUIClient::getDiagnosticsString(bool do_graphics_diagnostics, bool d
 	msg += "model_loaded_messages_to_process: " + toString(model_loaded_messages_to_process.size()) + "\n";
 	msg += "texture_loaded_messages_to_process: " + toString(texture_loaded_messages_to_process.size()) + "\n";
 	msg += "stack allocator high water mark: " + getNiceByteSize(stack_allocator.highWaterMark()) + " / " + getNiceByteSize(stack_allocator.size()) + "\n";
-
-	{
-		std::vector<GaussianSplatRenderer::PerfStats> splat_stats;
-		gaussian_splat_renderer.getPerfStats(splat_stats);
-		if(!splat_stats.empty())
-		{
-			msg += "------------Gaussian splats------------\n";
-			for(size_t i = 0; i < splat_stats.size(); ++i)
-			{
-				const GaussianSplatRenderer::PerfStats& s = splat_stats[i];
-				msg += "  [" + toString(i) + "] source: " + s.source_name + ", num_splats (nodes, incl. LoD tree internals): " + toString(s.num_splats) +
-					", last coarse depth-sort time: " + (s.last_coarse_sort_duration_s >= 0.0 ? (doubleToStringNSigFigs(s.last_coarse_sort_duration_s * 1000, 3) + " ms") : std::string("(none yet)")) +
-					", last precise depth-sort time: " + (s.last_sort_duration_s >= 0.0 ? (doubleToStringNSigFigs(s.last_sort_duration_s * 1000, 3) + " ms") : std::string("(none yet)")) +
-					", sorts completed: " + toString(s.num_sorts_completed) +
-					", last LoD traversal time: " + (s.last_traversal_duration_s >= 0.0 ? (doubleToStringNSigFigs(s.last_traversal_duration_s * 1000, 3) + " ms") : std::string("(none yet)")) +
-					", last traversal selected: " + toString(s.last_traversal_num_selected) +
-					", traversals completed: " + toString(s.num_traversals_completed) + "\n";
-			}
-			msg += "----------------------------------------\n";
-		}
-	}
-
 
 #ifdef NDEBUG
 	#ifdef BUILD_TESTS

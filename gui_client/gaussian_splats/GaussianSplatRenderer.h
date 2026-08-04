@@ -205,6 +205,18 @@ public:
 	};
 	void getPerfStats(std::vector<PerfStats>& stats_out) const;
 
+	// Per-object breakdown, for the "Show Gaussian splat LOD details" diagnostics checkbox (GUIClient::getDiagnosticsString()) - the aggregate PerfStats above only covers the whole world cloud, not
+	// individual objects, which isn't enough to answer "is THIS object actually showing full detail right now, or a coarse stand-in?" for a specific splat.
+	struct PerObjectStats
+	{
+		UID world_object_id;
+		bool has_tree; // Whether object_space_data->lod_tree was built (successfully) for this object - false means it's still using the pre-stage-4 "all leaves, no LoD" fallback, see the class comment.
+		size_t num_leaf_splats; // The object's original splat count (object_space_data->numSplats()), regardless of whether a tree was built.
+		size_t num_tree_nodes; // entry.count - equals num_leaf_splats when !has_tree (trivially, no internal nodes exist); the tree's full node count (leaves + merged internal nodes) otherwise.
+		size_t num_selected_now; // How many of this object's nodes are in the CURRENT current_instance_indices selection (i.e. what's actually being drawn this frame) - see that field's comment.
+	};
+	void getPerObjectStats(std::vector<PerObjectStats>& stats_out) const;
+
 	// Hash of the actual vertex+fragment shader source bytes read from disk by makeShaders(), as an 8-hex-digit string. Lets the ImGui overlay
 	// prove which shader source is actually running - unlike a build-date string baked in at compile time, this is computed from the file
 	// makeShaders() genuinely loaded, so it reflects preload-cache/staging-copy problems (e.g. a stale data/shaders/ copy) that a build indicator can't catch.

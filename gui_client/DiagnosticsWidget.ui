@@ -85,6 +85,13 @@
     </widget>
    </item>
    <item>
+    <widget class="QCheckBox" name="showSplatDiagnosticsCheckBox">
+     <property name="text">
+      <string>Show Gaussian splat LOD details</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="QPushButton" name="reloadTerrainPushButton">
      <property name="text">
       <string>Reload terrain</string>

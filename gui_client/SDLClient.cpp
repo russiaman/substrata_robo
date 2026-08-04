@@ -854,6 +854,7 @@ static void convertFromSDLTextInputEvent(SDL_Event ev, TextInputEvent& text_inpu
 static bool do_graphics_diagnostics = false;
 static bool do_physics_diagnostics = false;
 static bool do_terrain_diagnostics = false;
+static bool do_splat_diagnostics = false;
 static bool show_frame_time_graphs = false;
 
 static size_t last_total_memory = 0;
@@ -1262,10 +1263,11 @@ static void doOneMainLoopIter()
 				diag_changed = diag_changed || ImGui::Checkbox("graphics", &do_graphics_diagnostics);
 				diag_changed = diag_changed || ImGui::Checkbox("physics", &do_physics_diagnostics);
 				diag_changed = diag_changed || ImGui::Checkbox("terrain", &do_terrain_diagnostics);
+				diag_changed = diag_changed || ImGui::Checkbox("gaussian splat LOD details", &do_splat_diagnostics);
 
 				if((diagnostics_timer->elapsed() > 1.0) || diag_changed)
 				{
-					last_diagnostics = gui_client->getDiagnosticsString(do_graphics_diagnostics, do_physics_diagnostics, do_terrain_diagnostics, last_timerEvent_CPU_work_elapsed, last_updateGL_time);
+					last_diagnostics = gui_client->getDiagnosticsString(do_graphics_diagnostics, do_physics_diagnostics, do_terrain_diagnostics, do_splat_diagnostics, last_timerEvent_CPU_work_elapsed, last_updateGL_time);
 					diagnostics_timer->reset();
 				}
 

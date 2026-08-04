@@ -999,6 +999,43 @@ void GaussianSplatRenderer::getPerfStats(std::vector<PerfStats>& stats_out) cons
 }
 
 
+void GaussianSplatRenderer::getPerObjectStats(std::vector<PerObjectStats>& stats_out) const
+{
+	stats_out.resize(entries.size());
+	for(size_t e = 0; e < entries.size(); ++e)
+	{
+		const WorldSplatEntry& entry = entries[e];
+		PerObjectStats& s = stats_out[e];
+		s.world_object_id = entry.world_object_id;
+		s.has_tree = !entry.object_space_data->lod_tree.empty();
+		s.num_leaf_splats = entry.object_space_data->numSplats();
+		s.num_tree_nodes = entry.count;
+		s.num_selected_now = 0;
+	}
+
+	// Bucket current_instance_indices by which entry's [offset, offset+count) range each global index falls in. entries stays in ascending-offset order (offsets only ever grow via append, or shift down
+	// uniformly on removeObject() - see that method - so relative order is preserved), which is what makes the binary search below valid.
+	for(size_t i = 0; i < current_instance_indices.size(); ++i)
+	{
+		const uint32 gi = current_instance_indices[i];
+
+		// Find the last entry whose offset is <= gi (std::upper_bound on offset, then step back one) - that's the only entry gi could belong to.
+		size_t lo = 0, hi = entries.size();
+		while(lo < hi)
+		{
+			const size_t mid = lo + (hi - lo) / 2;
+			if(entries[mid].offset <= gi)
+				lo = mid + 1;
+			else
+				hi = mid;
+		}
+
+		if(lo > 0 && gi < entries[lo - 1].offset + entries[lo - 1].count)
+			stats_out[lo - 1].num_selected_now++;
+	}
+}
+
+
 void GaussianSplatRenderer::shutdown()
 {
 	world_ob = NULL;
