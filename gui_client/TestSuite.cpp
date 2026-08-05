@@ -24,6 +24,7 @@ Copyright Glare Technologies Limited 2023 -
 #include "../graphics/EXRDecoder.h"
 #include "../graphics/FormatDecoderVox.h"
 #include "../graphics/BatchedMeshTests.h"
+#include "../graphics/GaussianSplatLodTree.h"
 #include "../graphics/KTXDecoder.h"
 #include "../graphics/ImageMapSequence.h"
 #include "../graphics/PerlinNoise.h"
@@ -147,6 +148,7 @@ void TestSuite::test()
 	runTest([&]() { glare::StackAllocator::test(); });
 	runTest([&]() { glare::AtomicInt::test(); });
 	runTest([&]() { TextureProcessingTests::test(); });
+	runTest([&]() { GaussianSplatLodTreeTests::test(); });
 	runTest([&]() { ImageMapTests::test(); });
 	runTest([&]() { web::Escaping::test(); });
 	runTest([&]() { URL::test(); });

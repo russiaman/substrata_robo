@@ -43,6 +43,8 @@ ${GRAPHICS_DIR}/GaussianFilterFunction.h
 ${GRAPHICS_DIR}/GaussianImageFilter.cpp
 ${GRAPHICS_DIR}/GaussianImageFilter.h
 ${GRAPHICS_DIR}/GaussianSplatData.h
+${GRAPHICS_DIR}/GaussianSplatLodTree.cpp
+${GRAPHICS_DIR}/GaussianSplatLodTree.h
 ${GRAPHICS_DIR}/SOGDecoder.cpp
 ${GRAPHICS_DIR}/SOGDecoder.h
 ${GRAPHICS_DIR}/GifDecoder.cpp
