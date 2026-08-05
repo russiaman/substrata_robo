@@ -42,6 +42,10 @@ Code By Nicholas Chapman.
 #include <limits>
 
 
+ModelLoading::MakeGLObjectResults::MakeGLObjectResults() {}
+ModelLoading::MakeGLObjectResults::~MakeGLObjectResults() {}
+
+
 static inline Colour3f sanitiseAlbedoColour(const Colour3f& col)
 {
 	const Colour3f clamped = col.clamp(0.f, 1.f);

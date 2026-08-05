@@ -559,9 +559,14 @@ ${GLARE_CORE_TRUNK_DIR_ENV}/indigo/DiscreteDistribution.h
 SET(webserver_files
 ${GLARE_CORE_TRUNK_DIR_ENV}/webserver/Escaping.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/webserver/Escaping.h
+)
+
+# Files needed to run the local MCP HTTP endpoint (see MCPClientHandler). Qt-only (added to gui_client below, guarded by NOT USE_SDL):
+# WebListenerThread.cpp/WebWorkerThread.cpp need tls.h/openssl, which aren't available in the Emscripten LibreSSL build, and a
+# listening socket makes no sense in a browser anyway.
+SET(webserver_mcp_files
 ${GLARE_CORE_TRUNK_DIR_ENV}/webserver/ResponseUtils.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/webserver/ResponseUtils.h
-# Files needed to run the local MCP HTTP endpoint (see MCPClientHandler):
 ${GLARE_CORE_TRUNK_DIR_ENV}/webserver/WebListenerThread.cpp
 ${GLARE_CORE_TRUNK_DIR_ENV}/webserver/WebListenerThread.h
 ${GLARE_CORE_TRUNK_DIR_ENV}/webserver/RequestInfo.cpp
@@ -1113,6 +1118,10 @@ else()
 	SET(EXECUTABLE_TYPE WIN32)
 endif()
 
+# webserver_mcp_files (MCP HTTP endpoint) is only used by MCPClientHandler.cpp, which is Qt-only (see the USE_SDL else() branch above).
+if(NOT USE_SDL)
+	SET(gui_client ${gui_client} ${webserver_mcp_files})
+endif()
 
 add_executable(${CURRENT_TARGET} ${EXECUTABLE_TYPE}
 ${MAC_ICON}
@@ -1139,6 +1148,7 @@ ${opengl}
 ${opengl_shaders}
 ${substrata_shaders}
 ${opengl_ui}
+${webserver_files}
 ${direct3d}
 ${dll_src}
 ${fft2d}
@@ -1147,7 +1157,6 @@ ${qt}
 ${doc_files}
 ${lang}
 ${video}
-${webserver_files}
 ${rtaudio}
 ${audio}
 ${indigo_audio}

@@ -59,6 +59,12 @@ public:
 	public:
 		GLARE_ALIGNED_16_NEW_DELETE
 
+		// Constructor and destructor are defined in ModelLoading.cpp, where GaussianSplatData is a complete type: an inline body
+		// (even an empty one) needs the complete type there too, to generate exception-unwind cleanup code for the splat_data member.
+		MakeGLObjectResults();
+		~MakeGLObjectResults();
+		GLARE_DISABLE_COPY(MakeGLObjectResults) // Also avoids needing GaussianSplatData complete for an implicit copy ctor/assignment op.
+
 		Matrix4f ob_to_world;
 		GLObjectRef gl_ob; // Null if do_opengl_stuff was false, and also null for .sog Gaussian splat clouds, which have no GLObject representation - they are drawn by GaussianSplatRenderer.  Callers must handle null.
 		BatchedMeshRef batched_mesh; // Not set if we loaded a .vox model, or a .sog splat cloud.
