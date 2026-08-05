@@ -2868,10 +2868,13 @@ void GUIClient::loadModelForObject(WorldObject* ob, WorldStateLock& world_state_
 			{
 				ob->loading_or_loaded_model_lod_level = 0;
 
+				bool added_opengl_ob = false;
+
 				auto res = splat_data_cache.find(ob->model_url);
 				if(res != splat_data_cache.end()) // If the cloud is already decoded:
 				{
 					loadPresentObjectSplatCloud(ob, res->second, world_state_lock);
+					added_opengl_ob = true;
 				}
 				else if(resource_manager->isFileForURLPresent(ob->model_url))
 				{
@@ -2897,11 +2900,13 @@ void GUIClient::loadModelForObject(WorldObject* ob, WorldStateLock& world_state_
 					}
 					else
 						load_item_queue.checkUpdateItemPosition(/*key=*/ob->model_url, *ob);
+				}
 
+				// If the cloud isn't loaded yet, add this object to the wait list.
+				if(!added_opengl_ob)
+				{
 					// Splat objects are never dynamic, so the processing key always uses dynamic_physics_shape = false.
 					const ModelProcessingKey key(ob->model_url, /*dynamic_physics_shape=*/false);
-
-					// If the cloud isn't loaded yet, add this object to the wait list.
 					this->loading_model_URL_to_world_ob_UID_map[key].insert(ob->uid);
 				}
 			}
@@ -8914,9 +8919,11 @@ void GUIClient::setThirdPersonCameraPosition(double dt)
 		const float initial_ignore_dist = vehicle_controller_inside.nonNull() ? myMin(cam_controller.getThirdPersonCamDist(), vehicle_controller_inside->getThirdPersonCamTraceSelfAvoidanceDist()) : 0.f;
 		// We want to make sure the 3rd-person camera view is not occluded by objects behind the avatar's head (walls etc..)
 		// So trace a ray backwards, and position the camera on the ray path before it hits the wall.
+		// Only trace against collidable objects: non-collidable objects (holograms, other avatars' picking capsules, and in particular
+		// Gaussian splat clouds, whose physics shape is just a bounding box around the cloud) shouldn't pull the camera in.
 		RayTraceResult trace_results;
 		if(physics_world)
-			physics_world->traceRay(/*origin=*/use_target_pos + normalise(cam_back_dir) * initial_ignore_dist, 
+			physics_world->traceRayAgainstCollidableObs(/*origin=*/use_target_pos + normalise(cam_back_dir) * initial_ignore_dist,
 				/*dir=*/normalise(cam_back_dir), /*max_t=*/cam_back_dir.length() - initial_ignore_dist + 1.f, /*ignore body id=*/JPH::BodyID(), trace_results);
 		else
 			trace_results.hit_object = NULL;
