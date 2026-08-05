@@ -319,6 +319,13 @@ void SDLUIInterface::setHelpInfoLabel(const std::string& text)
 {
 }
 
+// See UIInterface.h's comment on this method for why it exists (this - the SDL/web - side has ImGui available, unlike the Qt desktop client, so unlike most methods in this file it's not a stub). Just flips the
+// flag; SDLClient.cpp's main loop is what actually draws the ImGui window while gaussian_splat_lod_build_in_progress is true - see the usages of that field there.
+void SDLUIInterface::setGaussianSplatLodBuildInProgress(bool in_progress)
+{
+	gaussian_splat_lod_build_in_progress = in_progress;
+}
+
 void SDLUIInterface::toggleFlyMode()
 {
 	gui_client->player_physics.setFlyModeEnabled(!gui_client->player_physics.flyModeEnabled());

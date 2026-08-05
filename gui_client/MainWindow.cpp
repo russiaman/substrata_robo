@@ -57,6 +57,7 @@ Copyright Glare Technologies Limited 2024 -
 #include <QtWidgets/QErrorMessage>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QScrollBar>
+#include <QtWidgets/QLabel>
 #include <QtGamepad/QGamepadManager>
 #include <QtGamepad/QGamepad>
 #include "../qt/QtUtils.h"
@@ -308,6 +309,7 @@ MainWindow::MainWindow(const std::string& base_dir_path_, const std::string& app
 	parsed_args(args),
 	QMainWindow(parent),
 	need_help_info_dock_widget_position(false),
+	gaussian_splat_lod_build_overlay_label(NULL),
 	diagnostics_scroll_pos_v(0),
 	diagnostics_scroll_pos_h(0),
 	updating_diagnostics_text(false),
@@ -4407,6 +4409,45 @@ void MainWindow::setHelpInfoLabelToDefaultText()
 void MainWindow::setHelpInfoLabel(const std::string& text)
 {
 	this->ui->helpInfoLabel->setText(QtUtils::toQString(text));
+}
+
+
+// See UIInterface.h's comment on this method for why it exists (no ImGui on this - the Qt - desktop client, unlike the SDL/web client, so a Gaussian Splat LoD build's "Processing..." indicator needs a native
+// Qt implementation here). A small, centred, dialog-sized QLabel over the GL viewport (not a QDialog - no title bar/window chrome needed for something this transient), rather than covering the whole viewport,
+// so it reads as a brief, unobtrusive status notice. Deliberately does not disable ui->glWidget or otherwise block input while shown - see UIInterface.h's comment on why an input-blocking gate around an async
+// operation of unpredictable length is a real risk (a key-up landing inside the blocked window could leave that key stuck "held" with no way to release it).
+void MainWindow::setGaussianSplatLodBuildInProgress(bool in_progress)
+{
+	if(!gaussian_splat_lod_build_overlay_label)
+	{
+		gaussian_splat_lod_build_overlay_label = new QLabel(ui->glWidget);
+		gaussian_splat_lod_build_overlay_label->setAlignment(Qt::AlignCenter);
+		gaussian_splat_lod_build_overlay_label->setWordWrap(true);
+		gaussian_splat_lod_build_overlay_label->setStyleSheet(
+			"background-color: rgba(25, 25, 25, 235);"
+			"color: white;"
+			"font-size: 24pt;"
+			"border: 1px solid rgba(255, 255, 255, 60);"
+			"border-radius: 8px;"
+			"padding: 16px;"
+		);
+		gaussian_splat_lod_build_overlay_label->setText("Building Gaussian Splat LoD tree...");
+		gaussian_splat_lod_build_overlay_label->hide();
+	}
+
+	if(in_progress)
+	{
+		const int box_w = 1020, box_h = 270; // Dialog-like footprint, centred over the viewport rather than the whole GL widget.
+		const QRect viewport_rect = ui->glWidget->rect();
+		const QRect box_rect(viewport_rect.center().x() - box_w / 2, viewport_rect.center().y() - box_h / 2, box_w, box_h);
+		gaussian_splat_lod_build_overlay_label->setGeometry(box_rect);
+		gaussian_splat_lod_build_overlay_label->show();
+		gaussian_splat_lod_build_overlay_label->raise();
+	}
+	else
+	{
+		gaussian_splat_lod_build_overlay_label->hide();
+	}
 }
 
 

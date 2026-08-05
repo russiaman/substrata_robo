@@ -909,9 +909,16 @@ static void doOneMainLoopIter()
 	SDL_Event e;
 	while(SDL_PollEvent(&e))
 	{
-		if(show_imgui_info_window)
+		// A Gaussian Splat LoD tree build in progress (see UIInterface.h's setGaussianSplatLodBuildInProgress()) needs ImGui events processed too, independent of the F1 debug window toggle, since it draws its
+		// own "Building..." window below regardless of show_imgui_info_window.
+		const bool lod_build_in_progress = sdl_ui_interface->gaussian_splat_lod_build_in_progress;
+
+		if(show_imgui_info_window || lod_build_in_progress)
 			ImGui_ImplSDL2_ProcessEvent(&e); // Pass event onto ImGUI
 
+		// Deliberately NOT folding lod_build_in_progress into these two flags to force-block camera/game input for the duration (matching UIInterface.h's comment on why the indicator must stay non-blocking):
+		// SDL_KEYUP handling below is gated on !imgui_captures_keyboard_ev, so forcing it true for the build's (possibly multi-second) duration risks swallowing a key-up that happens to land in that window -
+		// e.g. releasing the "move forward" key right as a splat finishes loading - leaving that key's "is held" state stuck on with no matching release ever delivered.
 		const bool imgui_captures_mouse_ev    = show_imgui_info_window && ImGui::GetIO().WantCaptureMouse;
 		const bool imgui_captures_keyboard_ev = show_imgui_info_window && ImGui::GetIO().WantCaptureKeyboard;
 
@@ -1271,6 +1278,26 @@ static void doOneMainLoopIter()
 		}
 		ImGui::End();
 		
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+	}
+
+	// Gaussian Splat LoD tree build progress indicator (see UIInterface.h's setGaussianSplatLodBuildInProgress() comment for why this exists specifically for the SDL/web client - the Qt desktop client has no
+	// ImGui to draw with, so it shows a native Qt overlay instead, see MainWindow::setGaussianSplatLodBuildInProgress()). Deliberately a separate ImGui frame from the one above rather than folded into it,
+	// since this one needs to show regardless of show_imgui_info_window (the F1 debug window can be closed while a splat file is loading) - a second independent NewFrame()/Render() pair per real frame is
+	// normal ImGui usage, not a hack, it just costs a little more than reusing the block above on the (rare) frames both happen to be showing at once.
+	if(sdl_ui_interface->gaussian_splat_lod_build_in_progress)
+	{
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplSDL2_NewFrame();
+		ImGui::NewFrame();
+
+		const ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+		ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+		ImGui::Begin("##gaussian_splat_lod_build_progress", /*p_open=*/NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::TextUnformatted("Building Gaussian Splat LoD tree...");
+		ImGui::End();
+
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 	}

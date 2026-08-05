@@ -143,6 +143,8 @@ static const URLString DEFAULT_AVATAR_MODEL_URL = "xbot.bmesh"; // This file sho
 
 static const float MIN_SPOTLIGHT_CONE_ANGLE = 0.087266f;
 
+static const double gaussian_splat_lod_overlay_min_display_time_s = 2.0; // See GUIClient.h's gaussian_splat_lod_overlay_hide_pending comment - minimum time the "Building..." overlay stays up once shown, so preprocessing is always visibly noticeable, even on fast/small files.
+
 static std::vector<AvatarRef> test_avatars;
 static std::vector<double> test_avatar_phases;
 
@@ -4761,13 +4763,14 @@ void GUIClient::loadPresentObjectSplatCloud(WorldObject* ob, const Reference<Gau
 {
 	assert(ob->object_type == WorldObject::ObjectType_Splat);
 
-	// The splat capacity is world-wide, so a cloud that would overflow it has to be rejected rather than clamped.
+	// The splat capacity is per-cloud (see GaussianSplatRenderer::maxSplatsPerCloud()), so a cloud that would overflow it has to be rejected rather than clamped.
 	// NOTE: checked before anything is torn down below, so that a rejected cloud leaves the object exactly as it was, and
 	// leaves loading_or_loaded_model_lod_level set by the caller - otherwise the load would be retried, and this error
 	// logged, every frame.
+	// NOTE 2: numNodes() (node count if an LoD tree has been built, else leaf count - see GaussianSplatData::numNodes()) is used here, matching what GaussianSplatRenderer::addObject() actually enforces below.
 	const size_t max_splats = opengl_engine->getSplatRenderer().maxSplatsPerCloud();
-	if(splat_data->numSplats() > max_splats)
-		throw glare::Exception("Can't load splat cloud with " + toString(splat_data->numSplats()) + " splats: the per-cloud limit of " + toString(max_splats) + " would be exceeded.");
+	if(splat_data->numNodes() > max_splats)
+		throw glare::Exception("Can't load splat cloud with " + toString(splat_data->numNodes()) + " nodes: the per-cloud limit of " + toString(max_splats) + " would be exceeded.");
 
 	removeAndDeleteGLObjectsForOb(*ob); // Removes any existing splat cloud registration as well as any OpenGL object.
 
@@ -6327,7 +6330,15 @@ void GUIClient::timerEvent(const MouseCursorState& mouse_cursor_state)
 	}
 
 	handleMessages(global_time, cur_time);
-	
+
+	// Resolve a pending "Building..." overlay hide once its minimum display time (see GUIClient.h's gaussian_splat_lod_overlay_hide_pending comment) has elapsed - handleMessages() above only sets the flag,
+	// since the finish message can easily arrive before that minimum has passed; this runs every frame so the hide happens as soon as it's allowed to, not just the next time a message arrives.
+	if(gaussian_splat_lod_overlay_hide_pending && (gaussian_splat_lod_overlay_shown_timer.elapsed() >= gaussian_splat_lod_overlay_min_display_time_s))
+	{
+		ui_interface->setGaussianSplatLodBuildInProgress(false);
+		gaussian_splat_lod_overlay_hide_pending = false;
+	}
+
 	// Evaluate scripts on objects
 	{
 		ZoneScopedN("script eval"); // Tracy profiler
@@ -9066,6 +9077,35 @@ void GUIClient::handleMessages(double global_time, double cur_time)
 				async_model_loaded_messages_to_process.push_back(loaded_msg);
 			else
 				model_loaded_messages_to_process.push_back(loaded_msg);
+		}
+		break;
+		case Msg_GaussianSplatLodBuildStatusMessage: // See LoadModelTask.cpp's .sog branch for where these are sent, and GUIClient.h's num_gaussian_splat_lod_builds_in_progress comment for the counting rationale.
+		{
+			GaussianSplatLodBuildStatusMessage* status_msg = checkedDowncastPtr<GaussianSplatLodBuildStatusMessage>(msg);
+			if(status_msg->starting)
+			{
+				if(num_gaussian_splat_lod_builds_in_progress == 0)
+				{
+					ui_interface->setGaussianSplatLodBuildInProgress(true);
+					gaussian_splat_lod_overlay_shown_timer.reset(); // See GUIClient.h's comment on this timer - starts the minimum-display-time window.
+					gaussian_splat_lod_overlay_hide_pending = false; // A fresh build starting cancels any pending hide left over from a previous, now-superseded build - stay visible rather than hiding then immediately re-showing.
+				}
+				++num_gaussian_splat_lod_builds_in_progress;
+			}
+			else
+			{
+				assert(num_gaussian_splat_lod_builds_in_progress > 0);
+				--num_gaussian_splat_lod_builds_in_progress;
+				if(num_gaussian_splat_lod_builds_in_progress == 0)
+				{
+					// Don't necessarily hide immediately - see GUIClient.h's comment on gaussian_splat_lod_overlay_hide_pending. If the minimum display time has already elapsed (a build that took a while),
+					// this is the normal "just finished" case and hides right away; otherwise the per-frame check in timerEvent() resolves it once enough time has passed.
+					if(gaussian_splat_lod_overlay_shown_timer.elapsed() >= gaussian_splat_lod_overlay_min_display_time_s)
+						ui_interface->setGaussianSplatLodBuildInProgress(false);
+					else
+						gaussian_splat_lod_overlay_hide_pending = true;
+				}
+			}
 		}
 		break;
 		case Msg_TextureLoadedThreadMessage:

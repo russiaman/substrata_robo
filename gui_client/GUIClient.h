@@ -629,6 +629,20 @@ public:
 	// OpenGLMeshRenderData and PhysicsShape.
 	std::unordered_map<URLString, Reference<GaussianSplatData>, URLStringHasher> splat_data_cache;
 
+	// How many Gaussian Splat LoD tree builds are currently running on LoadModelTask worker threads - a count, not a bool, since more than one .sog file can be loading at once (e.g. several splat objects
+	// already placed in a world you're joining). Driven entirely by Msg_GaussianSplatLodBuildStatusMessage in handleMessages() (see ThreadMessages.h) - goes from 0 to >0 (and calls
+	// ui_interface->setGaussianSplatLodBuildInProgress(true)) on the first build to start, back to 0 (and (false)) once the last one finishes. See LoadModelTask.cpp for where these messages are sent, and why
+	// they're guaranteed to arrive in start/finish pairs even if the tree build itself fails.
+	int num_gaussian_splat_lod_builds_in_progress = 0;
+
+	// Together these enforce a minimum on-screen time for the "Building..." overlay above, so the user always sees *that* preprocessing happened when they add a splat file, not just when it happens to be
+	// slow enough to notice - without this, a small test file can build its LoD tree in a handful of milliseconds, well under one frame, and the overlay would flash on and off invisibly.
+	// gaussian_splat_lod_overlay_shown_timer is reset() the moment the overlay actually becomes visible (num_gaussian_splat_lod_builds_in_progress 0 -> >0); if the last in-flight build finishes before
+	// gaussian_splat_lod_overlay_min_display_time_s has elapsed since then, gaussian_splat_lod_overlay_hide_pending is set instead of hiding immediately, and resolved once the minimum has elapsed by a
+	// per-frame check in timerEvent() (see GUIClient.cpp).
+	Timer gaussian_splat_lod_overlay_shown_timer;
+	bool gaussian_splat_lod_overlay_hide_pending = false;
+
 	AnimationManager animation_manager;
 
 	std::string server_hostname; // Hostname of the server the client is connected to.  e.g. "substrata.info" or "localhost"

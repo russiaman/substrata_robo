@@ -20,6 +20,7 @@ Copyright Glare Technologies Limited 2025 -
 #include <utils/MemMappedFile.h>
 #include <graphics/FormatDecoderSubVox.h>
 #include <graphics/SOGDecoder.h>
+#include <graphics/GaussianSplatLodTree.h>
 #include <tracy/Tracy.hpp>
 
 
@@ -116,6 +117,30 @@ void LoadModelTask::run(size_t thread_index)
 					ZoneText("SOG", 3);
 
 					Reference<GaussianSplatData> splat_data = SOGDecoder::decodeFromBuffer(model_buffer.data(), model_buffer.size(), worker_allocator.ptr());
+
+					// Build the on-the-fly LoD tree (see GaussianSplatData::lod_tree's comment) right here on this worker thread, still before result_msg_queue->enqueue() below hands the splat cloud back to
+					// the main thread - same worker, same pass, no separate glare::Task needed, since the tree only needs building once, at load time. Bracketed with start/finish status messages so GUIClient
+					// can show/hide a "Building..." indicator for however long this takes (see GUIClient::num_gaussian_splat_lod_builds_in_progress and ThreadMessages.h's GaussianSplatLodBuildStatusMessage) -
+					// large/dense scenes are the whole reason this feature exists, so this step can take long enough to be worth telling the user about, unlike the decode step above.
+					//
+					// No URL-keyed cache is needed here (unlike an earlier version of this feature) to avoid rebuilding on redundant reloads: GUIClient::loadObjectsInProximity() only ever reaches this task
+					// once per splat object at all - "the model is only ever loaded once per object" (see its ObjectType_Splat branch, gated on ob->loading_or_loaded_model_lod_level != 0, set to 0 immediately
+					// on first entry) - and GUIClient::splat_data_cache already serves repeat loads of the same URL from other objects without spawning a second LoadModelTask.
+					if(splat_data.nonNull() && splat_data->numSplats() > 0)
+					{
+						result_msg_queue->enqueue(new GaussianSplatLodBuildStatusMessage(/*starting=*/true));
+						try
+						{
+							splat_data->lod_tree = buildGaussianSplatLodTree(splat_data->positions.data(), splat_data->scales.data(), splat_data->rotations.data(), splat_data->colours.data(),
+								splat_data->numSplats());
+						}
+						catch(std::exception&)
+						{
+							// The LoD tree is a nice-to-have, not something the splat cloud needs in order to render at all - callers treat an empty lod_tree as "no LoD, render every splat" (see
+							// GaussianSplatData.h). splat_data->lod_tree is left empty (default-constructed) by this catch.
+						}
+						result_msg_queue->enqueue(new GaussianSplatLodBuildStatusMessage(/*starting=*/false)); // Always sent if starting=true was - the try/catch above guarantees we still reach this line.
+					}
 
 					Reference<ModelLoadedThreadMessage> msg = new ModelLoadedThreadMessage();
 					msg->splat_data = splat_data;

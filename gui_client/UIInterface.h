@@ -165,4 +165,12 @@ public:
 	static const int PICK_AVATAR_MODEL   = 1;
 
 	virtual std::string showOpenFileDialog(const std::string& caption, const std::vector<FileTypeFilter>& file_type_filters, const std::string& settings_key, int file_picker_id) = 0; // Returns path to file selected or empty string if cancelled.
+
+
+	// Gaussian Splat LoD tree build progress indicator. Why this needs its own UIInterface method rather than reusing something existing: the two concrete UI backends behind this interface aren't symmetric
+	// here. The SDL/web client (SDLUIInterface) has ImGui wired up and can just show an overlay window with it, but the Qt desktop client (MainWindow, built with USE_SDL=OFF) never initialises ImGui at all -
+	// ImGui's NewFrame()/Render() calls only exist in SDLClient.cpp. So each side needs to show "building..." using whatever native UI mechanism it actually has - same reason showLodChunksVisEnabled() above is
+	// implemented twice rather than shared. Purely a visual indicator - must NOT block camera/game input while in_progress is true (a boolean input-block gate with no guaranteed press/release symmetry around
+	// an async operation of unpredictable length risks sticking a key "held" forever if its release lands inside the blocked window).
+	virtual void setGaussianSplatLodBuildInProgress(bool in_progress) = 0;
 };

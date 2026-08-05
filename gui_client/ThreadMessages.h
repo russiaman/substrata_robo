@@ -48,6 +48,7 @@ enum GuiClientThreadMessages
 	Msg_TerrainChunkGeneratedMsg,
 	Msg_WindNoiseLoaded,
 	Msg_UserGearListMessage,
+	Msg_GaussianSplatLodBuildStatusMessage,
 	Msg_BuilderAITextDeltaMessage,
 	Msg_BuilderAIToolActivityMessage,
 	Msg_BuilderAITurnCompleteMessage,
@@ -80,6 +81,17 @@ class ErrorMessage : public ThreadMessage
 public:
 	ErrorMessage(const std::string& msg_) : ThreadMessage(Msg_ErrorMessage), msg(msg_) {}
 	std::string msg;
+};
+
+
+// Sent by LoadModelTask (see its .cpp) around a Gaussian Splat LoD tree build, so GUIClient can show/hide the "Building..." indicator (UIInterface::setGaussianSplatLodBuildInProgress()) for the duration, without
+// GUIClient needing to know anything about how/when LoadModelTask decides to build a tree. Always sent in starting=true, starting=false pairs for a given load - see LoadModelTask.cpp's .sog branch for why a
+// tree-build failure can't leave a starting=true without a matching starting=false.
+class GaussianSplatLodBuildStatusMessage : public ThreadMessage
+{
+public:
+	GaussianSplatLodBuildStatusMessage(bool starting_) : ThreadMessage(Msg_GaussianSplatLodBuildStatusMessage), starting(starting_) {}
+	bool starting;
 };
 
 
