@@ -32,7 +32,8 @@ LoadModelTask::LoadModelTask()
 :	build_physics_ob(true),
 	build_dynamic_physics_ob(false),
 	model_lod_level(-1),
-	need_lightmap_uvs(false)
+	need_lightmap_uvs(false),
+	gaussian_splat_lod_base(1.5f) // Matches buildGaussianSplatLodTree()'s own default - a caller that doesn't set this (i.e. not a .sog load) never reads it anyway.
 {}
 
 
@@ -132,7 +133,7 @@ void LoadModelTask::run(size_t thread_index)
 						try
 						{
 							splat_data->lod_tree = buildGaussianSplatLodTree(splat_data->positions.data(), splat_data->scales.data(), splat_data->rotations.data(), splat_data->colours.data(),
-								splat_data->numSplats());
+								splat_data->numSplats(), gaussian_splat_lod_base);
 						}
 						catch(std::exception&)
 						{

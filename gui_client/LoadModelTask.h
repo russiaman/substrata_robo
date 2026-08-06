@@ -101,6 +101,8 @@ public:
 	bool need_lightmap_uvs;
 	Matrix4f ob_to_world_matrix; // Used for generating lightmap coords for voxel meshes.
 
+	float gaussian_splat_lod_base; // Only read for a .sog load - see run(). Live-tunable (GaussianSplatSettingsWidget) build-time parameter for buildGaussianSplatLodTree(): affects a tree built after it's changed, not already-built ones.
+
 	Reference<LoadedBuffer> loaded_buffer; // For emscripten, load from memory buffer instead of from resource on disk.
 
 	Reference<OpenGLEngine> opengl_engine;

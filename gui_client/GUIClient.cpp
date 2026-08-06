@@ -2894,6 +2894,7 @@ void GUIClient::loadModelForObject(WorldObject* ob, WorldStateLock& world_state_
 						load_model_task->resource_manager = resource_manager;
 						load_model_task->build_dynamic_physics_ob = false;
 						load_model_task->worker_allocator = worker_allocator;
+						load_model_task->gaussian_splat_lod_base = this->gaussian_splat_lod_base;
 						// NOTE: upload_thread is deliberately left null: splat data has no geometry to upload, so the task
 						// returns its result directly via result_msg_queue.
 						load_model_task->ob_to_world_matrix = obToWorldMatrix(*ob);

@@ -91,6 +91,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../graphics/PNGDecoder.h"
 #include "../graphics/jpegdecoder.h"
 #include "../opengl/RenderStatsWidget.h"
+#include "../opengl/GaussianSplatRenderer.h"
 #if defined(_WIN32)
 #include "../video/WMFVideoReader.h"
 #endif
@@ -438,6 +439,7 @@ void MainWindow::initialiseUI()
 	ui->menuWindow->addAction(ui->indigoViewDockWidget->toggleViewAction());
 #endif
 	ui->menuWindow->addAction(ui->diagnosticsDockWidget->toggleViewAction());
+	ui->menuWindow->addAction(ui->gaussianSplatSettingsDockWidget->toggleViewAction());
 
 
 	// Always disable MDI for now, seems to be slower in general in Substrata
@@ -516,6 +518,7 @@ void MainWindow::initialiseUI()
 		this->ui->environmentDockWidget->hide();
 		this->ui->worldSettingsWidget->hide();
 		this->ui->diagnosticsDockWidget->hide();
+		this->ui->gaussianSplatSettingsDockWidget->hide();
 		this->ui->worldSettingsDockWidget->hide();
 	}
 
@@ -532,6 +535,11 @@ void MainWindow::initialiseUI()
 	connect(ui->diagnosticsWidget, SIGNAL(settingsChangedSignal()), this, SLOT(diagnosticsWidgetChanged()));
 	connect(ui->diagnosticsWidget, SIGNAL(reloadTerrainSignal()), this, SLOT(diagnosticsReloadTerrain()));
 	connect(ui->diagnosticsWidget->diagnosticsTextEdit->verticalScrollBar(),   SIGNAL(valueChanged(int)), this, SLOT(diagnosticsScrollChanged()));
+
+	ui->gaussianSplatSettingsWidget->init(settings);
+	connect(ui->gaussianSplatSettingsWidget, SIGNAL(settingsChangedSignal()), this, SLOT(gaussianSplatSettingsChanged()));
+	// NOTE: gaussianSplatSettingsChanged() isn't called here to apply the just-loaded values immediately - opengl_engine
+	// doesn't exist yet this early in initialiseUI() (see afterGLInitInitialise(), where that call actually happens).
 	connect(ui->diagnosticsWidget->diagnosticsTextEdit->horizontalScrollBar(), SIGNAL(valueChanged(int)), this, SLOT(diagnosticsScrollChanged()));
 
 	ui->environmentOptionsWidget->init(settings);
@@ -738,6 +746,12 @@ void MainWindow::afterGLInitInitialise()
 	const auto device_pixel_ratio = ui->glWidget->devicePixelRatio(); // For retina screens this is 2, meaning the gl viewport width is in physical pixels, which have twice the density of qt pixel coordinates.
 
 	gui_client.afterGLInitInitialise((double)device_pixel_ratio, ui->glWidget->opengl_engine, fonts, emoji_fonts);
+
+	// Apply the settings panel's just-loaded values to the live renderer now that opengl_engine exists - a first cut of
+	// this panel loaded settings into the UI on init() but never pushed them to the renderer at startup, so a non-default
+	// saved value would sit in the widget while the renderer kept running on its hardcoded default until the user
+	// happened to touch a spin box. Applying this proactively rather than waiting for that bug to resurface.
+	gaussianSplatSettingsChanged();
 
 
 	if(settings->value("mainwindow/showParcels", QVariant(false)).toBool())
@@ -4022,6 +4036,20 @@ void MainWindow::diagnosticsWidgetChanged()
 	}
 
 	gui_client.diagnosticsSettingsChanged();
+}
+
+
+// Applies the live-tunable panel's current values to the renderer (pixel_scale_limit/max_splats_budget/resort_move_threshold_ws)
+// and to GUIClient (lod_base, only consumed the next time a .sog is loaded - see LoadModelTask::gaussian_splat_lod_base).
+// Called both when the user edits a spin box (via settingsChangedSignal()) and once at startup from afterGLInitInitialise(),
+// so a saved non-default value takes effect immediately rather than sitting unapplied until the user touches a control.
+void MainWindow::gaussianSplatSettingsChanged()
+{
+	opengl_engine->getSplatRenderer().setPixelScaleLimit((float)ui->gaussianSplatSettingsWidget->pixelScaleLimitDoubleSpinBox->value());
+	opengl_engine->getSplatRenderer().setMaxSplatsBudget((size_t)ui->gaussianSplatSettingsWidget->maxSplatsBudgetSpinBox->value());
+	opengl_engine->getSplatRenderer().setResortMoveThresholdWS((float)ui->gaussianSplatSettingsWidget->resortMoveThresholdDoubleSpinBox->value());
+
+	gui_client.gaussian_splat_lod_base = (float)ui->gaussianSplatSettingsWidget->lodBaseDoubleSpinBox->value();
 }
 
 

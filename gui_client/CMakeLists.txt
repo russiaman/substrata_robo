@@ -88,6 +88,7 @@ if(NOT USE_SDL)
 	addMocFileRule(gui_client ListObjectsNearbyDialog)
 	addMocFileRule(gui_client LogWindow)
 	addMocFileRule(gui_client DiagnosticsWidget)
+	addMocFileRule(gui_client GaussianSplatSettingsWidget)
 	addMocFileRule(gui_client TerrainSpecSectionWidget)
 	addMocFileRule(gui_client WorldSettingsWidget)
 	addMocFileRule(gui_client CreateObjectsDialog)
@@ -122,6 +123,7 @@ if(NOT USE_SDL)
 	addUIFileRule(gui_client ListObjectsNearbyDialog)
 	addUIFileRule(gui_client LogWindow)
 	addUIFileRule(gui_client DiagnosticsWidget)
+	addUIFileRule(gui_client GaussianSplatSettingsWidget)
 	addUIFileRule(gui_client TerrainSpecSectionWidget)
 	addUIFileRule(gui_client WorldSettingsWidget)
 	addUIFileRule(gui_client CreateObjectsDialog)
@@ -326,6 +328,9 @@ else()
 		${CMAKE_SOURCE_DIR}/gui_client/DiagnosticsWidget.cpp
 		${CMAKE_SOURCE_DIR}/gui_client/DiagnosticsWidget.h
 		${CMAKE_SOURCE_DIR}/gui_client/DiagnosticsWidget.ui
+		${CMAKE_SOURCE_DIR}/gui_client/GaussianSplatSettingsWidget.cpp
+		${CMAKE_SOURCE_DIR}/gui_client/GaussianSplatSettingsWidget.h
+		${CMAKE_SOURCE_DIR}/gui_client/GaussianSplatSettingsWidget.ui
 		${CMAKE_SOURCE_DIR}/gui_client/EnvironmentOptionsWidget.cpp
 		${CMAKE_SOURCE_DIR}/gui_client/EnvironmentOptionsWidget.h
 		${CMAKE_SOURCE_DIR}/gui_client/EnvironmentOptionsWidget.ui
@@ -436,6 +441,7 @@ if(NOT USE_SDL)
 	${CMAKE_SOURCE_DIR}/gui_client/moc_ListObjectsNearbyDialog.cpp
 	${CMAKE_SOURCE_DIR}/gui_client/moc_LogWindow.cpp
 	${CMAKE_SOURCE_DIR}/gui_client/moc_DiagnosticsWidget.cpp
+	${CMAKE_SOURCE_DIR}/gui_client/moc_GaussianSplatSettingsWidget.cpp
 	${CMAKE_SOURCE_DIR}/gui_client/moc_TerrainSpecSectionWidget.cpp
 	${CMAKE_SOURCE_DIR}/gui_client/moc_WorldSettingsWidget.cpp
 	${CMAKE_SOURCE_DIR}/gui_client/moc_CreateObjectsDialog.cpp
@@ -464,6 +470,7 @@ if(NOT USE_SDL)
 	${CMAKE_SOURCE_DIR}/gui_client/ui_ListObjectsNearbyDialog.h
 	${CMAKE_SOURCE_DIR}/gui_client/ui_LogWindow.h
 	${CMAKE_SOURCE_DIR}/gui_client/ui_DiagnosticsWidget.h
+	${CMAKE_SOURCE_DIR}/gui_client/ui_GaussianSplatSettingsWidget.h
 	${CMAKE_SOURCE_DIR}/gui_client/ui_TerrainSpecSectionWidget.h
 	${CMAKE_SOURCE_DIR}/gui_client/ui_WorldSettingsWidget.h
 	${CMAKE_SOURCE_DIR}/gui_client/ui_CreateObjectsDialog.h

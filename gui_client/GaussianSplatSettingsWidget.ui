@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>GaussianSplatSettingsWidget</class>
+ <widget class="QWidget" name="GaussianSplatSettingsWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>340</width>
+    <height>220</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QFormLayout" name="formLayout">
+   <item row="0" column="0">
+    <widget class="QLabel" name="pixelScaleLimitLabel">
+     <property name="text">
+      <string>Pixel scale limit</string>
+     </property>
+     <property name="toolTip">
+      <string>Traversal stops refining a node once its on-screen footprint is below this many pixels. Lower = more detail, more splats drawn. Applies live, on the next camera movement.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="1">
+    <widget class="QDoubleSpinBox" name="pixelScaleLimitDoubleSpinBox">
+     <property name="toolTip">
+      <string>Traversal stops refining a node once its on-screen footprint is below this many pixels. Lower = more detail, more splats drawn. Applies live, on the next camera movement.</string>
+     </property>
+     <property name="decimals">
+      <number>2</number>
+     </property>
+     <property name="minimum">
+      <double>0.10000000000000001</double>
+     </property>
+     <property name="maximum">
+      <double>50.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.10000000000000001</double>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="maxSplatsBudgetLabel">
+     <property name="text">
+      <string>Max splats budget</string>
+     </property>
+     <property name="toolTip">
+      <string>Per-cloud cap on how many LoD tree nodes one traversal may select. If a cloud's diagnostics show "!WARNING! budget cap", this is limiting detail on that cloud even though pixel_scale_limit hasn't converged. Applies live, on the next camera movement.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QSpinBox" name="maxSplatsBudgetSpinBox">
+     <property name="toolTip">
+      <string>Per-cloud cap on how many LoD tree nodes one traversal may select. If a cloud's diagnostics show "!WARNING! budget cap", this is limiting detail on that cloud even though pixel_scale_limit hasn't converged. Applies live, on the next camera movement.</string>
+     </property>
+     <property name="minimum">
+      <number>1000</number>
+     </property>
+     <property name="maximum">
+      <number>999999999</number>
+     </property>
+     <property name="singleStep">
+      <number>100000</number>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="QLabel" name="resortMoveThresholdLabel">
+     <property name="text">
+      <string>Resort move threshold (m)</string>
+     </property>
+     <property name="toolTip">
+      <string>How far the camera has to move (scaled by distance to the cloud) before a cloud's LoD frontier is re-traversed. Lower = frontier updates more often, at more CPU cost. Applies live, on the next camera movement.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <widget class="QDoubleSpinBox" name="resortMoveThresholdDoubleSpinBox">
+     <property name="toolTip">
+      <string>How far the camera has to move (scaled by distance to the cloud) before a cloud's LoD frontier is re-traversed. Lower = frontier updates more often, at more CPU cost. Applies live, on the next camera movement.</string>
+     </property>
+     <property name="decimals">
+      <number>2</number>
+     </property>
+     <property name="minimum">
+      <double>0.01000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>100.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.01000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="0">
+    <widget class="QLabel" name="lodBaseLabel">
+     <property name="text">
+      <string>LoD base</string>
+     </property>
+     <property name="toolTip">
+      <string>Voxel-grid growth factor between tree levels, used when a splat object's LoD tree is built (requires reloading/re-adding the splat object to take effect - doesn't affect already-built trees).</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="1">
+    <widget class="QDoubleSpinBox" name="lodBaseDoubleSpinBox">
+     <property name="toolTip">
+      <string>Voxel-grid growth factor between tree levels, used when a splat object's LoD tree is built (requires reloading/re-adding the splat object to take effect - doesn't affect already-built trees).</string>
+     </property>
+     <property name="decimals">
+      <number>2</number>
+     </property>
+     <property name="minimum">
+      <double>1.01000000000000001</double>
+     </property>
+     <property name="maximum">
+      <double>4.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.10000000000000001</double>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="0" colspan="2">
+    <widget class="QLabel" name="lodBaseNoteLabel">
+     <property name="text">
+      <string>(LoD base requires client reload / re-adding the splat object)</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="0" colspan="2">
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

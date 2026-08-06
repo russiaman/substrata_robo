@@ -115,6 +115,7 @@ private slots:;
 
 	void diagnosticsWidgetChanged();
 	void diagnosticsReloadTerrain();
+	void gaussianSplatSettingsChanged();
 	void diagnosticsScrollChanged();
 	void sendChatMessageSlot();
 	void sendLightmapNeededFlagsSlot();

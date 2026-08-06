@@ -629,6 +629,10 @@ public:
 	// OpenGLMeshRenderData and PhysicsShape.
 	std::unordered_map<URLString, Reference<GaussianSplatData>, URLStringHasher> splat_data_cache;
 
+	// Live-tunable (GaussianSplatSettingsWidget, Qt only) build-time parameter, threaded into LoadModelTask::gaussian_splat_lod_base for every .sog load - see loadObjectsInProximity()'s ObjectType_Splat
+	// branch. Only affects a tree built after this changes; an already-built lod_tree is unaffected until the splat object is reloaded/re-added.
+	float gaussian_splat_lod_base = 1.5f;
+
 	// How many Gaussian Splat LoD tree builds are currently running on LoadModelTask worker threads - a count, not a bool, since more than one .sog file can be loading at once (e.g. several splat objects
 	// already placed in a world you're joining). Driven entirely by Msg_GaussianSplatLodBuildStatusMessage in handleMessages() (see ThreadMessages.h) - goes from 0 to >0 (and calls
 	// ui_interface->setGaussianSplatLodBuildInProgress(true)) on the first build to start, back to 0 (and (false)) once the last one finishes. See LoadModelTask.cpp for where these messages are sent, and why
