@@ -20,6 +20,17 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->maxSplatsBudgetSpinBox,           SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->resortMoveThresholdDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->lodBaseDoubleSpinBox,             SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->sizeClampMinDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->sizeClampMaxDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->sizeClampInvertCheckBox,          SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
+	connect(this->alphaCutoffDoubleSpinBox,         SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->countInFrustumPushButton,         SIGNAL(clicked()), this, SIGNAL(countInFrustumRequestedSignal()));
+	connect(this->showOverdrawCheckBox,             SIGNAL(toggled(bool)), this, SLOT(settingsChanged()));
+	connect(this->overdrawSumAlphaCheckBox,         SIGNAL(toggled(bool)), this, SLOT(settingsChanged()));
+	connect(this->overdrawRangeMinDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->overdrawRangeMaxDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->maxLayerDensityDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->maxTreeDepthSpinBox,              SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 }
 
 
@@ -39,6 +50,16 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->maxSplatsBudgetSpinBox->setValue(settings->value("gaussian_splats/max_splats_budget", 10000000).toInt());
 	this->resortMoveThresholdDoubleSpinBox->setValue(settings->value("gaussian_splats/resort_move_threshold_ws", 0.1).toDouble());
 	this->lodBaseDoubleSpinBox->setValue(settings->value("gaussian_splats/lod_base", 1.5).toDouble());
+	this->sizeClampMinDoubleSpinBox->setValue(settings->value("gaussian_splats/size_clamp_min", 0.0).toDouble());
+	this->sizeClampMaxDoubleSpinBox->setValue(settings->value("gaussian_splats/size_clamp_max", 0.0).toDouble());
+	this->sizeClampInvertCheckBox->setChecked(settings->value("gaussian_splats/size_clamp_invert", false).toBool());
+	this->alphaCutoffDoubleSpinBox->setValue(settings->value("gaussian_splats/alpha_cutoff", 1.0 / 255.0).toDouble());
+	this->showOverdrawCheckBox->setChecked(false); // Deliberately not persisted - a momentary debug view, not a preference; starting a session with it silently on would be confusing.
+	this->overdrawSumAlphaCheckBox->setChecked(false); // Not persisted either, for the same reason - it only qualifies the view above.
+	this->overdrawRangeMinDoubleSpinBox->setValue(settings->value("gaussian_splats/overdraw_range_min", 2.0).toDouble());
+	this->overdrawRangeMaxDoubleSpinBox->setValue(settings->value("gaussian_splats/overdraw_range_max", 100.0).toDouble());
+	this->maxLayerDensityDoubleSpinBox->setValue(settings->value("gaussian_splats/max_layer_density", 0.0).toDouble());
+	this->maxTreeDepthSpinBox->setValue(settings->value("gaussian_splats/max_tree_depth", 0).toInt());
 }
 
 
@@ -50,6 +71,14 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/max_splats_budget", this->maxSplatsBudgetSpinBox->value());
 		settings->setValue("gaussian_splats/resort_move_threshold_ws", this->resortMoveThresholdDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/lod_base", this->lodBaseDoubleSpinBox->value());
+		settings->setValue("gaussian_splats/size_clamp_min", this->sizeClampMinDoubleSpinBox->value());
+		settings->setValue("gaussian_splats/size_clamp_max", this->sizeClampMaxDoubleSpinBox->value());
+		settings->setValue("gaussian_splats/size_clamp_invert", this->sizeClampInvertCheckBox->isChecked());
+		settings->setValue("gaussian_splats/alpha_cutoff", this->alphaCutoffDoubleSpinBox->value());
+		settings->setValue("gaussian_splats/overdraw_range_min", this->overdrawRangeMinDoubleSpinBox->value());
+		settings->setValue("gaussian_splats/overdraw_range_max", this->overdrawRangeMaxDoubleSpinBox->value());
+		settings->setValue("gaussian_splats/max_layer_density", this->maxLayerDensityDoubleSpinBox->value());
+		settings->setValue("gaussian_splats/max_tree_depth", this->maxTreeDepthSpinBox->value());
 	}
 
 	emit settingsChangedSignal();

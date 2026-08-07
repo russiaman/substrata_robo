@@ -22,6 +22,11 @@ persisted the same way (QSettings).
 The first three apply live, picked up by GaussianSplatRenderer on its next
 traversal kick-off. lod_base only affects a tree built after it changes -
 see the widget's own note label.
+
+Also carries size_clamp_min/max, a debug tool rather than a LoD parameter:
+hides any splat whose feature size falls outside the given range, applied
+directly in the vertex shader every frame regardless of LoD tree state. See
+GaussianSplatRenderer::getSizeClampMin()/getSizeClampMax().
 =====================================================================*/
 class GaussianSplatSettingsWidget : public QWidget, public Ui_GaussianSplatSettingsWidget
 {
@@ -34,6 +39,7 @@ public:
 
 signals:;
 	void settingsChangedSignal();
+	void countInFrustumRequestedSignal(); // Emitted by the "Count in frustum" button - see GaussianSplatRenderer::countSplatsInFrustum().
 
 protected slots:
 	void settingsChanged();

@@ -538,6 +538,7 @@ void MainWindow::initialiseUI()
 
 	ui->gaussianSplatSettingsWidget->init(settings);
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(settingsChangedSignal()), this, SLOT(gaussianSplatSettingsChanged()));
+	connect(ui->gaussianSplatSettingsWidget, SIGNAL(countInFrustumRequestedSignal()), this, SLOT(countSplatsInFrustumRequested()));
 	// NOTE: gaussianSplatSettingsChanged() isn't called here to apply the just-loaded values immediately - opengl_engine
 	// doesn't exist yet this early in initialiseUI() (see afterGLInitInitialise(), where that call actually happens).
 	connect(ui->diagnosticsWidget->diagnosticsTextEdit->horizontalScrollBar(), SIGNAL(valueChanged(int)), this, SLOT(diagnosticsScrollChanged()));
@@ -4039,7 +4040,8 @@ void MainWindow::diagnosticsWidgetChanged()
 }
 
 
-// Applies the live-tunable panel's current values to the renderer (pixel_scale_limit/max_splats_budget/resort_move_threshold_ws)
+// Applies the live-tunable panel's current values to the renderer (pixel_scale_limit/max_splats_budget/resort_move_threshold_ws,
+// size_clamp_min/max - the last a debug splat-size filter, not a LoD parameter - see GaussianSplatSettingsWidget.h)
 // and to GUIClient (lod_base, only consumed the next time a .sog is loaded - see LoadModelTask::gaussian_splat_lod_base).
 // Called both when the user edits a spin box (via settingsChangedSignal()) and once at startup from afterGLInitInitialise(),
 // so a saved non-default value takes effect immediately rather than sitting unapplied until the user touches a control.
@@ -4048,8 +4050,28 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setPixelScaleLimit((float)ui->gaussianSplatSettingsWidget->pixelScaleLimitDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setMaxSplatsBudget((size_t)ui->gaussianSplatSettingsWidget->maxSplatsBudgetSpinBox->value());
 	opengl_engine->getSplatRenderer().setResortMoveThresholdWS((float)ui->gaussianSplatSettingsWidget->resortMoveThresholdDoubleSpinBox->value());
+	opengl_engine->getSplatRenderer().setSizeClampMin((float)ui->gaussianSplatSettingsWidget->sizeClampMinDoubleSpinBox->value());
+	opengl_engine->getSplatRenderer().setSizeClampMax((float)ui->gaussianSplatSettingsWidget->sizeClampMaxDoubleSpinBox->value());
+	opengl_engine->getSplatRenderer().setSizeClampInvert(ui->gaussianSplatSettingsWidget->sizeClampInvertCheckBox->isChecked());
+	opengl_engine->getSplatRenderer().setAlphaCutoff((float)ui->gaussianSplatSettingsWidget->alphaCutoffDoubleSpinBox->value());
+	// 0 = off, 1 = layer count, 2 = summed alpha - see GaussianSplatRenderer::getShowOverdrawMode().
+	opengl_engine->getSplatRenderer().setShowOverdrawMode(!ui->gaussianSplatSettingsWidget->showOverdrawCheckBox->isChecked() ? 0 :
+		(ui->gaussianSplatSettingsWidget->overdrawSumAlphaCheckBox->isChecked() ? 2 : 1));
+	opengl_engine->getSplatRenderer().setOverdrawRangeMin((float)ui->gaussianSplatSettingsWidget->overdrawRangeMinDoubleSpinBox->value());
+	opengl_engine->getSplatRenderer().setOverdrawRangeMax((float)ui->gaussianSplatSettingsWidget->overdrawRangeMaxDoubleSpinBox->value());
+	opengl_engine->getSplatRenderer().setMaxLayerDensity((float)ui->gaussianSplatSettingsWidget->maxLayerDensityDoubleSpinBox->value());
+	opengl_engine->getSplatRenderer().setMaxTreeDepth(ui->gaussianSplatSettingsWidget->maxTreeDepthSpinBox->value());
+	opengl_engine->getSplatRenderer().forceTraversalRefresh(); // So a traversal-affecting change above is visible immediately, without needing the camera to move.
 
 	gui_client.gaussian_splat_lod_base = (float)ui->gaussianSplatSettingsWidget->lodBaseDoubleSpinBox->value();
+}
+
+
+// "Count in frustum" button - one-off, not live. See GaussianSplatRenderer::countSplatsInFrustum().
+void MainWindow::countSplatsInFrustumRequested()
+{
+	const size_t count = opengl_engine->getSplatRenderer().countSplatsInFrustum();
+	ui->gaussianSplatSettingsWidget->countInFrustumResultLabel->setText(QtUtils::toQString(toString(count) + " splats"));
 }
 
 
