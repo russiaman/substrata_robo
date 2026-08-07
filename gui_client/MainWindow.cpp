@@ -4061,6 +4061,7 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setOverdrawRangeMax((float)ui->gaussianSplatSettingsWidget->overdrawRangeMaxDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setMaxLayerDensity((float)ui->gaussianSplatSettingsWidget->maxLayerDensityDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setMaxTreeDepth(ui->gaussianSplatSettingsWidget->maxTreeDepthSpinBox->value());
+	opengl_engine->getSplatRenderer().setNumDrawSlices(ui->gaussianSplatSettingsWidget->numDrawSlicesSpinBox->value()); // Draw-path only, so unlike the settings above it doesn't need a traversal refresh to take effect.
 	opengl_engine->getSplatRenderer().forceTraversalRefresh(); // So a traversal-affecting change above is visible immediately, without needing the camera to move.
 
 	gui_client.gaussian_splat_lod_base = (float)ui->gaussianSplatSettingsWidget->lodBaseDoubleSpinBox->value();

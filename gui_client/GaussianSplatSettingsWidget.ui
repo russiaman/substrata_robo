@@ -424,7 +424,30 @@
      </property>
     </widget>
    </item>
-   <item row="12" column="0" colspan="2">
+   <item row="12" column="0">
+    <widget class="QLabel" name="numDrawSlicesLabel">
+     <property name="text">
+      <string>Draw slices</string>
+     </property>
+     <property name="toolTip">
+      <string>How many consecutive sub-ranges each cloud's depth-sorted splats are drawn in, nearest first. 1 = one draw per cloud. On its own this must not change the image at all: the ranges are drawn back to back in the same order, so any value should look identical. It exists so a front-to-back saturation test has somewhere to run between draws. Applies live, immediately.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="12" column="1">
+    <widget class="QSpinBox" name="numDrawSlicesSpinBox">
+     <property name="toolTip">
+      <string>How many consecutive sub-ranges each cloud's depth-sorted splats are drawn in, nearest first. 1 = one draw per cloud. On its own this must not change the image at all: the ranges are drawn back to back in the same order, so any value should look identical. It exists so a front-to-back saturation test has somewhere to run between draws. Applies live, immediately.</string>
+     </property>
+     <property name="minimum">
+      <number>1</number>
+     </property>
+     <property name="maximum">
+      <number>1024</number>
+     </property>
+    </widget>
+   </item>
+   <item row="13" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>

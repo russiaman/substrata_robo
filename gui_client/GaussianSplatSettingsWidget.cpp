@@ -31,6 +31,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->overdrawRangeMaxDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->maxLayerDensityDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->maxTreeDepthSpinBox,              SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
+	connect(this->numDrawSlicesSpinBox,             SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 }
 
 
@@ -60,6 +61,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->overdrawRangeMaxDoubleSpinBox->setValue(settings->value("gaussian_splats/overdraw_range_max", 100.0).toDouble());
 	this->maxLayerDensityDoubleSpinBox->setValue(settings->value("gaussian_splats/max_layer_density", 0.0).toDouble());
 	this->maxTreeDepthSpinBox->setValue(settings->value("gaussian_splats/max_tree_depth", 0).toInt());
+	this->numDrawSlicesSpinBox->setValue(settings->value("gaussian_splats/num_draw_slices", 1).toInt());
 }
 
 
@@ -79,6 +81,7 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/overdraw_range_max", this->overdrawRangeMaxDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/max_layer_density", this->maxLayerDensityDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/max_tree_depth", this->maxTreeDepthSpinBox->value());
+		settings->setValue("gaussian_splats/num_draw_slices", this->numDrawSlicesSpinBox->value());
 	}
 
 	emit settingsChangedSignal();

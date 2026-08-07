@@ -23,6 +23,7 @@ Copyright Glare Technologies Limited 2024 -
 #include <graphics/TextRenderer.h>
 #include <graphics/EXRDecoder.h>
 #include <opengl/OpenGLEngine.h>
+#include <opengl/GaussianSplatRenderer.h> // For setSplatDrawSlices() below.
 #include <opengl/RenderStatsWidget.h>
 #include <opengl/GLMeshBuilding.h>
 #include <indigo/TextureServer.h>
@@ -1345,6 +1346,30 @@ static std::string sanitiseString(const std::string& s)
 		if(!::isAlphaNumeric(s[i]))
 			res[i] = '_';
 	return res;
+}
+
+
+// TEMPORARY debug hook, called from the browser console:
+//   Module.ccall('setSplatDrawSlices', null, ['number'], [8])
+//
+// The Qt client has a settings panel for the splat renderer's live parameters; the web client has none, and mirroring
+// that panel across is a job of its own that hasn't been done.  This exists because the multi-slice splat draw path
+// cannot otherwise be exercised on the web at all: the instance-offset code it relies on has a separate implementation
+// on the individual-VAO path (Mac, Emscripten), and Windows and Linux take the glBindVertexBuffer() path instead, so
+// desktop testing never reaches it.
+//
+// To be removed once the live parameters reach the web properly.
+extern "C"
+#if EMSCRIPTEN
+EMSCRIPTEN_KEEPALIVE
+#endif
+void setSplatDrawSlices(int num_slices)
+{
+	if(opengl_engine.nonNull())
+	{
+		opengl_engine->getSplatRenderer().setNumDrawSlices(num_slices);
+		conPrint("Splat draw slices set to " + toString(num_slices));
+	}
 }
 
 
