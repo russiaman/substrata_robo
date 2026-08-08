@@ -1373,6 +1373,27 @@ void setSplatDrawSlices(int num_slices)
 }
 
 
+// TEMPORARY debug hook, as above:
+//   Module.ccall('setSplatSaturationGate', null, ['number', 'number'], [1, 0.9961])
+// Pass a threshold of 0 to keep the current one.
+extern "C"
+#if EMSCRIPTEN
+EMSCRIPTEN_KEEPALIVE
+#endif
+void setSplatSaturationGate(int enabled, double threshold)
+{
+	if(opengl_engine.nonNull())
+	{
+		opengl_engine->getSplatRenderer().setSaturationGateEnabled(enabled != 0);
+		if(threshold > 0)
+			opengl_engine->getSplatRenderer().setSaturationThreshold((float)threshold);
+
+		conPrint("Splat saturation gate " + std::string((enabled != 0) ? "enabled" : "disabled") + ", threshold " +
+			doubleToStringNDecimalPlaces(opengl_engine->getSplatRenderer().getSaturationThreshold(), 4));
+	}
+}
+
+
 // processFilePickerFile is called from JS code in webclient.html.
 extern "C" 
 #if EMSCRIPTEN

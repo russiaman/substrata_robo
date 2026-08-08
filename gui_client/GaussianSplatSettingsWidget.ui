@@ -447,7 +447,36 @@
      </property>
     </widget>
    </item>
-   <item row="13" column="0" colspan="2">
+   <item row="13" column="0">
+    <widget class="QCheckBox" name="saturationGateCheckBox">
+     <property name="text">
+      <string>Saturation gate</string>
+     </property>
+     <property name="toolTip">
+      <string>Skips splats at pixels the front-to-back composite has already finished with: between draw slices, pixels whose accumulated coverage has reached the threshold are marked, and later slices are rejected there before being shaded. Needs more than one draw slice to do anything. Off in the overdraw views, where the accumulated alpha counts layers rather than coverage.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="13" column="1">
+    <widget class="QDoubleSpinBox" name="saturationThresholdDoubleSpinBox">
+     <property name="toolTip">
+      <string>Accumulated coverage at or above which a pixel counts as finished. 0.9961 (= 1 - 1/255) means the light still getting through is under one 8-bit level, which is where the reference 3DGS rasteriser stops. Lowering it skips more work and eventually shows. The accumulation buffer is 16-bit float, whose steps near 1.0 are about 0.0005 wide, so values closer to 1 than that make no difference.</string>
+     </property>
+     <property name="decimals">
+      <number>4</number>
+     </property>
+     <property name="minimum">
+      <double>0.000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>1.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.005000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="14" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
