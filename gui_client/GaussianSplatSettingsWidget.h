@@ -40,6 +40,7 @@ public:
 signals:;
 	void settingsChangedSignal();
 	void countInFrustumRequestedSignal(); // Emitted by the "Count in frustum" button - see GaussianSplatRenderer::countSplatsInFrustum().
+	void frustumReportRequestedSignal(); // Emitted by the "Frustum report" button - see GaussianSplatRenderer::getFrustumStructureReport().
 
 protected slots:
 	void settingsChanged();

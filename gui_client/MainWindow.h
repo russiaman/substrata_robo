@@ -117,6 +117,7 @@ private slots:;
 	void diagnosticsReloadTerrain();
 	void gaussianSplatSettingsChanged();
 	void countSplatsInFrustumRequested();
+	void frustumStructureReportRequested();
 	void diagnosticsScrollChanged();
 	void sendChatMessageSlot();
 	void sendLightmapNeededFlagsSlot();

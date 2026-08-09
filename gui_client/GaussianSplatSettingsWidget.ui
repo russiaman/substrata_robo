@@ -544,7 +544,24 @@
      </property>
     </widget>
    </item>
-   <item row="17" column="0" colspan="2">
+   <item row="17" column="0">
+    <widget class="QPushButton" name="frustumReportPushButton">
+     <property name="text">
+      <string>Frustum report</string>
+     </property>
+     <property name="toolTip">
+      <string>One-off structure report (not live), written to the log: for every cloud in view, how much of the LoD tree is unfolded at this camera position, and for each drawn node why the traversal stopped there - converged, capped by density/depth/budget, or a leaf with nothing coarser above it. Also the trees' depth and branching, and the layer_density of what is being drawn. Runs a full traversal per cloud on the main thread, so expect a hitch on a large cloud.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="17" column="1">
+    <widget class="QLabel" name="frustumReportResultLabel">
+     <property name="text">
+      <string></string>
+     </property>
+    </widget>
+   </item>
+   <item row="18" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>

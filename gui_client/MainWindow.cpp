@@ -539,6 +539,7 @@ void MainWindow::initialiseUI()
 	ui->gaussianSplatSettingsWidget->init(settings);
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(settingsChangedSignal()), this, SLOT(gaussianSplatSettingsChanged()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(countInFrustumRequestedSignal()), this, SLOT(countSplatsInFrustumRequested()));
+	connect(ui->gaussianSplatSettingsWidget, SIGNAL(frustumReportRequestedSignal()), this, SLOT(frustumStructureReportRequested()));
 	// NOTE: gaussianSplatSettingsChanged() isn't called here to apply the just-loaded values immediately - opengl_engine
 	// doesn't exist yet this early in initialiseUI() (see afterGLInitInitialise(), where that call actually happens).
 	connect(ui->diagnosticsWidget->diagnosticsTextEdit->horizontalScrollBar(), SIGNAL(valueChanged(int)), this, SLOT(diagnosticsScrollChanged()));
@@ -4079,6 +4080,18 @@ void MainWindow::countSplatsInFrustumRequested()
 {
 	const size_t count = opengl_engine->getSplatRenderer().countSplatsInFrustum();
 	ui->gaussianSplatSettingsWidget->countInFrustumResultLabel->setText(QtUtils::toQString(toString(count) + " splats"));
+}
+
+
+// "Frustum report" button - one-off, not live. See GaussianSplatRenderer::getFrustumStructureReport().
+//
+// The report is tens of lines of histograms, so it goes to the log rather than into the panel, which has no room for it;
+// the label just says where to look.
+void MainWindow::frustumStructureReportRequested()
+{
+	const std::string report = opengl_engine->getSplatRenderer().getFrustumStructureReport();
+	conPrint("\n" + report);
+	ui->gaussianSplatSettingsWidget->frustumReportResultLabel->setText("written to log");
 }
 
 
