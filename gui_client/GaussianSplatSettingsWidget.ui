@@ -453,26 +453,26 @@
       <string>Slice growth</string>
      </property>
      <property name="toolTip">
-      <string>How much bigger each draw slice is than the one before it. 1 = all slices the same size. Coverage saturates within the first few percent of a depth-sorted cloud, so equal slices ask the saturation test far too late: with 4 equal slices a quarter of the splats are already blended before anything can be skipped. Growth puts a small slice first and coarser ones over the tail - 2.0 with 5 slices gives about 3%, 6%, 13%, 26%, 52%. Changes nothing on its own, like the slice count itself. Applies live, immediately.</string>
+      <string>How much bigger each draw slice is than the one before it. 1 = all slices the same size; below 1 = a coarse first slice and a finely sliced tail. Decides where the saturation test gets to look. Nothing is saturated over roughly the first fifth of a depth-sorted cloud (it takes about 63 layers at the measured mean alpha), so a boundary inside that region costs a full-screen pass and skips nothing, while every check past it catches a new batch of finished pixels. Changes nothing on its own, like the slice count itself. Applies live, immediately.</string>
      </property>
     </widget>
    </item>
    <item row="13" column="1">
     <widget class="QDoubleSpinBox" name="sliceGrowthDoubleSpinBox">
      <property name="toolTip">
-      <string>How much bigger each draw slice is than the one before it. 1 = all slices the same size. Coverage saturates within the first few percent of a depth-sorted cloud, so equal slices ask the saturation test far too late: with 4 equal slices a quarter of the splats are already blended before anything can be skipped. Growth puts a small slice first and coarser ones over the tail - 2.0 with 5 slices gives about 3%, 6%, 13%, 26%, 52%. Changes nothing on its own, like the slice count itself. Applies live, immediately.</string>
+      <string>How much bigger each draw slice is than the one before it. 1 = all slices the same size; below 1 = a coarse first slice and a finely sliced tail. Decides where the saturation test gets to look. Nothing is saturated over roughly the first fifth of a depth-sorted cloud (it takes about 63 layers at the measured mean alpha), so a boundary inside that region costs a full-screen pass and skips nothing, while every check past it catches a new batch of finished pixels. Changes nothing on its own, like the slice count itself. Applies live, immediately.</string>
      </property>
      <property name="decimals">
       <number>2</number>
      </property>
      <property name="minimum">
-      <double>1.000000000000000</double>
+      <double>0.250000000000000</double>
      </property>
      <property name="maximum">
       <double>16.000000000000000</double>
      </property>
      <property name="singleStep">
-      <double>0.250000000000000</double>
+      <double>0.050000000000000</double>
      </property>
      <property name="value">
       <double>1.000000000000000</double>
