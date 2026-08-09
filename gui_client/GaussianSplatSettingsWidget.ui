@@ -477,6 +477,16 @@
     </widget>
    </item>
    <item row="14" column="0" colspan="2">
+    <widget class="QCheckBox" name="accumBuffer8BitCheckBox">
+     <property name="text">
+      <string>8-bit accumulation buffer</string>
+     </property>
+     <property name="toolTip">
+      <string>Blends the splats into an RGBA8 buffer instead of the default RGBA16F, halving the bytes each fragment writes. The splat pass is mostly bound by blend bandwidth, so this is worth about a third of it. The cost is precision: hundreds of blends accumulate per pixel and the resolve then divides the accumulated colour by the accumulated coverage, so quantisation is amplified where coverage is low - cloud silhouettes and thin sparse regions, not the dense areas. It also weakens the saturation gate, whose saving is the blending it avoids. Rebuilds the accumulation framebuffer when toggled.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="15" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
