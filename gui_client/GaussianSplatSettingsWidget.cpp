@@ -35,6 +35,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->sliceGrowthDoubleSpinBox,         SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->saturationGateCheckBox,           SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->saturationThresholdDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->saturationMaskDownscaleSpinBox,   SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->accumBuffer8BitCheckBox,          SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 }
 
@@ -79,6 +80,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// It is what the bug described above wrote into existing settings stores before it was fixed; treat it as unset.
 	if(this->saturationThresholdDoubleSpinBox->value() <= 0.0)
 		this->saturationThresholdDoubleSpinBox->setValue(1.0 - 1.0 / 255.0);
+	this->saturationMaskDownscaleSpinBox->setValue(settings_->value("gaussian_splats/saturation_mask_downscale", 4).toInt());
 	this->accumBuffer8BitCheckBox->setChecked(settings_->value("gaussian_splats/accum_buffer_8bit", false).toBool());
 
 	this->settings = settings_; // Last, so that none of the above wrote anything - see the note at the top of this function.
@@ -105,6 +107,7 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/slice_growth", this->sliceGrowthDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/saturation_gate", this->saturationGateCheckBox->isChecked());
 		settings->setValue("gaussian_splats/saturation_threshold", this->saturationThresholdDoubleSpinBox->value());
+		settings->setValue("gaussian_splats/saturation_mask_downscale", this->saturationMaskDownscaleSpinBox->value());
 		settings->setValue("gaussian_splats/accum_buffer_8bit", this->accumBuffer8BitCheckBox->isChecked());
 	}
 

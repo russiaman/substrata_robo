@@ -4066,6 +4066,7 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setSliceGrowth((float)ui->gaussianSplatSettingsWidget->sliceGrowthDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setSaturationGateEnabled(ui->gaussianSplatSettingsWidget->saturationGateCheckBox->isChecked());
 	opengl_engine->getSplatRenderer().setSaturationThreshold((float)ui->gaussianSplatSettingsWidget->saturationThresholdDoubleSpinBox->value());
+	opengl_engine->getSplatRenderer().setSaturationMaskDownscale(ui->gaussianSplatSettingsWidget->saturationMaskDownscaleSpinBox->value());
 	opengl_engine->getSplatRenderer().setAccumBuffer8Bit(ui->gaussianSplatSettingsWidget->accumBuffer8BitCheckBox->isChecked());
 	opengl_engine->getSplatRenderer().forceTraversalRefresh(); // So a traversal-affecting change above is visible immediately, without needing the camera to move.
 

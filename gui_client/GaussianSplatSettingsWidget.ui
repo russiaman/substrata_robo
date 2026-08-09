@@ -508,7 +508,33 @@
      </property>
     </widget>
    </item>
-   <item row="15" column="0" colspan="2">
+   <item row="15" column="0">
+    <widget class="QLabel" name="saturationMaskDownscaleLabel">
+     <property name="text">
+      <string>Mask downscale</string>
+     </property>
+     <property name="toolTip">
+      <string>How many screen pixels across one texel of the saturation gate's mask covers. 1 = a full-resolution mask, 4 = a mask with a sixteenth of the pixels. A texel is marked only when every pixel under it is finished, so coarsening the mask never skips a pixel that was still being drawn - the only loss is the partly finished texels around the edge of a saturated region. Making the mask small is what makes checking often affordable. Rebuilds the mask when changed.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="15" column="1">
+    <widget class="QSpinBox" name="saturationMaskDownscaleSpinBox">
+     <property name="toolTip">
+      <string>How many screen pixels across one texel of the saturation gate's mask covers. 1 = a full-resolution mask, 4 = a mask with a sixteenth of the pixels. A texel is marked only when every pixel under it is finished, so coarsening the mask never skips a pixel that was still being drawn - the only loss is the partly finished texels around the edge of a saturated region. Making the mask small is what makes checking often affordable. Rebuilds the mask when changed.</string>
+     </property>
+     <property name="minimum">
+      <number>1</number>
+     </property>
+     <property name="maximum">
+      <number>16</number>
+     </property>
+     <property name="value">
+      <number>4</number>
+     </property>
+    </widget>
+   </item>
+   <item row="16" column="0" colspan="2">
     <widget class="QCheckBox" name="accumBuffer8BitCheckBox">
      <property name="text">
       <string>8-bit accumulation buffer</string>
@@ -518,7 +544,7 @@
      </property>
     </widget>
    </item>
-   <item row="16" column="0" colspan="2">
+   <item row="17" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
