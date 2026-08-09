@@ -448,6 +448,38 @@
     </widget>
    </item>
    <item row="13" column="0">
+    <widget class="QLabel" name="sliceGrowthLabel">
+     <property name="text">
+      <string>Slice growth</string>
+     </property>
+     <property name="toolTip">
+      <string>How much bigger each draw slice is than the one before it. 1 = all slices the same size. Coverage saturates within the first few percent of a depth-sorted cloud, so equal slices ask the saturation test far too late: with 4 equal slices a quarter of the splats are already blended before anything can be skipped. Growth puts a small slice first and coarser ones over the tail - 2.0 with 5 slices gives about 3%, 6%, 13%, 26%, 52%. Changes nothing on its own, like the slice count itself. Applies live, immediately.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="13" column="1">
+    <widget class="QDoubleSpinBox" name="sliceGrowthDoubleSpinBox">
+     <property name="toolTip">
+      <string>How much bigger each draw slice is than the one before it. 1 = all slices the same size. Coverage saturates within the first few percent of a depth-sorted cloud, so equal slices ask the saturation test far too late: with 4 equal slices a quarter of the splats are already blended before anything can be skipped. Growth puts a small slice first and coarser ones over the tail - 2.0 with 5 slices gives about 3%, 6%, 13%, 26%, 52%. Changes nothing on its own, like the slice count itself. Applies live, immediately.</string>
+     </property>
+     <property name="decimals">
+      <number>2</number>
+     </property>
+     <property name="minimum">
+      <double>1.000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>16.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.250000000000000</double>
+     </property>
+     <property name="value">
+      <double>1.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="14" column="0">
     <widget class="QCheckBox" name="saturationGateCheckBox">
      <property name="text">
       <string>Saturation gate</string>
@@ -457,7 +489,7 @@
      </property>
     </widget>
    </item>
-   <item row="13" column="1">
+   <item row="14" column="1">
     <widget class="QDoubleSpinBox" name="saturationThresholdDoubleSpinBox">
      <property name="toolTip">
       <string>Accumulated coverage at or above which a pixel counts as finished. 0.9961 (= 1 - 1/255) means the light still getting through is under one 8-bit level, which is where the reference 3DGS rasteriser stops. Lowering it skips more work and eventually shows. The accumulation buffer is 16-bit float, whose steps near 1.0 are about 0.0005 wide, so values closer to 1 than that make no difference.</string>
@@ -476,7 +508,7 @@
      </property>
     </widget>
    </item>
-   <item row="14" column="0" colspan="2">
+   <item row="15" column="0" colspan="2">
     <widget class="QCheckBox" name="accumBuffer8BitCheckBox">
      <property name="text">
       <string>8-bit accumulation buffer</string>
@@ -486,7 +518,7 @@
      </property>
     </widget>
    </item>
-   <item row="15" column="0" colspan="2">
+   <item row="16" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>

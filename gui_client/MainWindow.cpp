@@ -4063,6 +4063,7 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setMaxTreeDepth(ui->gaussianSplatSettingsWidget->maxTreeDepthSpinBox->value());
 	// Draw-path only, so unlike the settings above these don't need a traversal refresh to take effect.
 	opengl_engine->getSplatRenderer().setNumDrawSlices(ui->gaussianSplatSettingsWidget->numDrawSlicesSpinBox->value());
+	opengl_engine->getSplatRenderer().setSliceGrowth((float)ui->gaussianSplatSettingsWidget->sliceGrowthDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setSaturationGateEnabled(ui->gaussianSplatSettingsWidget->saturationGateCheckBox->isChecked());
 	opengl_engine->getSplatRenderer().setSaturationThreshold((float)ui->gaussianSplatSettingsWidget->saturationThresholdDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setAccumBuffer8Bit(ui->gaussianSplatSettingsWidget->accumBuffer8BitCheckBox->isChecked());

@@ -32,6 +32,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->maxLayerDensityDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->maxTreeDepthSpinBox,              SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->numDrawSlicesSpinBox,             SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
+	connect(this->sliceGrowthDoubleSpinBox,         SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->saturationGateCheckBox,           SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->saturationThresholdDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->accumBuffer8BitCheckBox,          SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
@@ -71,6 +72,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->maxLayerDensityDoubleSpinBox->setValue(settings_->value("gaussian_splats/max_layer_density", 0.0).toDouble());
 	this->maxTreeDepthSpinBox->setValue(settings_->value("gaussian_splats/max_tree_depth", 0).toInt());
 	this->numDrawSlicesSpinBox->setValue(settings_->value("gaussian_splats/num_draw_slices", 1).toInt());
+	this->sliceGrowthDoubleSpinBox->setValue(settings_->value("gaussian_splats/slice_growth", 1.0).toDouble());
 	this->saturationGateCheckBox->setChecked(settings_->value("gaussian_splats/saturation_gate", false).toBool());
 	this->saturationThresholdDoubleSpinBox->setValue(settings_->value("gaussian_splats/saturation_threshold", 1.0 - 1.0 / 255.0).toDouble());
 	// A threshold of 0 would mark every pixel as finished the moment the gate ran, so it cannot be a value anyone chose.
@@ -100,6 +102,7 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/max_layer_density", this->maxLayerDensityDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/max_tree_depth", this->maxTreeDepthSpinBox->value());
 		settings->setValue("gaussian_splats/num_draw_slices", this->numDrawSlicesSpinBox->value());
+		settings->setValue("gaussian_splats/slice_growth", this->sliceGrowthDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/saturation_gate", this->saturationGateCheckBox->isChecked());
 		settings->setValue("gaussian_splats/saturation_threshold", this->saturationThresholdDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/accum_buffer_8bit", this->accumBuffer8BitCheckBox->isChecked());
