@@ -812,6 +812,19 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QCheckBox" name="mergeFlattenCheckBox">
+        <property name="text">
+         <string>Flatten</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+        <property name="toolTip">
+         <string>Collapse each merged group onto the surface it lies on, instead of fitting a splat around where its members actually sat. Without this, the depth of a stack ends up as the thickness of its replacement - a 20 cm deep stack of flat discs becomes a 20 cm thick lens, which costs nothing seen face-on but stops looking like a surface, and is what makes a generous 'through' go soft. With it, the replacement stays as thin as its members and only their sideways spread widens it. Unchecked reproduces the earlier behaviour, for comparison.</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>

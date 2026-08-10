@@ -4129,6 +4129,7 @@ void MainWindow::mergeCoplanarSplatsRequested()
 	params.colour_tol    = (float)ui->gaussianSplatSettingsWidget->mergeColourTolDoubleSpinBox->value();
 	params.angle_tol_deg = (float)ui->gaussianSplatSettingsWidget->mergeAngleTolDoubleSpinBox->value();
 	params.alpha_cutoff  = 0.f; // Filled in by applyCoplanarMerge() from the renderer's own alpha cutoff - see the field's comment.
+	params.flatten_onto_surface = ui->gaussianSplatSettingsWidget->mergeFlattenCheckBox->isChecked();
 
 	const std::string summary = opengl_engine->getSplatRenderer().applyCoplanarMerge(params, (float)ui->gaussianSplatSettingsWidget->lodBaseDoubleSpinBox->value());
 	conPrint("\n" + summary);

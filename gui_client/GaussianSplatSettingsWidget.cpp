@@ -48,6 +48,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->mergeAngleTolDoubleSpinBox,       SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->mergeAcrossDoubleSpinBox,         SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->mergeThroughDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->mergeFlattenCheckBox,             SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->mergeCoplanarPushButton,          SIGNAL(clicked()), this, SIGNAL(mergeCoplanarRequestedSignal()));
 	connect(this->restoreUnmergedPushButton,        SIGNAL(clicked()), this, SIGNAL(restoreUnmergedRequestedSignal()));
 }
@@ -111,6 +112,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// is pressed, and a sweep across settings is easier to carry between sessions than to retype.
 	this->mergeAcrossDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_across_cm", 1.0).toDouble());
 	this->mergeThroughDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_through_cm", 5.0).toDouble());
+	this->mergeFlattenCheckBox->setChecked(settings_->value("gaussian_splats/merge_flatten", true).toBool());
 
 	this->settings = settings_; // Last, so that none of the above wrote anything - see the note at the top of this function.
 }
@@ -142,6 +144,7 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/merge_angle_tol_deg", this->mergeAngleTolDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/merge_across_cm", this->mergeAcrossDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/merge_through_cm", this->mergeThroughDoubleSpinBox->value());
+		settings->setValue("gaussian_splats/merge_flatten", this->mergeFlattenCheckBox->isChecked());
 	}
 
 	emit settingsChangedSignal();
