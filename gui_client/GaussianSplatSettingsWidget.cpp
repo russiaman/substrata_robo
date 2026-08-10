@@ -46,6 +46,10 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->distClampInvertCheckBox,          SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->mergeColourTolDoubleSpinBox,      SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->mergeAngleTolDoubleSpinBox,       SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->mergeAcrossDoubleSpinBox,         SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->mergeThroughDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->mergeCoplanarPushButton,          SIGNAL(clicked()), this, SIGNAL(mergeCoplanarRequestedSignal()));
+	connect(this->restoreUnmergedPushButton,        SIGNAL(clicked()), this, SIGNAL(restoreUnmergedRequestedSignal()));
 }
 
 
@@ -103,6 +107,10 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// report says, and a sweep is easier to carry across sessions than to retype.
 	this->mergeColourTolDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_colour_tol", 0.1).toDouble());
 	this->mergeAngleTolDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_angle_tol_deg", 26.0).toDouble());
+	// The reach the "Merge coplanar" button works to, persisted for the same reason: it changes nothing until the button
+	// is pressed, and a sweep across settings is easier to carry between sessions than to retype.
+	this->mergeAcrossDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_across_cm", 1.0).toDouble());
+	this->mergeThroughDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_through_cm", 5.0).toDouble());
 
 	this->settings = settings_; // Last, so that none of the above wrote anything - see the note at the top of this function.
 }
@@ -132,6 +140,8 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/accum_buffer_8bit", this->accumBuffer8BitCheckBox->isChecked());
 		settings->setValue("gaussian_splats/merge_colour_tol", this->mergeColourTolDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/merge_angle_tol_deg", this->mergeAngleTolDoubleSpinBox->value());
+		settings->setValue("gaussian_splats/merge_across_cm", this->mergeAcrossDoubleSpinBox->value());
+		settings->setValue("gaussian_splats/merge_through_cm", this->mergeThroughDoubleSpinBox->value());
 	}
 
 	emit settingsChangedSignal();

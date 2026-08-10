@@ -743,7 +743,124 @@
      </property>
     </widget>
    </item>
-   <item row="21" column="0" colspan="2">
+   <item row="21" column="0">
+    <widget class="QLabel" name="mergeReachLabel">
+     <property name="text">
+      <string>Merge reach: across / through</string>
+     </property>
+     <property name="toolTip">
+      <string>How far the coplanar merge below reaches around each splat, in centimetres of world space. 'across' is measured along the surface, 'through' at right angles to it - so the reach is a thin disc lying in the surface, not a ball. They are separate because they buy different things: collapsing a stack (through) costs no extra area, while reaching sideways (across) widens the replacement and stops paying almost immediately - on a capture with 5 cm splats, 1 cm across is about break-even and 5 cm loses badly. Start with a small 'across' and a generous 'through'.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="21" column="1">
+    <widget class="QWidget" name="mergeReachWidget" native="true">
+     <layout class="QHBoxLayout" name="mergeReachHorizontalLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QDoubleSpinBox" name="mergeAcrossDoubleSpinBox">
+        <property name="suffix">
+         <string> cm</string>
+        </property>
+        <property name="decimals">
+         <number>1</number>
+        </property>
+        <property name="minimum">
+         <double>0.100000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>100.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.500000000000000</double>
+        </property>
+        <property name="value">
+         <double>1.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="mergeThroughDoubleSpinBox">
+        <property name="suffix">
+         <string> cm</string>
+        </property>
+        <property name="decimals">
+         <number>1</number>
+        </property>
+        <property name="minimum">
+         <double>0.100000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>100.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.500000000000000</double>
+        </property>
+        <property name="value">
+         <double>5.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="22" column="0">
+    <widget class="QWidget" name="mergeButtonsWidget" native="true">
+     <layout class="QHBoxLayout" name="mergeButtonsHorizontalLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QPushButton" name="mergeCoplanarPushButton">
+        <property name="text">
+         <string>Merge coplanar</string>
+        </property>
+        <property name="toolTip">
+         <string>Collapses groups of near-duplicate splats - same place, same facing, same colour, within the reach and tolerances above - into one splat each, and rebuilds the LoD trees. A group is only collapsed if the replacement paints less than the members did, so a capture without real stacking is mostly left alone rather than being made worse. Applies to every splat object in the world, takes seconds on a large capture, and does not touch the files: 'Restore unmerged' puts it back. Take a frustum report before and after from the same spot - the "blended" line and the layers-to-saturation figure are the answer, splat count is not.</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="restoreUnmergedPushButton">
+        <property name="text">
+         <string>Restore unmerged</string>
+        </property>
+        <property name="toolTip">
+         <string>Puts every merged cloud back to the splats it was loaded with, so the merged and unmerged pictures can be compared from a fixed camera.</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="22" column="1">
+    <widget class="QLabel" name="mergeCoplanarResultLabel">
+     <property name="text">
+      <string></string>
+     </property>
+    </widget>
+   </item>
+   <item row="23" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>

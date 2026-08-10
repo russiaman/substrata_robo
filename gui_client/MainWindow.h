@@ -119,6 +119,8 @@ private slots:;
 	void countSplatsInFrustumRequested();
 	void frustumStructureReportRequested();
 	void resetSplatImportanceRequested();
+	void mergeCoplanarSplatsRequested();
+	void restoreUnmergedSplatsRequested();
 	void diagnosticsScrollChanged();
 	void sendChatMessageSlot();
 	void sendLightmapNeededFlagsSlot();

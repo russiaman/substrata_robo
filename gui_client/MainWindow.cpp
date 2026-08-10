@@ -541,6 +541,8 @@ void MainWindow::initialiseUI()
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(countInFrustumRequestedSignal()), this, SLOT(countSplatsInFrustumRequested()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(frustumReportRequestedSignal()), this, SLOT(frustumStructureReportRequested()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(resetImportanceRequestedSignal()), this, SLOT(resetSplatImportanceRequested()));
+	connect(ui->gaussianSplatSettingsWidget, SIGNAL(mergeCoplanarRequestedSignal()), this, SLOT(mergeCoplanarSplatsRequested()));
+	connect(ui->gaussianSplatSettingsWidget, SIGNAL(restoreUnmergedRequestedSignal()), this, SLOT(restoreUnmergedSplatsRequested()));
 	// NOTE: gaussianSplatSettingsChanged() isn't called here to apply the just-loaded values immediately - opengl_engine
 	// doesn't exist yet this early in initialiseUI() (see afterGLInitInitialise(), where that call actually happens).
 	connect(ui->diagnosticsWidget->diagnosticsTextEdit->horizontalScrollBar(), SIGNAL(valueChanged(int)), this, SLOT(diagnosticsScrollChanged()));
@@ -4109,6 +4111,37 @@ void MainWindow::resetSplatImportanceRequested()
 {
 	opengl_engine->getSplatRenderer().resetImportanceAccumulator();
 	ui->gaussianSplatSettingsWidget->resetImportanceResultLabel->setText("cleared");
+}
+
+
+// "Merge coplanar" button - one-off, not live. See GaussianSplatRenderer::applyCoplanarMerge().
+//
+// The lod_base the trees are rebuilt with is the panel's own, the same value a fresh load would use - so a merged cloud's
+// tree differs from an unmerged one's only in the splats it was built from, which is the comparison being made.
+//
+// Several seconds of main-thread work on a large capture (the LoD tree build dominates it), so the window is unresponsive
+// while it runs, in the way it already is for a frustum report.
+void MainWindow::mergeCoplanarSplatsRequested()
+{
+	GaussianSplatCoplanarMergeParams params;
+	params.across        = (float)ui->gaussianSplatSettingsWidget->mergeAcrossDoubleSpinBox->value()  * 0.01f; // The panel is in centimetres, the merge in metres.
+	params.through       = (float)ui->gaussianSplatSettingsWidget->mergeThroughDoubleSpinBox->value() * 0.01f;
+	params.colour_tol    = (float)ui->gaussianSplatSettingsWidget->mergeColourTolDoubleSpinBox->value();
+	params.angle_tol_deg = (float)ui->gaussianSplatSettingsWidget->mergeAngleTolDoubleSpinBox->value();
+	params.alpha_cutoff  = 0.f; // Filled in by applyCoplanarMerge() from the renderer's own alpha cutoff - see the field's comment.
+
+	const std::string summary = opengl_engine->getSplatRenderer().applyCoplanarMerge(params, (float)ui->gaussianSplatSettingsWidget->lodBaseDoubleSpinBox->value());
+	conPrint("\n" + summary);
+	ui->gaussianSplatSettingsWidget->mergeCoplanarResultLabel->setText("merged - see log");
+}
+
+
+// "Restore unmerged" button. See GaussianSplatRenderer::restoreUnmergedSplats().
+void MainWindow::restoreUnmergedSplatsRequested()
+{
+	const std::string summary = opengl_engine->getSplatRenderer().restoreUnmergedSplats();
+	conPrint("\n" + summary);
+	ui->gaussianSplatSettingsWidget->mergeCoplanarResultLabel->setText("restored");
 }
 
 

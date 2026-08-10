@@ -42,6 +42,8 @@ ${GRAPHICS_DIR}/GaussianFilterFunction.cpp
 ${GRAPHICS_DIR}/GaussianFilterFunction.h
 ${GRAPHICS_DIR}/GaussianImageFilter.cpp
 ${GRAPHICS_DIR}/GaussianImageFilter.h
+${GRAPHICS_DIR}/GaussianSplatCoplanarMerge.cpp
+${GRAPHICS_DIR}/GaussianSplatCoplanarMerge.h
 ${GRAPHICS_DIR}/GaussianSplatData.h
 ${GRAPHICS_DIR}/GaussianSplatLodTree.cpp
 ${GRAPHICS_DIR}/GaussianSplatLodTree.h
