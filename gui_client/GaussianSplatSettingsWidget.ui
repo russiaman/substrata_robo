@@ -297,6 +297,26 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QCheckBox" name="hideOverdrawCheckBox">
+        <property name="text">
+         <string>Hide overdraw</string>
+        </property>
+        <property name="toolTip">
+         <string>Draws a counting pass first, then throws away every splat that lands where the layer count reached the overdraw range's maximum - exactly the region the overdraw view paints solid red - and draws what is left. The splats are dropped in the vertex shader, before rasterisation. Use it to check directly whether the red regions are where the time actually goes. Costs an extra full pass over the splats, so the frame total is meaningless while this is on: read the "draw splats" GPU timer, which is started after the counting pass and measures the same thing in both states. Switches the saturation gate off while it is on - they share the same mask.</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="hideAlphaCheckBox">
+        <property name="text">
+         <string>Hide alpha</string>
+        </property>
+        <property name="toolTip">
+         <string>The same diagnostic as "Hide overdraw", but the counting pass sums each fragment's alpha instead of counting fragments, so what is thrown away is the splats standing where a lot of alpha has piled up rather than where a lot of layers have. The two differ exactly where many faint layers overlap. Threshold is the same overdraw range maximum, read in alpha units - which are far smaller numbers than layer counts, so set the range accordingly. Ignored while "Hide overdraw" is ticked; only one mask exists.</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
@@ -561,7 +581,152 @@
      </property>
     </widget>
    </item>
-   <item row="18" column="0" colspan="2">
+   <item row="18" column="0">
+    <widget class="QLabel" name="distClampLabel">
+     <property name="text">
+      <string>Distance slice min/max (m)</string>
+     </property>
+     <property name="toolTip">
+      <string>Slices the cloud open by distance from the camera, so you can look inside it a shell at a time. Shows only splats whose distance from the camera lies inside [min, max] metres; tick Invert to hide that shell instead and see through it. The distance is measured from the camera position, so the slice is a spherical shell and turning on the spot does not change what survives. Default (0, 1000) shows everything. Applies live, in the vertex shader - no re-traversal, and free when left wide open.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="18" column="1">
+    <widget class="QWidget" name="distClampWidget" native="true">
+     <layout class="QHBoxLayout" name="distClampHorizontalLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QDoubleSpinBox" name="distClampMinDoubleSpinBox">
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>10000.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.250000000000000</double>
+        </property>
+        <property name="value">
+         <double>0.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="distClampMaxDoubleSpinBox">
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>10000.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.250000000000000</double>
+        </property>
+        <property name="value">
+         <double>1000.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="distClampInvertCheckBox">
+        <property name="text">
+         <string>Invert</string>
+        </property>
+        <property name="toolTip">
+         <string>Unchecked (default): show only what is inside [min, max]. Checked: hide that shell and show everything outside it - which is how you cut away the near wall and look into the room behind it.</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="19" column="0">
+    <widget class="QLabel" name="mergeTolLabel">
+     <property name="text">
+      <string>Merge tol: colour / angle</string>
+     </property>
+     <property name="toolTip">
+      <string>Only affects the Frustum report's merge section - how alike two splats have to be before the report will treat them as the same surface seen twice. Colour is the allowed difference per channel (0-1); angle is the allowed difference in facing, in degrees. Defaults 0.10 and 26. Run the report once at the defaults and once at a deliberately reckless setting (say 0.4 and 60) - the gap between the two answers says how much of the merge prize the safety conditions are costing.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="19" column="1">
+    <widget class="QWidget" name="mergeTolWidget" native="true">
+     <layout class="QHBoxLayout" name="mergeTolHorizontalLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QDoubleSpinBox" name="mergeColourTolDoubleSpinBox">
+        <property name="decimals">
+         <number>3</number>
+        </property>
+        <property name="minimum">
+         <double>0.001000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.050000000000000</double>
+        </property>
+        <property name="value">
+         <double>0.100000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="mergeAngleTolDoubleSpinBox">
+        <property name="suffix">
+         <string> deg</string>
+        </property>
+        <property name="decimals">
+         <number>0</number>
+        </property>
+        <property name="minimum">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>90.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>5.000000000000000</double>
+        </property>
+        <property name="value">
+         <double>26.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="20" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>

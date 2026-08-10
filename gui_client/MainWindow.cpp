@@ -4069,6 +4069,11 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setSaturationThreshold((float)ui->gaussianSplatSettingsWidget->saturationThresholdDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setSaturationMaskDownscale(ui->gaussianSplatSettingsWidget->saturationMaskDownscaleSpinBox->value());
 	opengl_engine->getSplatRenderer().setAccumBuffer8Bit(ui->gaussianSplatSettingsWidget->accumBuffer8BitCheckBox->isChecked());
+	opengl_engine->getSplatRenderer().setHideOverdrawEnabled(ui->gaussianSplatSettingsWidget->hideOverdrawCheckBox->isChecked());
+	opengl_engine->getSplatRenderer().setHideAlphaEnabled(ui->gaussianSplatSettingsWidget->hideAlphaCheckBox->isChecked());
+	opengl_engine->getSplatRenderer().setDistClampMin((float)ui->gaussianSplatSettingsWidget->distClampMinDoubleSpinBox->value());
+	opengl_engine->getSplatRenderer().setDistClampMax((float)ui->gaussianSplatSettingsWidget->distClampMaxDoubleSpinBox->value());
+	opengl_engine->getSplatRenderer().setDistClampInvert(ui->gaussianSplatSettingsWidget->distClampInvertCheckBox->isChecked());
 	opengl_engine->getSplatRenderer().forceTraversalRefresh(); // So a traversal-affecting change above is visible immediately, without needing the camera to move.
 
 	gui_client.gaussian_splat_lod_base = (float)ui->gaussianSplatSettingsWidget->lodBaseDoubleSpinBox->value();
@@ -4089,7 +4094,9 @@ void MainWindow::countSplatsInFrustumRequested()
 // the label just says where to look.
 void MainWindow::frustumStructureReportRequested()
 {
-	const std::string report = opengl_engine->getSplatRenderer().getFrustumStructureReport();
+	const std::string report = opengl_engine->getSplatRenderer().getFrustumStructureReport(
+		(float)ui->gaussianSplatSettingsWidget->mergeColourTolDoubleSpinBox->value(),
+		(float)ui->gaussianSplatSettingsWidget->mergeAngleTolDoubleSpinBox->value());
 	conPrint("\n" + report);
 	ui->gaussianSplatSettingsWidget->frustumReportResultLabel->setText("written to log");
 }

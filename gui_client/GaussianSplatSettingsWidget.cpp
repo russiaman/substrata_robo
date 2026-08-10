@@ -38,6 +38,13 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->saturationThresholdDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->saturationMaskDownscaleSpinBox,   SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->accumBuffer8BitCheckBox,          SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
+	connect(this->hideOverdrawCheckBox,             SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
+	connect(this->hideAlphaCheckBox,                SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
+	connect(this->distClampMinDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->distClampMaxDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->distClampInvertCheckBox,          SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
+	connect(this->mergeColourTolDoubleSpinBox,      SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->mergeAngleTolDoubleSpinBox,       SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 }
 
 
@@ -83,6 +90,18 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 		this->saturationThresholdDoubleSpinBox->setValue(1.0 - 1.0 / 255.0);
 	this->saturationMaskDownscaleSpinBox->setValue(settings_->value("gaussian_splats/saturation_mask_downscale", 4).toInt());
 	this->accumBuffer8BitCheckBox->setChecked(settings_->value("gaussian_splats/accum_buffer_8bit", false).toBool());
+	this->hideOverdrawCheckBox->setChecked(false); // Deliberately not persisted: it removes splats from the picture, and finding it still on after a restart would read as the scene having lost geometry.
+	this->hideAlphaCheckBox->setChecked(false); // Not persisted either, for the same reason.
+	// The distance slice is deliberately not persisted, for the same reason as the overdraw view: it is a momentary way of
+	// looking into a capture, not a preference, and a session that silently started with half the cloud missing would read
+	// as a broken scene rather than as a setting left on.
+	this->distClampMinDoubleSpinBox->setValue(0.0);
+	this->distClampMaxDoubleSpinBox->setValue(1000.0);
+	this->distClampInvertCheckBox->setChecked(false);
+	// Merge tolerances are persisted - unlike the slice, leaving one set has no effect on what is drawn, only on what the
+	// report says, and a sweep is easier to carry across sessions than to retype.
+	this->mergeColourTolDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_colour_tol", 0.1).toDouble());
+	this->mergeAngleTolDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_angle_tol_deg", 26.0).toDouble());
 
 	this->settings = settings_; // Last, so that none of the above wrote anything - see the note at the top of this function.
 }
@@ -110,6 +129,8 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/saturation_threshold", this->saturationThresholdDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/saturation_mask_downscale", this->saturationMaskDownscaleSpinBox->value());
 		settings->setValue("gaussian_splats/accum_buffer_8bit", this->accumBuffer8BitCheckBox->isChecked());
+		settings->setValue("gaussian_splats/merge_colour_tol", this->mergeColourTolDoubleSpinBox->value());
+		settings->setValue("gaussian_splats/merge_angle_tol_deg", this->mergeAngleTolDoubleSpinBox->value());
 	}
 
 	emit settingsChangedSignal();
