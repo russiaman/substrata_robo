@@ -540,6 +540,7 @@ void MainWindow::initialiseUI()
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(settingsChangedSignal()), this, SLOT(gaussianSplatSettingsChanged()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(countInFrustumRequestedSignal()), this, SLOT(countSplatsInFrustumRequested()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(frustumReportRequestedSignal()), this, SLOT(frustumStructureReportRequested()));
+	connect(ui->gaussianSplatSettingsWidget, SIGNAL(resetImportanceRequestedSignal()), this, SLOT(resetSplatImportanceRequested()));
 	// NOTE: gaussianSplatSettingsChanged() isn't called here to apply the just-loaded values immediately - opengl_engine
 	// doesn't exist yet this early in initialiseUI() (see afterGLInitInitialise(), where that call actually happens).
 	connect(ui->diagnosticsWidget->diagnosticsTextEdit->horizontalScrollBar(), SIGNAL(valueChanged(int)), this, SLOT(diagnosticsScrollChanged()));
@@ -4099,6 +4100,15 @@ void MainWindow::frustumStructureReportRequested()
 		(float)ui->gaussianSplatSettingsWidget->mergeAngleTolDoubleSpinBox->value());
 	conPrint("\n" + report);
 	ui->gaussianSplatSettingsWidget->frustumReportResultLabel->setText("written to log");
+	ui->gaussianSplatSettingsWidget->resetImportanceResultLabel->setText(""); // A viewpoint has just been added, so whatever this said about the last reset is stale.
+}
+
+
+// "Reset importance" button. See GaussianSplatRenderer::resetImportanceAccumulator().
+void MainWindow::resetSplatImportanceRequested()
+{
+	opengl_engine->getSplatRenderer().resetImportanceAccumulator();
+	ui->gaussianSplatSettingsWidget->resetImportanceResultLabel->setText("cleared");
 }
 
 

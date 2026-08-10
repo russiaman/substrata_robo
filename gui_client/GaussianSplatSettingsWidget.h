@@ -41,6 +41,7 @@ signals:;
 	void settingsChangedSignal();
 	void countInFrustumRequestedSignal(); // Emitted by the "Count in frustum" button - see GaussianSplatRenderer::countSplatsInFrustum().
 	void frustumReportRequestedSignal(); // Emitted by the "Frustum report" button - see GaussianSplatRenderer::getFrustumStructureReport().
+	void resetImportanceRequestedSignal(); // Emitted by the "Reset importance" button - see GaussianSplatRenderer::resetImportanceAccumulator().
 
 protected slots:
 	void settingsChanged();

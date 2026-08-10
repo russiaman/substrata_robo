@@ -26,6 +26,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->alphaCutoffDoubleSpinBox,         SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->countInFrustumPushButton,         SIGNAL(clicked()), this, SIGNAL(countInFrustumRequestedSignal()));
 	connect(this->frustumReportPushButton,          SIGNAL(clicked()), this, SIGNAL(frustumReportRequestedSignal()));
+	connect(this->resetImportancePushButton,        SIGNAL(clicked()), this, SIGNAL(resetImportanceRequestedSignal()));
 	connect(this->showOverdrawCheckBox,             SIGNAL(toggled(bool)), this, SLOT(settingsChanged()));
 	connect(this->overdrawSumAlphaCheckBox,         SIGNAL(toggled(bool)), this, SLOT(settingsChanged()));
 	connect(this->overdrawRangeMinDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));

@@ -726,7 +726,24 @@
      </layout>
     </widget>
    </item>
-   <item row="20" column="0" colspan="2">
+   <item row="20" column="0">
+    <widget class="QPushButton" name="resetImportancePushButton">
+     <property name="text">
+      <string>Reset importance</string>
+     </property>
+     <property name="toolTip">
+      <string>Forgets the per-splat importance the frustum report has been accumulating, so the next report starts a fresh set of viewpoints. Every report press folds its viewpoint into a running record, which is what lets it say how much of the cloud earns nothing from any of the places you have stood - the single-camera figure cannot, since a splat hidden from here may be the front layer from there. Press this before starting a deliberate tour, and after any report taken from a viewpoint you did not mean to include.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="20" column="1">
+    <widget class="QLabel" name="resetImportanceResultLabel">
+     <property name="text">
+      <string></string>
+     </property>
+    </widget>
+   </item>
+   <item row="21" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
