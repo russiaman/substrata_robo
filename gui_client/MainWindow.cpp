@@ -4058,9 +4058,11 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setSizeClampMax((float)ui->gaussianSplatSettingsWidget->sizeClampMaxDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setSizeClampInvert(ui->gaussianSplatSettingsWidget->sizeClampInvertCheckBox->isChecked());
 	opengl_engine->getSplatRenderer().setAlphaCutoff((float)ui->gaussianSplatSettingsWidget->alphaCutoffDoubleSpinBox->value());
-	// 0 = off, 1 = layer count, 2 = summed alpha - see GaussianSplatRenderer::getShowOverdrawMode().
-	opengl_engine->getSplatRenderer().setShowOverdrawMode(!ui->gaussianSplatSettingsWidget->showOverdrawCheckBox->isChecked() ? 0 :
-		(ui->gaussianSplatSettingsWidget->overdrawSumAlphaCheckBox->isChecked() ? 2 : 1));
+	// One measure drives both debug tools: which one the combo box says, whether each is on is its own checkbox. 1 = layer
+	// count, 2 = summed alpha, 0 = off - see GaussianSplatRenderer::getShowOverdrawMode(), and getHideMode() for the pair
+	// below, which is the same measure applied destructively rather than as a colour ramp.
+	const int splat_debug_measure = (ui->gaussianSplatSettingsWidget->debugModeComboBox->currentIndex() == 1) ? 2 : 1;
+	opengl_engine->getSplatRenderer().setShowOverdrawMode(ui->gaussianSplatSettingsWidget->showDebugCheckBox->isChecked() ? splat_debug_measure : 0);
 	opengl_engine->getSplatRenderer().setOverdrawRangeMin((float)ui->gaussianSplatSettingsWidget->overdrawRangeMinDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setOverdrawRangeMax((float)ui->gaussianSplatSettingsWidget->overdrawRangeMaxDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setMaxLayerDensity((float)ui->gaussianSplatSettingsWidget->maxLayerDensityDoubleSpinBox->value());
@@ -4072,8 +4074,9 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setSaturationThreshold((float)ui->gaussianSplatSettingsWidget->saturationThresholdDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setSaturationMaskDownscale(ui->gaussianSplatSettingsWidget->saturationMaskDownscaleSpinBox->value());
 	opengl_engine->getSplatRenderer().setAccumBuffer8Bit(ui->gaussianSplatSettingsWidget->accumBuffer8BitCheckBox->isChecked());
-	opengl_engine->getSplatRenderer().setHideOverdrawEnabled(ui->gaussianSplatSettingsWidget->hideOverdrawCheckBox->isChecked());
-	opengl_engine->getSplatRenderer().setHideAlphaEnabled(ui->gaussianSplatSettingsWidget->hideAlphaCheckBox->isChecked());
+	const bool splat_clip = ui->gaussianSplatSettingsWidget->clipCheckBox->isChecked();
+	opengl_engine->getSplatRenderer().setHideOverdrawEnabled(splat_clip && splat_debug_measure == 1);
+	opengl_engine->getSplatRenderer().setHideAlphaEnabled(splat_clip && splat_debug_measure == 2);
 	opengl_engine->getSplatRenderer().setDistClampMin((float)ui->gaussianSplatSettingsWidget->distClampMinDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setDistClampMax((float)ui->gaussianSplatSettingsWidget->distClampMaxDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setDistClampInvert(ui->gaussianSplatSettingsWidget->distClampInvertCheckBox->isChecked());

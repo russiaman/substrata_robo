@@ -15,317 +15,6 @@
   </property>
   <layout class="QFormLayout" name="formLayout">
    <item row="0" column="0" colspan="2">
-    <widget class="QLabel" name="realTimeSectionLabel">
-     <property name="text">
-      <string>Real time</string>
-     </property>
-     <property name="styleSheet">
-      <string notr="true">font-weight: bold;</string>
-     </property>
-     <property name="toolTip">
-      <string>Applied to the frame being drawn now. A change here costs nothing but the next traversal.</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="0">
-    <widget class="QLabel" name="pixelScaleLimitLabel">
-     <property name="text">
-      <string>Pixel scale limit</string>
-     </property>
-     <property name="toolTip">
-      <string>Traversal stops refining a node once its on-screen footprint is below this many pixels. Lower = more detail, more splats drawn. Applies live, on the next camera movement.</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="1">
-    <widget class="QDoubleSpinBox" name="pixelScaleLimitDoubleSpinBox">
-     <property name="toolTip">
-      <string>Traversal stops refining a node once its on-screen footprint is below this many pixels. Lower = more detail, more splats drawn. Applies live, on the next camera movement.</string>
-     </property>
-     <property name="decimals">
-      <number>2</number>
-     </property>
-     <property name="minimum">
-      <double>0.10000000000000001</double>
-     </property>
-     <property name="maximum">
-      <double>50.000000000000000</double>
-     </property>
-     <property name="singleStep">
-      <double>0.10000000000000001</double>
-     </property>
-    </widget>
-   </item>
-   <item row="2" column="0">
-    <widget class="QLabel" name="maxSplatsBudgetLabel">
-     <property name="text">
-      <string>Max splats budget</string>
-     </property>
-     <property name="toolTip">
-      <string>Per-cloud cap on how many LoD tree nodes one traversal may select. If a cloud's diagnostics show "!WARNING! budget cap", this is limiting detail on that cloud even though pixel_scale_limit hasn't converged. Applies live, on the next camera movement.</string>
-     </property>
-    </widget>
-   </item>
-   <item row="2" column="1">
-    <widget class="QSpinBox" name="maxSplatsBudgetSpinBox">
-     <property name="toolTip">
-      <string>Per-cloud cap on how many LoD tree nodes one traversal may select. If a cloud's diagnostics show "!WARNING! budget cap", this is limiting detail on that cloud even though pixel_scale_limit hasn't converged. Applies live, on the next camera movement.</string>
-     </property>
-     <property name="minimum">
-      <number>1000</number>
-     </property>
-     <property name="maximum">
-      <number>999999999</number>
-     </property>
-     <property name="singleStep">
-      <number>100000</number>
-     </property>
-    </widget>
-   </item>
-   <item row="3" column="0">
-    <widget class="QLabel" name="resortMoveThresholdLabel">
-     <property name="text">
-      <string>Resort move threshold (m)</string>
-     </property>
-     <property name="toolTip">
-      <string>How far the camera has to move (scaled by distance to the cloud) before a cloud's LoD frontier is re-traversed. Lower = frontier updates more often, at more CPU cost. Applies live, on the next camera movement.</string>
-     </property>
-    </widget>
-   </item>
-   <item row="3" column="1">
-    <widget class="QDoubleSpinBox" name="resortMoveThresholdDoubleSpinBox">
-     <property name="toolTip">
-      <string>How far the camera has to move (scaled by distance to the cloud) before a cloud's LoD frontier is re-traversed. Lower = frontier updates more often, at more CPU cost. Applies live, on the next camera movement.</string>
-     </property>
-     <property name="decimals">
-      <number>2</number>
-     </property>
-     <property name="minimum">
-      <double>0.01000000000000000</double>
-     </property>
-     <property name="maximum">
-      <double>100.000000000000000</double>
-     </property>
-     <property name="singleStep">
-      <double>0.01000000000000000</double>
-     </property>
-    </widget>
-   </item>
-   <item row="4" column="0">
-    <widget class="QLabel" name="maxLayerDensityLabel">
-     <property name="text">
-      <string>Max layer density</string>
-     </property>
-     <property name="toolTip">
-      <string>Caps LoD traversal: a node estimated to be this dense with overdraw (see the "Show overdraw" ramp above - the same layer-count scale) is kept as its own merged approximation rather than refined further, regardless of pixel scale limit. Use the overdraw view to find a problem area's layer count, then set this a bit below it. 0 = disabled (no effect on the visualisation above - only on real rendering). Applies live, on the next camera movement.</string>
-     </property>
-    </widget>
-   </item>
-   <item row="4" column="1">
-    <widget class="QDoubleSpinBox" name="maxLayerDensityDoubleSpinBox">
-     <property name="toolTip">
-      <string>Caps LoD traversal: a node estimated to be this dense with overdraw (see the "Show overdraw" ramp above - the same layer-count scale) is kept as its own merged approximation rather than refined further, regardless of pixel scale limit. Use the overdraw view to find a problem area's layer count, then set this a bit below it. 0 = disabled (no effect on the visualisation above - only on real rendering). Applies live, on the next camera movement.</string>
-     </property>
-     <property name="decimals">
-      <number>1</number>
-     </property>
-     <property name="minimum">
-      <double>0.000000000000000</double>
-     </property>
-     <property name="maximum">
-      <double>1000000.000000000000000</double>
-     </property>
-     <property name="singleStep">
-      <double>1.000000000000000</double>
-     </property>
-    </widget>
-   </item>
-   <item row="5" column="0">
-    <widget class="QLabel" name="maxTreeDepthLabel">
-     <property name="text">
-      <string>Max tree depth</string>
-     </property>
-     <property name="toolTip">
-      <string>Hard global ceiling on how many levels traversal may unfold from the tree root, everywhere in the world - independent of pixel scale limit / max layer density / max splats budget. A node at this depth is always kept as its own merged approximation, never refined further. 0 = disabled (no ceiling). Applies live, on the next camera movement.</string>
-     </property>
-    </widget>
-   </item>
-   <item row="5" column="1">
-    <widget class="QSpinBox" name="maxTreeDepthSpinBox">
-     <property name="toolTip">
-      <string>Hard global ceiling on how many levels traversal may unfold from the tree root, everywhere in the world - independent of pixel scale limit / max layer density / max splats budget. A node at this depth is always kept as its own merged approximation, never refined further. 0 = disabled (no ceiling). Applies live, on the next camera movement.</string>
-     </property>
-     <property name="minimum">
-      <number>0</number>
-     </property>
-     <property name="maximum">
-      <number>1000</number>
-     </property>
-    </widget>
-   </item>
-   <item row="6" column="0">
-    <widget class="QLabel" name="alphaCutoffLabel">
-     <property name="text">
-      <string>Alpha cutoff</string>
-     </property>
-     <property name="toolTip">
-      <string>Per-splat quad radius is cut to exactly where its alpha decays to this value, instead of a fixed 3-sigma bound - lossless at the default (1/255 = 0.0039, matches the fragment shader's own discard), trims low-opacity splats' quads further above that (less overdraw, at the cost of their faintest edge). Applies live.</string>
-     </property>
-    </widget>
-   </item>
-   <item row="6" column="1">
-    <widget class="QDoubleSpinBox" name="alphaCutoffDoubleSpinBox">
-     <property name="toolTip">
-      <string>Per-splat quad radius is cut to exactly where its alpha decays to this value, instead of a fixed 3-sigma bound - lossless at the default (1/255 = 0.0039, matches the fragment shader's own discard), trims low-opacity splats' quads further above that (less overdraw, at the cost of their faintest edge). Applies live.</string>
-     </property>
-     <property name="decimals">
-      <number>4</number>
-     </property>
-     <property name="minimum">
-      <double>0.000100000000000</double>
-     </property>
-     <property name="maximum">
-      <double>0.500000000000000</double>
-     </property>
-     <property name="singleStep">
-      <double>0.001000000000000</double>
-     </property>
-     <property name="value">
-      <double>0.003900000000000</double>
-     </property>
-    </widget>
-   </item>
-   <item row="7" column="0">
-    <widget class="QLabel" name="numDrawSlicesLabel">
-     <property name="text">
-      <string>Draw slices</string>
-     </property>
-     <property name="toolTip">
-      <string>How many consecutive sub-ranges each cloud's depth-sorted splats are drawn in, nearest first. 1 = one draw per cloud. On its own this must not change the image at all: the ranges are drawn back to back in the same order, so any value should look identical. It exists so a front-to-back saturation test has somewhere to run between draws. Applies live, immediately.</string>
-     </property>
-    </widget>
-   </item>
-   <item row="7" column="1">
-    <widget class="QSpinBox" name="numDrawSlicesSpinBox">
-     <property name="toolTip">
-      <string>How many consecutive sub-ranges each cloud's depth-sorted splats are drawn in, nearest first. 1 = one draw per cloud. On its own this must not change the image at all: the ranges are drawn back to back in the same order, so any value should look identical. It exists so a front-to-back saturation test has somewhere to run between draws. Applies live, immediately.</string>
-     </property>
-     <property name="minimum">
-      <number>1</number>
-     </property>
-     <property name="maximum">
-      <number>1024</number>
-     </property>
-    </widget>
-   </item>
-   <item row="8" column="0">
-    <widget class="QLabel" name="sliceGrowthLabel">
-     <property name="text">
-      <string>Slice growth</string>
-     </property>
-     <property name="toolTip">
-      <string>How much bigger each draw slice is than the one before it. 1 = all slices the same size; below 1 = a coarse first slice and a finely sliced tail. Decides where the saturation test gets to look. Nothing is saturated over roughly the first fifth of a depth-sorted cloud (it takes about 63 layers at the measured mean alpha), so a boundary inside that region costs a full-screen pass and skips nothing, while every check past it catches a new batch of finished pixels. Changes nothing on its own, like the slice count itself. Applies live, immediately.</string>
-     </property>
-    </widget>
-   </item>
-   <item row="8" column="1">
-    <widget class="QDoubleSpinBox" name="sliceGrowthDoubleSpinBox">
-     <property name="toolTip">
-      <string>How much bigger each draw slice is than the one before it. 1 = all slices the same size; below 1 = a coarse first slice and a finely sliced tail. Decides where the saturation test gets to look. Nothing is saturated over roughly the first fifth of a depth-sorted cloud (it takes about 63 layers at the measured mean alpha), so a boundary inside that region costs a full-screen pass and skips nothing, while every check past it catches a new batch of finished pixels. Changes nothing on its own, like the slice count itself. Applies live, immediately.</string>
-     </property>
-     <property name="decimals">
-      <number>2</number>
-     </property>
-     <property name="minimum">
-      <double>0.250000000000000</double>
-     </property>
-     <property name="maximum">
-      <double>16.000000000000000</double>
-     </property>
-     <property name="singleStep">
-      <double>0.050000000000000</double>
-     </property>
-     <property name="value">
-      <double>1.000000000000000</double>
-     </property>
-    </widget>
-   </item>
-   <item row="9" column="0">
-    <widget class="QCheckBox" name="saturationGateCheckBox">
-     <property name="text">
-      <string>Saturation gate</string>
-     </property>
-     <property name="toolTip">
-      <string>Skips splats at pixels the front-to-back composite has already finished with: between draw slices, pixels whose accumulated coverage has reached the threshold are marked, and later slices are rejected there before being shaded. Needs more than one draw slice to do anything. Off in the overdraw views, where the accumulated alpha counts layers rather than coverage.</string>
-     </property>
-    </widget>
-   </item>
-   <item row="9" column="1">
-    <widget class="QDoubleSpinBox" name="saturationThresholdDoubleSpinBox">
-     <property name="toolTip">
-      <string>Accumulated coverage at or above which a pixel counts as finished. 0.9961 (= 1 - 1/255) means the light still getting through is under one 8-bit level, which is where the reference 3DGS rasteriser stops. Lowering it skips more work and eventually shows. The accumulation buffer is 16-bit float, whose steps near 1.0 are about 0.0005 wide, so values closer to 1 than that make no difference.</string>
-     </property>
-     <property name="decimals">
-      <number>4</number>
-     </property>
-     <property name="minimum">
-      <double>0.000000000000000</double>
-     </property>
-     <property name="maximum">
-      <double>1.000000000000000</double>
-     </property>
-     <property name="singleStep">
-      <double>0.005000000000000</double>
-     </property>
-    </widget>
-   </item>
-   <item row="10" column="0">
-    <widget class="QLabel" name="saturationMaskDownscaleLabel">
-     <property name="text">
-      <string>Mask downscale</string>
-     </property>
-     <property name="toolTip">
-      <string>How many screen pixels across one texel of the saturation gate's mask covers. 1 = a full-resolution mask, 4 = a mask with a sixteenth of the pixels. A texel is marked only when every pixel under it is finished, so coarsening the mask never skips a pixel that was still being drawn - the only loss is the partly finished texels around the edge of a saturated region. Making the mask small is what makes checking often affordable. Rebuilds the mask when changed.</string>
-     </property>
-    </widget>
-   </item>
-   <item row="10" column="1">
-    <widget class="QSpinBox" name="saturationMaskDownscaleSpinBox">
-     <property name="toolTip">
-      <string>How many screen pixels across one texel of the saturation gate's mask covers. 1 = a full-resolution mask, 4 = a mask with a sixteenth of the pixels. A texel is marked only when every pixel under it is finished, so coarsening the mask never skips a pixel that was still being drawn - the only loss is the partly finished texels around the edge of a saturated region. Making the mask small is what makes checking often affordable. Rebuilds the mask when changed.</string>
-     </property>
-     <property name="minimum">
-      <number>1</number>
-     </property>
-     <property name="maximum">
-      <number>16</number>
-     </property>
-     <property name="value">
-      <number>4</number>
-     </property>
-    </widget>
-   </item>
-   <item row="11" column="0" colspan="2">
-    <widget class="QCheckBox" name="accumBuffer8BitCheckBox">
-     <property name="text">
-      <string>8-bit accumulation buffer</string>
-     </property>
-     <property name="toolTip">
-      <string>Blends the splats into an RGBA8 buffer instead of the default RGBA16F, halving the bytes each fragment writes. The splat pass is mostly bound by blend bandwidth, so this is worth about a third of it. The cost is precision: hundreds of blends accumulate per pixel and the resolve then divides the accumulated colour by the accumulated coverage, so quantisation is amplified where coverage is low - cloud silhouettes and thin sparse regions, not the dense areas. It also weakens the saturation gate, whose saving is the blending it avoids. Rebuilds the accumulation framebuffer when toggled.</string>
-     </property>
-    </widget>
-   </item>
-   <item row="12" column="0" colspan="2">
-    <widget class="QFrame" name="preProcessingSeparatorLine">
-     <property name="frameShape">
-      <enum>QFrame::HLine</enum>
-     </property>
-     <property name="frameShadow">
-      <enum>QFrame::Sunken</enum>
-     </property>
-    </widget>
-   </item>
-   <item row="13" column="0" colspan="2">
     <widget class="QLabel" name="preProcessingSectionLabel">
      <property name="text">
       <string>Pre-processing</string>
@@ -338,7 +27,7 @@
      </property>
     </widget>
    </item>
-   <item row="14" column="0">
+   <item row="1" column="0">
     <widget class="QLabel" name="lodBaseLabel">
      <property name="text">
       <string>LoD base</string>
@@ -348,7 +37,7 @@
      </property>
     </widget>
    </item>
-   <item row="14" column="1">
+   <item row="1" column="1">
     <widget class="QDoubleSpinBox" name="lodBaseDoubleSpinBox">
      <property name="toolTip">
       <string>Voxel-grid growth factor between tree levels, used when a splat object's LoD tree is built (requires reloading/re-adding the splat object to take effect - doesn't affect already-built trees).</string>
@@ -367,29 +56,19 @@
      </property>
     </widget>
    </item>
-   <item row="15" column="0" colspan="2">
-    <widget class="QLabel" name="lodBaseNoteLabel">
+   <item row="2" column="0">
+    <widget class="QLabel" name="mergeLabel">
      <property name="text">
-      <string>(LoD base requires client reload / re-adding the splat object)</string>
-     </property>
-     <property name="wordWrap">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="16" column="0">
-    <widget class="QLabel" name="mergeTolLabel">
-     <property name="text">
-      <string>Merge tol: colour / angle</string>
+      <string>Merge:</string>
      </property>
      <property name="toolTip">
       <string>How alike two splats have to be before "Merge coplanar" will treat them as the same surface seen twice. Colour is the allowed difference per channel (0-1); angle is the allowed difference in facing, in degrees. Loosening either shows up as colour bleeding and as surfaces thickening - a disc tilted by the angle tolerance contributes that much of its own radius across the surface it is merged onto, which is what makes the merged cloud less flat. Measured acceptable setting on the reference capture: 0.2 and 20.</string>
      </property>
     </widget>
    </item>
-   <item row="16" column="1">
-    <widget class="QWidget" name="mergeTolWidget" native="true">
-     <layout class="QHBoxLayout" name="mergeTolHorizontalLayout">
+   <item row="2" column="1">
+    <widget class="QWidget" name="mergeParamsWidget" native="true">
+     <layout class="QHBoxLayout" name="mergeParamsHorizontalLayout">
       <property name="leftMargin">
        <number>0</number>
       </property>
@@ -404,6 +83,12 @@
       </property>
       <item>
        <widget class="QDoubleSpinBox" name="mergeColourTolDoubleSpinBox">
+        <property name="toolTip">
+         <string>Allowed difference in colour per channel, on the 0-1 scale. Loosening it merges splats that do not look alike, which shows up as colour bleeding across a surface. Measured acceptable setting on the reference capture: 0.2.</string>
+        </property>
+        <property name="prefix">
+         <string>colour </string>
+        </property>
         <property name="decimals">
          <number>3</number>
         </property>
@@ -423,6 +108,12 @@
       </item>
       <item>
        <widget class="QDoubleSpinBox" name="mergeAngleTolDoubleSpinBox">
+        <property name="toolTip">
+         <string>Allowed difference in facing, in degrees. This is the knob that decides how flat the merged cloud stays: a disc tilted by this much contributes about 0.7 of that tilt as thickness across the surface it is merged onto, and no amount of flattening removes it, because it is the member's own shape rather than its position. Measured acceptable setting: 20.</string>
+        </property>
+        <property name="prefix">
+         <string>angle </string>
+        </property>
         <property name="suffix">
          <string> deg</string>
         </property>
@@ -443,36 +134,14 @@
         </property>
        </widget>
       </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="17" column="0">
-    <widget class="QLabel" name="mergeReachLabel">
-     <property name="text">
-      <string>Merge reach: across / through</string>
-     </property>
-     <property name="toolTip">
-      <string>How far the coplanar merge reaches around each splat, in centimetres of world space. 'across' is measured along the surface, 'through' at right angles to it - so the reach is a thin disc lying in the surface, not a ball. Measured on the reference capture: 'across' is the whole prize and the whole cost - 1 cm saves about 5% of fill, 2 cm saves 13%, 4 cm saves 34%, and the picture visibly softens from 2 cm up. 'through' saturates by about 10 cm and buys nothing past it (5 to 40 cm moved fill from 3.3% to 5.2%, and the largest group found did not grow at all), because a captured surface is a thin shell rather than a deep stack; it also gets very slow at large values. Accepted setting: across 1, through 10.</string>
-     </property>
-    </widget>
-   </item>
-   <item row="17" column="1">
-    <widget class="QWidget" name="mergeReachWidget" native="true">
-     <layout class="QHBoxLayout" name="mergeReachHorizontalLayout">
-      <property name="leftMargin">
-       <number>0</number>
-      </property>
-      <property name="topMargin">
-       <number>0</number>
-      </property>
-      <property name="rightMargin">
-       <number>0</number>
-      </property>
-      <property name="bottomMargin">
-       <number>0</number>
-      </property>
       <item>
        <widget class="QDoubleSpinBox" name="mergeAcrossDoubleSpinBox">
+        <property name="toolTip">
+         <string>Reach along the surface, in centimetres of world space. This is the whole prize and the whole cost. Measured on the reference capture: 1 cm saves about 5% of fill, 2 cm 13%, 4 cm 34% - and the picture visibly softens from 2 cm up, because a group this wide is replaced by one splat that has to cover all of it. Accepted setting: 1.</string>
+        </property>
+        <property name="prefix">
+         <string>across </string>
+        </property>
         <property name="suffix">
          <string> cm</string>
         </property>
@@ -495,6 +164,12 @@
       </item>
       <item>
        <widget class="QDoubleSpinBox" name="mergeThroughDoubleSpinBox">
+        <property name="toolTip">
+         <string>Reach at right angles to the surface, in centimetres of world space - how deep a stack the merge will collapse. Nearly free in quality, and nearly free in saving too: measured, it saturates by about 10 cm and buys nothing past it (5 to 40 cm moved fill from 3.3% to 5.2%, and the largest group found did not grow at all), because a captured surface is a thin shell rather than a deep stack. Large values also get very slow. Accepted setting: 10.</string>
+        </property>
+        <property name="prefix">
+         <string>through </string>
+        </property>
         <property name="suffix">
          <string> cm</string>
         </property>
@@ -515,23 +190,10 @@
         </property>
        </widget>
       </item>
-      <item>
-       <widget class="QCheckBox" name="mergeFlattenCheckBox">
-        <property name="text">
-         <string>Flatten</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-        <property name="toolTip">
-         <string>Collapse each merged group onto the surface it lies on, instead of fitting a splat around where its members actually sat. Without this, the depth of a stack ends up as the thickness of its replacement - a 20 cm deep stack of flat discs becomes a 20 cm thick lens, which costs nothing seen face-on but stops looking like a surface, and is what makes a generous 'through' go soft. With it, the replacement stays as thin as its members and only their sideways spread widens it. Unchecked reproduces the earlier behaviour, for comparison.</string>
-        </property>
-       </widget>
-      </item>
      </layout>
     </widget>
    </item>
-   <item row="18" column="0">
+   <item row="3" column="0">
     <widget class="QWidget" name="mergeButtonsWidget" native="true">
      <layout class="QHBoxLayout" name="mergeButtonsHorizontalLayout">
       <property name="leftMargin">
@@ -569,14 +231,384 @@
      </layout>
     </widget>
    </item>
-   <item row="18" column="1">
-    <widget class="QLabel" name="mergeCoplanarResultLabel">
-     <property name="text">
-      <string></string>
+   <item row="3" column="1">
+    <widget class="QWidget" name="mergeTailWidget" native="true">
+     <layout class="QHBoxLayout" name="mergeTailHorizontalLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QCheckBox" name="mergeFlattenCheckBox">
+        <property name="text">
+         <string>Flatten</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+        <property name="toolTip">
+         <string>Collapse each merged group onto the surface it lies on, instead of fitting a splat around where its members actually sat. Without this, the depth of a stack ends up as the thickness of its replacement - a 20 cm deep stack of flat discs becomes a 20 cm thick lens, which costs nothing seen face-on but stops looking like a surface, and is what makes a generous 'through' go soft. With it, the replacement stays as thin as its members and only their sideways spread widens it. Unchecked reproduces the earlier behaviour, for comparison.</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="mergeCoplanarResultLabel">
+        <property name="text">
+         <string></string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="4" column="0" colspan="2">
+    <widget class="QFrame" name="realTimeSeparatorLine">
+     <property name="frameShape">
+      <enum>QFrame::HLine</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Sunken</enum>
      </property>
     </widget>
    </item>
-   <item row="19" column="0" colspan="2">
+   <item row="5" column="0" colspan="2">
+    <widget class="QLabel" name="realTimeSectionLabel">
+     <property name="text">
+      <string>Real time</string>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">font-weight: bold;</string>
+     </property>
+     <property name="toolTip">
+      <string>Applied to the frame being drawn now. A change here costs nothing but the next traversal.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="0">
+    <widget class="QLabel" name="pixelScaleLimitLabel">
+     <property name="text">
+      <string>Pixel scale limit</string>
+     </property>
+     <property name="toolTip">
+      <string>Traversal stops refining a node once its on-screen footprint is below this many pixels. Lower = more detail, more splats drawn. Applies live, on the next camera movement.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="1">
+    <widget class="QDoubleSpinBox" name="pixelScaleLimitDoubleSpinBox">
+     <property name="toolTip">
+      <string>Traversal stops refining a node once its on-screen footprint is below this many pixels. Lower = more detail, more splats drawn. Applies live, on the next camera movement.</string>
+     </property>
+     <property name="decimals">
+      <number>2</number>
+     </property>
+     <property name="minimum">
+      <double>0.10000000000000001</double>
+     </property>
+     <property name="maximum">
+      <double>50.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.10000000000000001</double>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="0">
+    <widget class="QLabel" name="alphaCutoffLabel">
+     <property name="text">
+      <string>Alpha cutoff</string>
+     </property>
+     <property name="toolTip">
+      <string>Per-splat quad radius is cut to exactly where its alpha decays to this value, instead of a fixed 3-sigma bound - lossless at the default (1/255 = 0.0039, matches the fragment shader's own discard), trims low-opacity splats' quads further above that (less overdraw, at the cost of their faintest edge). Applies live.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="1">
+    <widget class="QDoubleSpinBox" name="alphaCutoffDoubleSpinBox">
+     <property name="toolTip">
+      <string>Per-splat quad radius is cut to exactly where its alpha decays to this value, instead of a fixed 3-sigma bound - lossless at the default (1/255 = 0.0039, matches the fragment shader's own discard), trims low-opacity splats' quads further above that (less overdraw, at the cost of their faintest edge). Applies live.</string>
+     </property>
+     <property name="decimals">
+      <number>4</number>
+     </property>
+     <property name="minimum">
+      <double>0.000100000000000</double>
+     </property>
+     <property name="maximum">
+      <double>0.500000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.001000000000000</double>
+     </property>
+     <property name="value">
+      <double>0.003900000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="8" column="0">
+    <widget class="QLabel" name="maxSplatsBudgetLabel">
+     <property name="text">
+      <string>Max splats budget</string>
+     </property>
+     <property name="toolTip">
+      <string>Per-cloud cap on how many LoD tree nodes one traversal may select. If a cloud's diagnostics show "!WARNING! budget cap", this is limiting detail on that cloud even though pixel_scale_limit hasn't converged. Applies live, on the next camera movement.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="8" column="1">
+    <widget class="QSpinBox" name="maxSplatsBudgetSpinBox">
+     <property name="toolTip">
+      <string>Per-cloud cap on how many LoD tree nodes one traversal may select. If a cloud's diagnostics show "!WARNING! budget cap", this is limiting detail on that cloud even though pixel_scale_limit hasn't converged. Applies live, on the next camera movement.</string>
+     </property>
+     <property name="minimum">
+      <number>1000</number>
+     </property>
+     <property name="maximum">
+      <number>999999999</number>
+     </property>
+     <property name="singleStep">
+      <number>100000</number>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="0">
+    <widget class="QLabel" name="resortMoveThresholdLabel">
+     <property name="text">
+      <string>Resort move threshold (m)</string>
+     </property>
+     <property name="toolTip">
+      <string>How far the camera has to move (scaled by distance to the cloud) before a cloud's LoD frontier is re-traversed. Lower = frontier updates more often, at more CPU cost. Applies live, on the next camera movement.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="1">
+    <widget class="QDoubleSpinBox" name="resortMoveThresholdDoubleSpinBox">
+     <property name="toolTip">
+      <string>How far the camera has to move (scaled by distance to the cloud) before a cloud's LoD frontier is re-traversed. Lower = frontier updates more often, at more CPU cost. Applies live, on the next camera movement.</string>
+     </property>
+     <property name="decimals">
+      <number>2</number>
+     </property>
+     <property name="minimum">
+      <double>0.01000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>100.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.01000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="10" column="0">
+    <widget class="QLabel" name="lodCapsLabel">
+     <property name="text">
+      <string>LoD caps: density / depth</string>
+     </property>
+     <property name="toolTip">
+      <string>Two ceilings on how far LoD traversal may unfold, both independent of pixel scale limit, both 0 = disabled. Density: a node estimated to be this dense with overdraw (the same layer-count scale the debug ramp uses) is kept as its own merged approximation rather than refined further - find a problem area's layer count with the debug view, then set this a bit below it. Depth: a hard global ceiling on levels from the tree root, everywhere in the world. Both apply live, on the next camera movement.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="10" column="1">
+    <widget class="QWidget" name="lodCapsWidget" native="true">
+     <layout class="QHBoxLayout" name="lodCapsHorizontalLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QDoubleSpinBox" name="maxLayerDensityDoubleSpinBox">
+        <property name="prefix">
+         <string>density </string>
+        </property>
+        <property name="toolTip">
+         <string>Caps LoD traversal: a node estimated to be this dense with overdraw (see the "Show overdraw" ramp above - the same layer-count scale) is kept as its own merged approximation rather than refined further, regardless of pixel scale limit. Use the overdraw view to find a problem area's layer count, then set this a bit below it. 0 = disabled (no effect on the visualisation above - only on real rendering). Applies live, on the next camera movement.</string>
+        </property>
+        <property name="decimals">
+         <number>1</number>
+        </property>
+        <property name="minimum">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>1000000.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>1.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSpinBox" name="maxTreeDepthSpinBox">
+        <property name="prefix">
+         <string>depth </string>
+        </property>
+        <property name="toolTip">
+         <string>Hard global ceiling on how many levels traversal may unfold from the tree root, everywhere in the world - independent of pixel scale limit / max layer density / max splats budget. A node at this depth is always kept as its own merged approximation, never refined further. 0 = disabled (no ceiling). Applies live, on the next camera movement.</string>
+        </property>
+        <property name="minimum">
+         <number>0</number>
+        </property>
+        <property name="maximum">
+         <number>1000</number>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="11" column="0">
+    <widget class="QLabel" name="numDrawSlicesLabel">
+     <property name="text">
+      <string>Draw slices</string>
+     </property>
+     <property name="toolTip">
+      <string>How many consecutive sub-ranges each cloud's depth-sorted splats are drawn in, nearest first. 1 = one draw per cloud. On its own this must not change the image at all: the ranges are drawn back to back in the same order, so any value should look identical. It exists so a front-to-back saturation test has somewhere to run between draws. Applies live, immediately.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="11" column="1">
+    <widget class="QSpinBox" name="numDrawSlicesSpinBox">
+     <property name="toolTip">
+      <string>How many consecutive sub-ranges each cloud's depth-sorted splats are drawn in, nearest first. 1 = one draw per cloud. On its own this must not change the image at all: the ranges are drawn back to back in the same order, so any value should look identical. It exists so a front-to-back saturation test has somewhere to run between draws. Applies live, immediately.</string>
+     </property>
+     <property name="minimum">
+      <number>1</number>
+     </property>
+     <property name="maximum">
+      <number>1024</number>
+     </property>
+    </widget>
+   </item>
+   <item row="12" column="0">
+    <widget class="QLabel" name="sliceGrowthLabel">
+     <property name="text">
+      <string>Slice growth</string>
+     </property>
+     <property name="toolTip">
+      <string>How much bigger each draw slice is than the one before it. 1 = all slices the same size; below 1 = a coarse first slice and a finely sliced tail. Decides where the saturation test gets to look. Nothing is saturated over roughly the first fifth of a depth-sorted cloud (it takes about 63 layers at the measured mean alpha), so a boundary inside that region costs a full-screen pass and skips nothing, while every check past it catches a new batch of finished pixels. Changes nothing on its own, like the slice count itself. Applies live, immediately.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="12" column="1">
+    <widget class="QDoubleSpinBox" name="sliceGrowthDoubleSpinBox">
+     <property name="toolTip">
+      <string>How much bigger each draw slice is than the one before it. 1 = all slices the same size; below 1 = a coarse first slice and a finely sliced tail. Decides where the saturation test gets to look. Nothing is saturated over roughly the first fifth of a depth-sorted cloud (it takes about 63 layers at the measured mean alpha), so a boundary inside that region costs a full-screen pass and skips nothing, while every check past it catches a new batch of finished pixels. Changes nothing on its own, like the slice count itself. Applies live, immediately.</string>
+     </property>
+     <property name="decimals">
+      <number>2</number>
+     </property>
+     <property name="minimum">
+      <double>0.250000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>16.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.050000000000000</double>
+     </property>
+     <property name="value">
+      <double>1.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="13" column="0">
+    <widget class="QCheckBox" name="saturationGateCheckBox">
+     <property name="text">
+      <string>Saturation gate</string>
+     </property>
+     <property name="toolTip">
+      <string>Skips splats at pixels the front-to-back composite has already finished with: between draw slices, pixels whose accumulated coverage has reached the threshold are marked, and later slices are rejected there before being shaded. Needs more than one draw slice to do anything. Off in the overdraw views, where the accumulated alpha counts layers rather than coverage.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="13" column="1">
+    <widget class="QWidget" name="saturationWidget" native="true">
+     <layout class="QHBoxLayout" name="saturationHorizontalLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QDoubleSpinBox" name="saturationThresholdDoubleSpinBox">
+        <property name="prefix">
+         <string>at </string>
+        </property>
+        <property name="toolTip">
+         <string>Accumulated coverage at or above which a pixel counts as finished. 0.9961 (= 1 - 1/255) means the light still getting through is under one 8-bit level, which is where the reference 3DGS rasteriser stops. Lowering it skips more work and eventually shows. The accumulation buffer is 16-bit float, whose steps near 1.0 are about 0.0005 wide, so values closer to 1 than that make no difference.</string>
+        </property>
+        <property name="decimals">
+         <number>4</number>
+        </property>
+        <property name="minimum">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.005000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSpinBox" name="saturationMaskDownscaleSpinBox">
+        <property name="prefix">
+         <string>mask 1/</string>
+        </property>
+        <property name="toolTip">
+         <string>How many screen pixels across one texel of the saturation gate's mask covers. 1 = a full-resolution mask, 4 = a mask with a sixteenth of the pixels. A texel is marked only when every pixel under it is finished, so coarsening the mask never skips a pixel that was still being drawn - the only loss is the partly finished texels around the edge of a saturated region. Making the mask small is what makes checking often affordable. Rebuilds the mask when changed.</string>
+        </property>
+        <property name="minimum">
+         <number>1</number>
+        </property>
+        <property name="maximum">
+         <number>16</number>
+        </property>
+        <property name="value">
+         <number>4</number>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="14" column="0" colspan="2">
+    <widget class="QCheckBox" name="accumBuffer8BitCheckBox">
+     <property name="text">
+      <string>8-bit accumulation buffer</string>
+     </property>
+     <property name="toolTip">
+      <string>Blends the splats into an RGBA8 buffer instead of the default RGBA16F, halving the bytes each fragment writes. The splat pass is mostly bound by blend bandwidth, so this is worth about a third of it. The cost is precision: hundreds of blends accumulate per pixel and the resolve then divides the accumulated colour by the accumulated coverage, so quantisation is amplified where coverage is low - cloud silhouettes and thin sparse regions, not the dense areas. It also weakens the saturation gate, whose saving is the blending it avoids. Rebuilds the accumulation framebuffer when toggled.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="15" column="0" colspan="2">
     <widget class="QFrame" name="diagnosticsSeparatorLine">
      <property name="frameShape">
       <enum>QFrame::HLine</enum>
@@ -586,7 +618,7 @@
      </property>
     </widget>
    </item>
-   <item row="20" column="0" colspan="2">
+   <item row="16" column="0" colspan="2">
     <widget class="QLabel" name="diagnosticsSectionLabel">
      <property name="text">
       <string>Diagnostics</string>
@@ -599,7 +631,7 @@
      </property>
     </widget>
    </item>
-   <item row="21" column="0">
+   <item row="17" column="0">
     <widget class="QLabel" name="sizeClampLabel">
      <property name="text">
       <string>Size clamp min/max (m)</string>
@@ -609,7 +641,7 @@
      </property>
     </widget>
    </item>
-   <item row="21" column="1">
+   <item row="17" column="1">
     <widget class="QWidget" name="sizeClampWidget" native="true">
      <layout class="QHBoxLayout" name="sizeClampHorizontalLayout">
       <property name="leftMargin">
@@ -675,7 +707,7 @@
      </layout>
     </widget>
    </item>
-   <item row="22" column="0">
+   <item row="18" column="0">
     <widget class="QPushButton" name="countInFrustumPushButton">
      <property name="text">
       <string>Count in frustum</string>
@@ -685,14 +717,14 @@
      </property>
     </widget>
    </item>
-   <item row="22" column="1">
+   <item row="18" column="1">
     <widget class="QLabel" name="countInFrustumResultLabel">
      <property name="text">
       <string></string>
      </property>
     </widget>
    </item>
-   <item row="23" column="0">
+   <item row="19" column="0">
     <widget class="QLabel" name="distClampLabel">
      <property name="text">
       <string>Distance slice min/max (m)</string>
@@ -702,7 +734,7 @@
      </property>
     </widget>
    </item>
-   <item row="23" column="1">
+   <item row="19" column="1">
     <widget class="QWidget" name="distClampWidget" native="true">
      <layout class="QHBoxLayout" name="distClampHorizontalLayout">
       <property name="leftMargin">
@@ -768,9 +800,19 @@
      </layout>
     </widget>
    </item>
-   <item row="24" column="0" colspan="2">
-    <widget class="QWidget" name="showOverdrawWidget" native="true">
-     <layout class="QHBoxLayout" name="showOverdrawHorizontalLayout">
+   <item row="20" column="0">
+    <widget class="QCheckBox" name="showDebugCheckBox">
+     <property name="text">
+      <string>Show debug</string>
+     </property>
+     <property name="toolTip">
+      <string>Replaces splat colour with a flat additive increment per surviving fragment, so the picture burns out where many splats pile onto the same pixel. What is accumulated depends on the mode beside this box, and the two answer different questions:&#10;&#10;Overdraw - sums 1.0 per fragment, giving depth complexity: how many splats a pixel has to blend. That is what drives blend cost, rather than raw splat count.&#10;&#10;Alpha - sums each fragment's alpha instead, so the ramp shows accumulated alpha per pixel. Read against the layer count from the same spot it sizes up a front-to-back transmittance cutoff, the early-out a hardware blend pipeline cannot do per fragment: the share of fragment work such a cutoff could skip is roughly (summed alpha) / 5.5. Hundreds of layers beside a small alpha sum means near-threshold splats a cutoff would never reach - that case needs pruning, not early-out.&#10;&#10;Alpha sums are far smaller numbers than layer counts, so set the range below to match the mode. Applies live.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="20" column="1">
+    <widget class="QWidget" name="debugModeWidget" native="true">
+     <layout class="QHBoxLayout" name="debugModeHorizontalLayout">
       <property name="leftMargin">
        <number>0</number>
       </property>
@@ -784,49 +826,36 @@
        <number>0</number>
       </property>
       <item>
-       <widget class="QCheckBox" name="showOverdrawCheckBox">
-        <property name="text">
-         <string>Show overdraw (debug)</string>
-        </property>
+       <widget class="QComboBox" name="debugModeComboBox">
         <property name="toolTip">
-         <string>Replaces splat colour with a flat additive red increment per surviving fragment, burning out brighter where many splats overlap on the same pixel - visualises depth complexity (blend layers per pixel) directly, which is what drives blend cost, rather than raw splat count. Applies live.</string>
+         <string>Which measure the debug ramp and Clip work on. See the tooltip on "Show debug" for what each one answers.</string>
         </property>
+        <item>
+         <property name="text">
+          <string>Overdraw</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Alpha</string>
+         </property>
+        </item>
        </widget>
       </item>
       <item>
-       <widget class="QCheckBox" name="overdrawSumAlphaCheckBox">
+       <widget class="QCheckBox" name="clipCheckBox">
         <property name="text">
-         <string>Sum alpha instead of layers</string>
+         <string>Clip</string>
         </property>
         <property name="toolTip">
-         <string>Accumulates each fragment's alpha rather than a flat 1.0, so the ramp shows total accumulated alpha per pixel instead of a layer count (set the range below accordingly - alpha sums are far smaller numbers than layer counts). Read against the layer count from the same spot, this sizes up a front-to-back transmittance cutoff, the early-out a hardware blend pipeline cannot do per-fragment: the share of fragment work such a cutoff could skip is roughly (summed alpha) / 5.5. Hundreds of layers with a small alpha sum means near-threshold splats a cutoff would never reach - that case needs pruning, not early-out. No effect unless "Show overdraw" is ticked. Applies live.</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="hideOverdrawCheckBox">
-        <property name="text">
-         <string>Hide overdraw</string>
-        </property>
-        <property name="toolTip">
-         <string>Draws a counting pass first, then throws away every splat that lands where the layer count reached the overdraw range's maximum - exactly the region the overdraw view paints solid red - and draws what is left. The splats are dropped in the vertex shader, before rasterisation. Use it to check directly whether the red regions are where the time actually goes. Costs an extra full pass over the splats, so the frame total is meaningless while this is on: read the "draw splats" GPU timer, which is started after the counting pass and measures the same thing in both states. Switches the saturation gate off while it is on - they share the same mask.</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="hideAlphaCheckBox">
-        <property name="text">
-         <string>Hide alpha</string>
-        </property>
-        <property name="toolTip">
-         <string>The same diagnostic as "Hide overdraw", but the counting pass sums each fragment's alpha instead of counting fragments, so what is thrown away is the splats standing where a lot of alpha has piled up rather than where a lot of layers have. The two differ exactly where many faint layers overlap. Threshold is the same overdraw range maximum, read in alpha units - which are far smaller numbers than layer counts, so set the range accordingly. Ignored while "Hide overdraw" is ticked; only one mask exists.</string>
+         <string>Throws away every splat standing where the chosen measure has reached the range maximum - exactly the region the ramp paints solid red - and draws what is left, so "are the red regions really where the time goes" can be answered by removing them and looking at the clock instead of by inference. Follows the mode beside it: layers with Overdraw selected, accumulated alpha with Alpha.&#10;&#10;The splats are dropped in the vertex shader, before rasterisation. It costs an extra counting pass over the splats, so the frame total is meaningless while this is on - read the "draw splats" GPU timer, which starts after that pass and so measures the same thing in both states. Switches the saturation gate off while it is on; they share the same mask.</string>
         </property>
        </widget>
       </item>
      </layout>
     </widget>
    </item>
-   <item row="25" column="0">
+   <item row="21" column="0">
     <widget class="QLabel" name="overdrawRangeLabel">
      <property name="text">
       <string>Overdraw range (layers)</string>
@@ -836,7 +865,7 @@
      </property>
     </widget>
    </item>
-   <item row="25" column="1">
+   <item row="21" column="1">
     <widget class="QWidget" name="overdrawRangeWidget" native="true">
      <layout class="QHBoxLayout" name="overdrawRangeHorizontalLayout">
       <property name="leftMargin">
@@ -898,7 +927,7 @@
      </layout>
     </widget>
    </item>
-   <item row="26" column="0">
+   <item row="22" column="0">
     <widget class="QPushButton" name="frustumReportPushButton">
      <property name="text">
       <string>Frustum report</string>
@@ -908,14 +937,14 @@
      </property>
     </widget>
    </item>
-   <item row="26" column="1">
+   <item row="22" column="1">
     <widget class="QLabel" name="frustumReportResultLabel">
      <property name="text">
       <string></string>
      </property>
     </widget>
    </item>
-   <item row="27" column="0">
+   <item row="23" column="0">
     <widget class="QPushButton" name="resetImportancePushButton">
      <property name="text">
       <string>Reset importance</string>
@@ -925,14 +954,14 @@
      </property>
     </widget>
    </item>
-   <item row="27" column="1">
+   <item row="23" column="1">
     <widget class="QLabel" name="resetImportanceResultLabel">
      <property name="text">
       <string></string>
      </property>
     </widget>
    </item>
-   <item row="28" column="0" colspan="2">
+   <item row="24" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>

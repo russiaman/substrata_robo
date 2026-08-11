@@ -27,8 +27,9 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->countInFrustumPushButton,         SIGNAL(clicked()), this, SIGNAL(countInFrustumRequestedSignal()));
 	connect(this->frustumReportPushButton,          SIGNAL(clicked()), this, SIGNAL(frustumReportRequestedSignal()));
 	connect(this->resetImportancePushButton,        SIGNAL(clicked()), this, SIGNAL(resetImportanceRequestedSignal()));
-	connect(this->showOverdrawCheckBox,             SIGNAL(toggled(bool)), this, SLOT(settingsChanged()));
-	connect(this->overdrawSumAlphaCheckBox,         SIGNAL(toggled(bool)), this, SLOT(settingsChanged()));
+	connect(this->showDebugCheckBox,                SIGNAL(toggled(bool)), this, SLOT(settingsChanged()));
+	connect(this->debugModeComboBox,                SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged()));
+	connect(this->clipCheckBox,                     SIGNAL(toggled(bool)), this, SLOT(settingsChanged()));
 	connect(this->overdrawRangeMinDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->overdrawRangeMaxDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->maxLayerDensityDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
@@ -39,8 +40,6 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->saturationThresholdDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->saturationMaskDownscaleSpinBox,   SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->accumBuffer8BitCheckBox,          SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
-	connect(this->hideOverdrawCheckBox,             SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
-	connect(this->hideAlphaCheckBox,                SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->distClampMinDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->distClampMaxDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->distClampInvertCheckBox,          SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
@@ -80,8 +79,8 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->sizeClampMaxDoubleSpinBox->setValue(settings_->value("gaussian_splats/size_clamp_max", 0.0).toDouble());
 	this->sizeClampInvertCheckBox->setChecked(settings_->value("gaussian_splats/size_clamp_invert", false).toBool());
 	this->alphaCutoffDoubleSpinBox->setValue(settings_->value("gaussian_splats/alpha_cutoff", 1.0 / 255.0).toDouble());
-	this->showOverdrawCheckBox->setChecked(false); // Deliberately not persisted - a momentary debug view, not a preference; starting a session with it silently on would be confusing.
-	this->overdrawSumAlphaCheckBox->setChecked(false); // Not persisted either, for the same reason - it only qualifies the view above.
+	this->showDebugCheckBox->setChecked(false); // Deliberately not persisted - a momentary debug view, not a preference; starting a session with it silently on would be confusing.
+	this->debugModeComboBox->setCurrentIndex(0); // Overdraw. Not persisted either, for the same reason - it only says which measure the view above shows.
 	this->overdrawRangeMinDoubleSpinBox->setValue(settings_->value("gaussian_splats/overdraw_range_min", 2.0).toDouble());
 	this->overdrawRangeMaxDoubleSpinBox->setValue(settings_->value("gaussian_splats/overdraw_range_max", 100.0).toDouble());
 	this->maxLayerDensityDoubleSpinBox->setValue(settings_->value("gaussian_splats/max_layer_density", 0.0).toDouble());
@@ -96,8 +95,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 		this->saturationThresholdDoubleSpinBox->setValue(1.0 - 1.0 / 255.0);
 	this->saturationMaskDownscaleSpinBox->setValue(settings_->value("gaussian_splats/saturation_mask_downscale", 4).toInt());
 	this->accumBuffer8BitCheckBox->setChecked(settings_->value("gaussian_splats/accum_buffer_8bit", false).toBool());
-	this->hideOverdrawCheckBox->setChecked(false); // Deliberately not persisted: it removes splats from the picture, and finding it still on after a restart would read as the scene having lost geometry.
-	this->hideAlphaCheckBox->setChecked(false); // Not persisted either, for the same reason.
+	this->clipCheckBox->setChecked(false); // Deliberately not persisted: it removes splats from the picture, and finding it still on after a restart would read as the scene having lost geometry.
 	// The distance slice is deliberately not persisted, for the same reason as the overdraw view: it is a momentary way of
 	// looking into a capture, not a preference, and a session that silently started with half the cloud missing would read
 	// as a broken scene rather than as a setting left on.
