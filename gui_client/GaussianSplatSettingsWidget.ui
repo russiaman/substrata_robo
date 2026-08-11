@@ -411,7 +411,7 @@
    <item row="10" column="0">
     <widget class="QLabel" name="lodCapsLabel">
      <property name="text">
-      <string>LoD caps: density / depth</string>
+      <string>LoD caps</string>
      </property>
      <property name="toolTip">
       <string>Two ceilings on how far LoD traversal may unfold, both independent of pixel scale limit, both 0 = disabled. Density: a node estimated to be this dense with overdraw (the same layer-count scale the debug ramp uses) is kept as its own merged approximation rather than refined further - find a problem area's layer count with the debug view, then set this a bit below it. Depth: a hard global ceiling on levels from the tree root, everywhere in the world. Both apply live, on the next camera movement.</string>
