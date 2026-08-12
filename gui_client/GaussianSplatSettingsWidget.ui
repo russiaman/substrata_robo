@@ -322,6 +322,94 @@
     </widget>
    </item>
    <item row="7" column="0">
+    <widget class="QLabel" name="alphaAdjustLabel">
+     <property name="text">
+      <string>Alpha adjustments</string>
+     </property>
+     <property name="toolTip">
+      <string>Rescales every splat's own opacity before anything else looks at it: alpha' = gain * alpha^gamma, clamped to 1. Applied at the earliest point that can still be live - in the vertex shader, before the quad is sized - so it moves the drawn area as well as the pixel's colour, and everything downstream (the saturation gate, the overdraw views, the frustum report) sees the adjusted value. Both at 1 is the cloud as captured. Note it does not reach the LoD tree, which was built from the stored alpha; rebuild the tree to fold a setting in permanently.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="1">
+    <widget class="QWidget" name="alphaAdjustWidget" native="true">
+     <layout class="QHBoxLayout" name="alphaAdjustHorizontalLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QDoubleSpinBox" name="alphaGainDoubleSpinBox">
+        <property name="toolTip">
+         <string>Multiplies every splat's opacity, after the gamma below. Above 1 makes the cloud denser - fewer layers are needed to cover a pixel, so the saturation gate finishes pixels sooner, but quads also grow, since a splat is drawn out to where its alpha decays to the alpha cutoff. Below 1 thins it out. 1 = as captured.</string>
+        </property>
+        <property name="prefix">
+         <string>gain </string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.010000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>20.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.100000000000000</double>
+        </property>
+        <property name="value">
+         <double>1.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="alphaGammaDoubleSpinBox">
+        <property name="toolTip">
+         <string>Exponent applied to opacity before the gain: alpha^gamma. Below 1 lifts the faint splats towards the opaque ones (the low-opacity bulk the fill sits in); above 1 pushes them down and leaves only what was already solid. This is the knob that changes the shape of the opacity distribution rather than just its scale - see the "Fill by opacity" histogram in the frustum report. 1 = as captured.</string>
+        </property>
+        <property name="prefix">
+         <string>gamma </string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.050000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>10.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.100000000000000</double>
+        </property>
+        <property name="value">
+         <double>1.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="alphaAdjustIgnoreCheckBox">
+        <property name="text">
+         <string>ignore</string>
+        </property>
+        <property name="toolTip">
+         <string>Sends gain and gamma as 1 and 1 without touching what the boxes say, so a setting can be switched in and out against the same camera. Not remembered between sessions: it is a comparison, not a preference.</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="8" column="0">
     <widget class="QLabel" name="alphaCutoffLabel">
      <property name="text">
       <string>Alpha cutoff</string>
@@ -331,7 +419,7 @@
      </property>
     </widget>
    </item>
-   <item row="7" column="1">
+   <item row="8" column="1">
     <widget class="QDoubleSpinBox" name="alphaCutoffDoubleSpinBox">
      <property name="toolTip">
       <string>Per-splat quad radius is cut to exactly where its alpha decays to this value, instead of a fixed 3-sigma bound - lossless at the default (1/255 = 0.0039, matches the fragment shader's own discard), trims low-opacity splats' quads further above that (less overdraw, at the cost of their faintest edge). Applies live.</string>
@@ -353,7 +441,7 @@
      </property>
     </widget>
    </item>
-   <item row="8" column="0">
+   <item row="9" column="0">
     <widget class="QLabel" name="maxSplatsBudgetLabel">
      <property name="text">
       <string>Max splats budget</string>
@@ -363,7 +451,7 @@
      </property>
     </widget>
    </item>
-   <item row="8" column="1">
+   <item row="9" column="1">
     <widget class="QSpinBox" name="maxSplatsBudgetSpinBox">
      <property name="toolTip">
       <string>Per-cloud cap on how many LoD tree nodes one traversal may select. If a cloud's diagnostics show "!WARNING! budget cap", this is limiting detail on that cloud even though pixel_scale_limit hasn't converged. Applies live, on the next camera movement.</string>
@@ -379,7 +467,7 @@
      </property>
     </widget>
    </item>
-   <item row="9" column="0">
+   <item row="10" column="0">
     <widget class="QLabel" name="resortMoveThresholdLabel">
      <property name="text">
       <string>Resort move threshold (m)</string>
@@ -389,7 +477,7 @@
      </property>
     </widget>
    </item>
-   <item row="9" column="1">
+   <item row="10" column="1">
     <widget class="QDoubleSpinBox" name="resortMoveThresholdDoubleSpinBox">
      <property name="toolTip">
       <string>How far the camera has to move (scaled by distance to the cloud) before a cloud's LoD frontier is re-traversed. Lower = frontier updates more often, at more CPU cost. Applies live, on the next camera movement.</string>
@@ -408,7 +496,7 @@
      </property>
     </widget>
    </item>
-   <item row="10" column="0">
+   <item row="11" column="0">
     <widget class="QLabel" name="lodCapsLabel">
      <property name="text">
       <string>LoD caps</string>
@@ -418,7 +506,7 @@
      </property>
     </widget>
    </item>
-   <item row="10" column="1">
+   <item row="11" column="1">
     <widget class="QWidget" name="lodCapsWidget" native="true">
      <layout class="QHBoxLayout" name="lodCapsHorizontalLayout">
       <property name="leftMargin">
@@ -474,7 +562,7 @@
      </layout>
     </widget>
    </item>
-   <item row="11" column="0">
+   <item row="12" column="0">
     <widget class="QLabel" name="numDrawSlicesLabel">
      <property name="text">
       <string>Draw slices</string>
@@ -484,20 +572,57 @@
      </property>
     </widget>
    </item>
-   <item row="11" column="1">
-    <widget class="QSpinBox" name="numDrawSlicesSpinBox">
-     <property name="toolTip">
-      <string>How many consecutive sub-ranges each cloud's depth-sorted splats are drawn in, nearest first. 1 = one draw per cloud. On its own this must not change the image at all: the ranges are drawn back to back in the same order, so any value should look identical. It exists so a front-to-back saturation test has somewhere to run between draws. Applies live, immediately.</string>
-     </property>
-     <property name="minimum">
-      <number>1</number>
-     </property>
-     <property name="maximum">
-      <number>1024</number>
-     </property>
+   <item row="12" column="1">
+    <widget class="QWidget" name="drawSlicesWidget" native="true">
+     <layout class="QHBoxLayout" name="drawSlicesHorizontalLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QSpinBox" name="numDrawSlicesSpinBox">
+        <property name="toolTip">
+         <string>How many consecutive sub-ranges each cloud's depth-sorted splats are drawn in, nearest first. 1 = one draw per cloud. On its own this must not change the image at all: the ranges are drawn back to back in the same order, so any value should look identical. It exists so a front-to-back saturation test has somewhere to run between draws. Applies live, immediately.</string>
+        </property>
+        <property name="minimum">
+         <number>1</number>
+        </property>
+        <property name="maximum">
+         <number>1024</number>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSpinBox" name="drawSliceLimitSpinBox">
+        <property name="toolTip">
+         <string>Diagnostic: stops after this many slices, so the frame is deliberately incomplete - with 6 slices and a limit of 3, only the nearest half of every cloud is drawn. Raise it one step at a time and watch the splat pass time: the step that costs the most is the depth range the fill is actually in. 0 = no limit, the whole cloud, which is the only setting the picture is correct at.</string>
+        </property>
+        <property name="prefix">
+         <string>limit </string>
+        </property>
+        <property name="specialValueText">
+         <string>limit off</string>
+        </property>
+        <property name="minimum">
+         <number>0</number>
+        </property>
+        <property name="maximum">
+         <number>1024</number>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
-   <item row="12" column="0">
+   <item row="13" column="0">
     <widget class="QLabel" name="sliceGrowthLabel">
      <property name="text">
       <string>Slice growth</string>
@@ -507,7 +632,7 @@
      </property>
     </widget>
    </item>
-   <item row="12" column="1">
+   <item row="13" column="1">
     <widget class="QDoubleSpinBox" name="sliceGrowthDoubleSpinBox">
      <property name="toolTip">
       <string>How much bigger each draw slice is than the one before it. 1 = all slices the same size; below 1 = a coarse first slice and a finely sliced tail. Decides where the saturation test gets to look. Nothing is saturated over roughly the first fifth of a depth-sorted cloud (it takes about 63 layers at the measured mean alpha), so a boundary inside that region costs a full-screen pass and skips nothing, while every check past it catches a new batch of finished pixels. Changes nothing on its own, like the slice count itself. Applies live, immediately.</string>
@@ -529,7 +654,7 @@
      </property>
     </widget>
    </item>
-   <item row="13" column="0">
+   <item row="14" column="0">
     <widget class="QCheckBox" name="saturationGateCheckBox">
      <property name="text">
       <string>Saturation gate</string>
@@ -539,7 +664,7 @@
      </property>
     </widget>
    </item>
-   <item row="13" column="1">
+   <item row="14" column="1">
     <widget class="QWidget" name="saturationWidget" native="true">
      <layout class="QHBoxLayout" name="saturationHorizontalLayout">
       <property name="leftMargin">
@@ -598,7 +723,111 @@
      </layout>
     </widget>
    </item>
-   <item row="14" column="0" colspan="2">
+   <item row="15" column="0">
+    <widget class="QLabel" name="layerCapLabel">
+     <property name="text">
+      <string>Layer cap</string>
+     </property>
+     <property name="toolTip">
+      <string>Diagnostic: stop drawing into a pixel once this many splats have blended into it. Counts the layers once for the camera you are standing at, marks the pixels that reached the cap, and then drops splats standing there before any of their work is done - so it costs one counting pass when the camera moves and nothing on the frames after it. The grain is a whole splat, not a pixel: with the conservative test a splat is dropped only where every pixel under it already has its layers, so no hole can open and pixels near the edge of a dense region keep more than the cap. 0 = no cap.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="15" column="1">
+    <widget class="QWidget" name="layerCapWidget" native="true">
+     <layout class="QHBoxLayout" name="layerCapHorizontalLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QSpinBox" name="layerCapSpinBox">
+        <property name="toolTip">
+         <string>Layers to keep per pixel, nearest first. 0 = no cap. Yields to Clip below when that is ticked - there is only one mask, and an explicit diagnostic wins over this one.</string>
+        </property>
+        <property name="specialValueText">
+         <string>cap off</string>
+        </property>
+        <property name="minimum">
+         <number>0</number>
+        </property>
+        <property name="maximum">
+         <number>255</number>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="layerCapOpaqueCheckBox">
+        <property name="text">
+         <string>opaque</string>
+        </property>
+        <property name="toolTip">
+         <string>What a pixel the cap cut short is composited as. Ticked: fully covered, keeping the colour its kept layers averaged to, so the cut shows as a colour error. Unticked: as covered as those layers made it, so the background shows through wherever the cap bit - the quickest way to see where it bit at all.</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="layerCapEstimatePushButton">
+        <property name="text">
+         <string>Estimate</string>
+        </property>
+        <property name="toolTip">
+         <string>Measures what a cap at this depth would remove, without capping anything: the frame it runs in draws uncapped, its per-pixel layer counts are read back, and the answer is the share of blended fragments sitting deeper than the cap. That is the ceiling any mechanism cutting at this depth could reach, free of what the mechanism itself would cost. Stalls for a moment; the result appears beside it and in the log.</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="layerCapOnCheckBox">
+        <property name="text">
+         <string>on</string>
+        </property>
+        <property name="toolTip">
+         <string>Applies the cap beside it, without having to zero the value to switch it off - for A/B against the same camera. Unticked sends no cap at all, so the frame is exactly what it would be without this diagnostic. Not remembered between sessions.</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="hideTestComboBox">
+        <property name="toolTip">
+         <string>Which test drops a splat against the mask - applies to the layer cap and to Clip alike. Conservative: only when the splat's whole quad is inside the marked region, so nothing that could still have shown is lost and the picture keeps at least the capped number of layers everywhere. Centre: when the texel under the splat's centre is marked, which cuts through the region and leaves holes - not a picture, but the way to see how much that region was carrying. Quads are bigger than the connected marked patches, so conservative removes far fewer splats.</string>
+        </property>
+        <item>
+         <property name="text">
+          <string>conservative</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>centre (holes)</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="16" column="1">
+    <widget class="QLabel" name="layerCapEstimateResultLabel">
+     <property name="text">
+      <string></string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="17" column="0" colspan="2">
     <widget class="QCheckBox" name="accumBuffer8BitCheckBox">
      <property name="text">
       <string>8-bit accumulation buffer</string>
@@ -608,7 +837,7 @@
      </property>
     </widget>
    </item>
-   <item row="15" column="0" colspan="2">
+   <item row="17" column="0" colspan="2">
     <widget class="QFrame" name="diagnosticsSeparatorLine">
      <property name="frameShape">
       <enum>QFrame::HLine</enum>
@@ -618,7 +847,7 @@
      </property>
     </widget>
    </item>
-   <item row="16" column="0" colspan="2">
+   <item row="18" column="0" colspan="2">
     <widget class="QLabel" name="diagnosticsSectionLabel">
      <property name="text">
       <string>Diagnostics</string>
@@ -631,7 +860,7 @@
      </property>
     </widget>
    </item>
-   <item row="17" column="0">
+   <item row="19" column="0">
     <widget class="QLabel" name="sizeClampLabel">
      <property name="text">
       <string>Size clamp min/max (m)</string>
@@ -641,7 +870,7 @@
      </property>
     </widget>
    </item>
-   <item row="17" column="1">
+   <item row="19" column="1">
     <widget class="QWidget" name="sizeClampWidget" native="true">
      <layout class="QHBoxLayout" name="sizeClampHorizontalLayout">
       <property name="leftMargin">
@@ -707,7 +936,7 @@
      </layout>
     </widget>
    </item>
-   <item row="18" column="0">
+   <item row="20" column="0">
     <widget class="QPushButton" name="countInFrustumPushButton">
      <property name="text">
       <string>Count in frustum</string>
@@ -717,14 +946,14 @@
      </property>
     </widget>
    </item>
-   <item row="18" column="1">
+   <item row="20" column="1">
     <widget class="QLabel" name="countInFrustumResultLabel">
      <property name="text">
       <string></string>
      </property>
     </widget>
    </item>
-   <item row="19" column="0">
+   <item row="21" column="0">
     <widget class="QLabel" name="distClampLabel">
      <property name="text">
       <string>Distance slice min/max (m)</string>
@@ -734,7 +963,7 @@
      </property>
     </widget>
    </item>
-   <item row="19" column="1">
+   <item row="21" column="1">
     <widget class="QWidget" name="distClampWidget" native="true">
      <layout class="QHBoxLayout" name="distClampHorizontalLayout">
       <property name="leftMargin">
@@ -800,7 +1029,7 @@
      </layout>
     </widget>
    </item>
-   <item row="20" column="0">
+   <item row="22" column="0">
     <widget class="QCheckBox" name="showDebugCheckBox">
      <property name="text">
       <string>Show debug</string>
@@ -810,7 +1039,7 @@
      </property>
     </widget>
    </item>
-   <item row="20" column="1">
+   <item row="22" column="1">
     <widget class="QWidget" name="debugModeWidget" native="true">
      <layout class="QHBoxLayout" name="debugModeHorizontalLayout">
       <property name="leftMargin">
@@ -855,7 +1084,7 @@
      </layout>
     </widget>
    </item>
-   <item row="21" column="0">
+   <item row="23" column="0">
     <widget class="QLabel" name="overdrawRangeLabel">
      <property name="text">
       <string>Overdraw range (layers)</string>
@@ -865,7 +1094,7 @@
      </property>
     </widget>
    </item>
-   <item row="21" column="1">
+   <item row="23" column="1">
     <widget class="QWidget" name="overdrawRangeWidget" native="true">
      <layout class="QHBoxLayout" name="overdrawRangeHorizontalLayout">
       <property name="leftMargin">
@@ -927,7 +1156,7 @@
      </layout>
     </widget>
    </item>
-   <item row="22" column="0">
+   <item row="24" column="0">
     <widget class="QPushButton" name="frustumReportPushButton">
      <property name="text">
       <string>Frustum report</string>
@@ -937,14 +1166,14 @@
      </property>
     </widget>
    </item>
-   <item row="22" column="1">
+   <item row="24" column="1">
     <widget class="QLabel" name="frustumReportResultLabel">
      <property name="text">
       <string></string>
      </property>
     </widget>
    </item>
-   <item row="23" column="0">
+   <item row="25" column="0">
     <widget class="QPushButton" name="resetImportancePushButton">
      <property name="text">
       <string>Reset importance</string>
@@ -954,14 +1183,31 @@
      </property>
     </widget>
    </item>
-   <item row="23" column="1">
+   <item row="25" column="1">
     <widget class="QLabel" name="resetImportanceResultLabel">
      <property name="text">
       <string></string>
      </property>
     </widget>
    </item>
-   <item row="24" column="0" colspan="2">
+   <item row="26" column="0">
+    <widget class="QPushButton" name="saturationSnapshotsPushButton">
+     <property name="text">
+      <string>Saturation snapshots</string>
+     </property>
+     <property name="toolTip">
+      <string>Diagnostic dump, not a rendering setting: writes the next frame's splat pass to disk as PNGs - the running composite, its coverage and what each slice alone added, plus every level of the saturation mask as it stood between slices. For looking at where the fill actually lands, layer by layer, and at how much of the mask survives being read conservatively. Needs the saturation gate on and more than one slice, since it is the gate's censuses being photographed; the press is ignored otherwise. The captured frame does a full-screen readback per slice, so it takes seconds and its timings mean nothing.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="26" column="1">
+    <widget class="QLabel" name="saturationSnapshotsResultLabel">
+     <property name="text">
+      <string></string>
+     </property>
+    </widget>
+   </item>
+   <item row="27" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>

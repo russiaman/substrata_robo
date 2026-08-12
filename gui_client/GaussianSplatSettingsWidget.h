@@ -44,6 +44,8 @@ signals:;
 	void resetImportanceRequestedSignal(); // Emitted by the "Reset importance" button - see GaussianSplatRenderer::resetImportanceAccumulator().
 	void mergeCoplanarRequestedSignal(); // Emitted by the "Merge coplanar" button - see GaussianSplatRenderer::applyCoplanarMerge().
 	void restoreUnmergedRequestedSignal(); // Emitted by the "Restore unmerged" button - see GaussianSplatRenderer::restoreUnmergedSplats().
+	void saturationSnapshotsRequestedSignal(); // DIAGNOSTIC ONLY - emitted by the "Saturation snapshots" button, see OpenGLEngine::requestSplatSaturationSnapshots().
+	void layerCapEstimateRequestedSignal(); // DIAGNOSTIC ONLY - emitted by the "Estimate" button, see OpenGLEngine::estimateSplatLayerCapSaving().
 
 protected slots:
 	void settingsChanged();

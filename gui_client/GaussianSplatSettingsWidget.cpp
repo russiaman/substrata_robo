@@ -24,9 +24,13 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->sizeClampMaxDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->sizeClampInvertCheckBox,          SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->alphaCutoffDoubleSpinBox,         SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->alphaGainDoubleSpinBox,           SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->alphaGammaDoubleSpinBox,          SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->alphaAdjustIgnoreCheckBox,        SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->countInFrustumPushButton,         SIGNAL(clicked()), this, SIGNAL(countInFrustumRequestedSignal()));
 	connect(this->frustumReportPushButton,          SIGNAL(clicked()), this, SIGNAL(frustumReportRequestedSignal()));
 	connect(this->resetImportancePushButton,        SIGNAL(clicked()), this, SIGNAL(resetImportanceRequestedSignal()));
+	connect(this->saturationSnapshotsPushButton,    SIGNAL(clicked()), this, SIGNAL(saturationSnapshotsRequestedSignal())); // DIAGNOSTIC ONLY - see GaussianSplatSettingsWidget.h.
 	connect(this->showDebugCheckBox,                SIGNAL(toggled(bool)), this, SLOT(settingsChanged()));
 	connect(this->debugModeComboBox,                SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged()));
 	connect(this->clipCheckBox,                     SIGNAL(toggled(bool)), this, SLOT(settingsChanged()));
@@ -35,10 +39,16 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->maxLayerDensityDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->maxTreeDepthSpinBox,              SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->numDrawSlicesSpinBox,             SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
+	connect(this->drawSliceLimitSpinBox,            SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->sliceGrowthDoubleSpinBox,         SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->saturationGateCheckBox,           SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->saturationThresholdDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->saturationMaskDownscaleSpinBox,   SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
+	connect(this->layerCapSpinBox,                  SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
+	connect(this->layerCapOnCheckBox,               SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
+	connect(this->layerCapOpaqueCheckBox,           SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
+	connect(this->layerCapEstimatePushButton,       SIGNAL(clicked()), this, SIGNAL(layerCapEstimateRequestedSignal()));
+	connect(this->hideTestComboBox,                 SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged()));
 	connect(this->accumBuffer8BitCheckBox,          SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->distClampMinDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->distClampMaxDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
@@ -72,6 +82,9 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// resort_move_threshold_ws) and buildGaussianSplatLodTree()'s default lod_base, so a settings store with no saved
 	// values yet reproduces the same behaviour as before this widget existed.
 	this->pixelScaleLimitDoubleSpinBox->setValue(settings_->value("gaussian_splats/pixel_scale_limit", 1.0).toDouble());
+	this->alphaGainDoubleSpinBox->setValue(settings_->value("gaussian_splats/alpha_gain", 1.0).toDouble());   // 1 and 1 = the stored alpha untouched, see GaussianSplatRenderer::getAlphaGain().
+	this->alphaGammaDoubleSpinBox->setValue(settings_->value("gaussian_splats/alpha_gamma", 1.0).toDouble());
+	this->alphaAdjustIgnoreCheckBox->setChecked(false); // Deliberately not persisted, same as the debug view below: it is an A/B switch, and a session starting with the saved gain/gamma silently bypassed would read as them not working.
 	this->maxSplatsBudgetSpinBox->setValue(settings_->value("gaussian_splats/max_splats_budget", 10000000).toInt());
 	this->resortMoveThresholdDoubleSpinBox->setValue(settings_->value("gaussian_splats/resort_move_threshold_ws", 0.1).toDouble());
 	this->lodBaseDoubleSpinBox->setValue(settings_->value("gaussian_splats/lod_base", 1.5).toDouble());
@@ -79,6 +92,11 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->sizeClampMaxDoubleSpinBox->setValue(settings_->value("gaussian_splats/size_clamp_max", 0.0).toDouble());
 	this->sizeClampInvertCheckBox->setChecked(settings_->value("gaussian_splats/size_clamp_invert", false).toBool());
 	this->alphaCutoffDoubleSpinBox->setValue(settings_->value("gaussian_splats/alpha_cutoff", 1.0 / 255.0).toDouble());
+	this->layerCapSpinBox->setValue(settings_->value("gaussian_splats/layer_cap", 0).toInt()); // 0 = uncapped, i.e. the pass as it was before this existed.
+	this->layerCapOpaqueCheckBox->setChecked(settings_->value("gaussian_splats/layer_cap_opaque", true).toBool());
+	this->layerCapOnCheckBox->setChecked(false); // Deliberately not persisted, like the other A/B switches: a session starting with a cap silently applied would look like broken LoD.
+	this->hideTestComboBox->setCurrentIndex(settings_->value("gaussian_splats/hide_test_centre", false).toBool() ? 1 : 0); // Conservative by default: it is the only one of the two that leaves a picture.
+	this->drawSliceLimitSpinBox->setValue(0); // Deliberately not persisted, like the debug views: it draws an incomplete frame, and a session starting with it on would look like broken LoD.
 	this->showDebugCheckBox->setChecked(false); // Deliberately not persisted - a momentary debug view, not a preference; starting a session with it silently on would be confusing.
 	this->debugModeComboBox->setCurrentIndex(0); // Overdraw. Not persisted either, for the same reason - it only says which measure the view above shows.
 	this->overdrawRangeMinDoubleSpinBox->setValue(settings_->value("gaussian_splats/overdraw_range_min", 2.0).toDouble());
@@ -121,6 +139,11 @@ void GaussianSplatSettingsWidget::settingsChanged()
 	if(settings)
 	{
 		settings->setValue("gaussian_splats/pixel_scale_limit", this->pixelScaleLimitDoubleSpinBox->value());
+		settings->setValue("gaussian_splats/layer_cap", this->layerCapSpinBox->value());
+		settings->setValue("gaussian_splats/layer_cap_opaque", this->layerCapOpaqueCheckBox->isChecked());
+		settings->setValue("gaussian_splats/hide_test_centre", this->hideTestComboBox->currentIndex() == 1);
+		settings->setValue("gaussian_splats/alpha_gain", this->alphaGainDoubleSpinBox->value());
+		settings->setValue("gaussian_splats/alpha_gamma", this->alphaGammaDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/max_splats_budget", this->maxSplatsBudgetSpinBox->value());
 		settings->setValue("gaussian_splats/resort_move_threshold_ws", this->resortMoveThresholdDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/lod_base", this->lodBaseDoubleSpinBox->value());

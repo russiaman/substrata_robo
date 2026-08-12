@@ -46,6 +46,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "../shared/MessageUtils.h"
 #include <QtCore/QMimeData>
 #include <QtCore/QSettings>
+#include <QtCore/QDateTime> // DIAGNOSTIC ONLY - names the saturation-snapshot output directory, see saturationSnapshotsRequested().
 #include <QtCore/QLoggingCategory>
 #include <QtGui/QPalette>
 #include <QtGui/QColor>
@@ -540,6 +541,8 @@ void MainWindow::initialiseUI()
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(settingsChangedSignal()), this, SLOT(gaussianSplatSettingsChanged()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(countInFrustumRequestedSignal()), this, SLOT(countSplatsInFrustumRequested()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(frustumReportRequestedSignal()), this, SLOT(frustumStructureReportRequested()));
+	connect(ui->gaussianSplatSettingsWidget, SIGNAL(saturationSnapshotsRequestedSignal()), this, SLOT(saturationSnapshotsRequested()));
+	connect(ui->gaussianSplatSettingsWidget, SIGNAL(layerCapEstimateRequestedSignal()), this, SLOT(layerCapEstimateRequested())); // DIAGNOSTIC ONLY - see MainWindow::saturationSnapshotsRequested().
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(resetImportanceRequestedSignal()), this, SLOT(resetSplatImportanceRequested()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(mergeCoplanarRequestedSignal()), this, SLOT(mergeCoplanarSplatsRequested()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(restoreUnmergedRequestedSignal()), this, SLOT(restoreUnmergedSplatsRequested()));
@@ -4058,6 +4061,11 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setSizeClampMax((float)ui->gaussianSplatSettingsWidget->sizeClampMaxDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setSizeClampInvert(ui->gaussianSplatSettingsWidget->sizeClampInvertCheckBox->isChecked());
 	opengl_engine->getSplatRenderer().setAlphaCutoff((float)ui->gaussianSplatSettingsWidget->alphaCutoffDoubleSpinBox->value());
+	// "ignore" bypasses the adjustment with the identity rather than clearing the boxes, so a setting survives being
+	// switched out and back in for an A/B against the same camera.
+	const bool ignore_alpha_adjust = ui->gaussianSplatSettingsWidget->alphaAdjustIgnoreCheckBox->isChecked();
+	opengl_engine->getSplatRenderer().setAlphaGain (ignore_alpha_adjust ? 1.f : (float)ui->gaussianSplatSettingsWidget->alphaGainDoubleSpinBox->value());
+	opengl_engine->getSplatRenderer().setAlphaGamma(ignore_alpha_adjust ? 1.f : (float)ui->gaussianSplatSettingsWidget->alphaGammaDoubleSpinBox->value());
 	// One measure drives both debug tools: which one the combo box says, whether each is on is its own checkbox. 1 = layer
 	// count, 2 = summed alpha, 0 = off - see GaussianSplatRenderer::getShowOverdrawMode(), and getHideMode() for the pair
 	// below, which is the same measure applied destructively rather than as a colour ramp.
@@ -4068,6 +4076,11 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setMaxLayerDensity((float)ui->gaussianSplatSettingsWidget->maxLayerDensityDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setMaxTreeDepth(ui->gaussianSplatSettingsWidget->maxTreeDepthSpinBox->value());
 	// Draw-path only, so unlike the settings above these don't need a traversal refresh to take effect.
+	opengl_engine->getSplatRenderer().setLayerCap(ui->gaussianSplatSettingsWidget->layerCapOnCheckBox->isChecked() ?
+		ui->gaussianSplatSettingsWidget->layerCapSpinBox->value() : 0); // The tick bypasses the cap without clearing the value, so an A/B keeps the setting - see the checkbox's tooltip.
+	opengl_engine->getSplatRenderer().setLayerCapOpaque(ui->gaussianSplatSettingsWidget->layerCapOpaqueCheckBox->isChecked());
+	opengl_engine->getSplatRenderer().setHideTestConservative(ui->gaussianSplatSettingsWidget->hideTestComboBox->currentIndex() == 0);
+	opengl_engine->getSplatRenderer().setDrawSliceLimit(ui->gaussianSplatSettingsWidget->drawSliceLimitSpinBox->value()); // DIAGNOSTIC ONLY - see GaussianSplatRenderer::getDrawSliceLimit().
 	opengl_engine->getSplatRenderer().setNumDrawSlices(ui->gaussianSplatSettingsWidget->numDrawSlicesSpinBox->value());
 	opengl_engine->getSplatRenderer().setSliceGrowth((float)ui->gaussianSplatSettingsWidget->sliceGrowthDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setSaturationGateEnabled(ui->gaussianSplatSettingsWidget->saturationGateCheckBox->isChecked());
@@ -4106,6 +4119,56 @@ void MainWindow::frustumStructureReportRequested()
 	conPrint("\n" + report);
 	ui->gaussianSplatSettingsWidget->frustumReportResultLabel->setText("written to log");
 	ui->gaussianSplatSettingsWidget->resetImportanceResultLabel->setText(""); // A viewpoint has just been added, so whatever this said about the last reset is stale.
+}
+
+
+/*
+DIAGNOSTIC ONLY - no part of the client's normal operation, and removable together with the engine side it drives (see
+OpenGLEngine::requestSplatSaturationSnapshots()) and the button in GaussianSplatSettingsWidget.ui.
+
+"Saturation snapshots" button: asks the next frame to write its splat pass out as PNGs, one set per draw slice plus the
+saturation mask between them, so the frame can be looked at as it is built rather than only as it ends.
+
+Only meaningful while the saturation gate is actually running - the images are of its censuses - so the press is dropped
+outright otherwise, with the label saying why rather than leaving a button that silently does nothing.
+*/
+void MainWindow::saturationSnapshotsRequested()
+{
+	if(!opengl_engine->getSplatRenderer().getSaturationGateEnabled() || (opengl_engine->getSplatRenderer().getNumDrawSlices() < 2))
+	{
+		ui->gaussianSplatSettingsWidget->saturationSnapshotsResultLabel->setText("needs gate + slices");
+		return;
+	}
+
+	// A directory per press: a capture is a set of images that only mean anything together, and the next press is from a
+	// different camera or different settings.  Fixed root, since this is a development diagnostic and the owner reads the
+	// dumps from there - see the snapshot for the session this was added in.
+	const std::string dir = "C:/Work/ai/ClaudeCode/Substrata/working_dir/tmp/satsnap_" +
+		QtUtils::toStdString(QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss"));
+
+	try
+	{
+		FileUtils::createDirIfDoesNotExist(dir);
+	}
+	catch(glare::Exception& e)
+	{
+		conPrint("Error creating splat snapshot directory: " + e.what());
+		ui->gaussianSplatSettingsWidget->saturationSnapshotsResultLabel->setText("dir failed, see log");
+		return;
+	}
+
+	opengl_engine->requestSplatSaturationSnapshots(dir);
+	ui->gaussianSplatSettingsWidget->saturationSnapshotsResultLabel->setText("capturing next frame");
+	conPrint("Splat saturation snapshots requested, writing to " + dir);
+}
+
+
+// DIAGNOSTIC ONLY - "Estimate" button beside the layer cap.  The measurement happens in the next frame that draws splats,
+// so the label says the result of the previous press until then; it is also written to the log.
+void MainWindow::layerCapEstimateRequested()
+{
+	opengl_engine->getSplatRenderer().requestLayerCapEstimate();
+	ui->gaussianSplatSettingsWidget->layerCapEstimateResultLabel->setText("written to log"); // The number itself lands in the log and in the splat diagnostics; this label only says where to look, since the measurement happens a frame later.
 }
 
 
