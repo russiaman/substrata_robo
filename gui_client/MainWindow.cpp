@@ -4078,7 +4078,13 @@ void MainWindow::gaussianSplatSettingsChanged()
 	// Draw-path only, so unlike the settings above these don't need a traversal refresh to take effect.
 	opengl_engine->getSplatRenderer().setLayerCap(ui->gaussianSplatSettingsWidget->layerCapOnCheckBox->isChecked() ?
 		ui->gaussianSplatSettingsWidget->layerCapSpinBox->value() : 0); // The tick bypasses the cap without clearing the value, so an A/B keeps the setting - see the checkbox's tooltip.
-	opengl_engine->getSplatRenderer().setLayerCapOpaque(ui->gaussianSplatSettingsWidget->layerCapOpaqueCheckBox->isChecked());
+	opengl_engine->getSplatRenderer().setLayerCapOpaque(ui->gaussianSplatSettingsWidget->layerCapOpaqueCheckBox->isChecked()); // Shared with the coverage cap below, which cuts a pixel short the same way.
+	opengl_engine->getSplatRenderer().setCoverageCap(ui->gaussianSplatSettingsWidget->coverageCapOnCheckBox->isChecked() ?
+		(float)ui->gaussianSplatSettingsWidget->coverageCapThresholdDoubleSpinBox->value() : 0.f); // Ticked/unticked rather than zeroing the threshold, so an A/B keeps the setting - as with the layer cap above.
+	// DIAGNOSTIC ONLY - the combo's index is the stage number: entry 0 is "off", and the rest are 1..8 in order - see
+	// GaussianSplatRenderer::getAblationStage().
+	opengl_engine->getSplatRenderer().setAblationStage(ui->gaussianSplatSettingsWidget->ablationStageComboBox->currentIndex());
+	opengl_engine->getSplatRenderer().setQuadRadiusScale((float)ui->gaussianSplatSettingsWidget->quadRadiusScaleDoubleSpinBox->value()); // DIAGNOSTIC ONLY - see getQuadRadiusScale().
 	opengl_engine->getSplatRenderer().setHideTestConservative(ui->gaussianSplatSettingsWidget->hideTestComboBox->currentIndex() == 0);
 	opengl_engine->getSplatRenderer().setDrawSliceLimit(ui->gaussianSplatSettingsWidget->drawSliceLimitSpinBox->value()); // DIAGNOSTIC ONLY - see GaussianSplatRenderer::getDrawSliceLimit().
 	opengl_engine->getSplatRenderer().setNumDrawSlices(ui->gaussianSplatSettingsWidget->numDrawSlicesSpinBox->value());

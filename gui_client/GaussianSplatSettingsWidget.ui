@@ -827,7 +827,161 @@
      </property>
     </widget>
    </item>
-   <item row="17" column="0" colspan="2">
+   <item row="17" column="0">
+    <widget class="QLabel" name="coverageCapLabel">
+     <property name="text">
+      <string>Alpha saturation cap</string>
+     </property>
+     <property name="toolTip">
+      <string>Diagnostic: the same per-fragment cut as the layer cap above, but decided by how covered a pixel already is rather than by how many splats have touched it. Front-to-back compositing means a pixel whose accumulated coverage has reached the threshold cannot be changed by anything drawn behind it, so everything still to come there is invisible and can be dropped. Unlike the layer cap this needs no per-pixel counter buffer, which is 8 bytes per fragment of writes the pass no longer pays. Takes the saturation mask over from the gate while it is on - there is only one mask.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="17" column="1">
+    <widget class="QWidget" name="coverageCapWidget" native="true">
+     <layout class="QHBoxLayout" name="coverageCapHorizontalLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QDoubleSpinBox" name="coverageCapThresholdDoubleSpinBox">
+        <property name="toolTip">
+         <string>Accumulated coverage at or above which a pixel stops being composited. Coverage is not a layer count: 1 unit of summed alpha is 63% covered, 2 is 86%, 3 is 95%, 5.5 is 99.6% - so a threshold near 1 is a much later stop than it looks. Separate from the saturation gate's threshold on purpose, so switching between the two does not retune the other. Cuts at slice boundaries, so it needs more than one draw slice.</string>
+        </property>
+        <property name="decimals">
+         <number>4</number>
+        </property>
+        <property name="minimum">
+         <double>0.010000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.005000000000000</double>
+        </property>
+        <property name="value">
+         <double>0.950000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="coverageCapOnCheckBox">
+        <property name="text">
+         <string>on</string>
+        </property>
+        <property name="toolTip">
+         <string>Applies the cap beside it, without having to clear the value to switch it off - for A/B against the same camera. Yields to the layer cap above when that is on, and stands the saturation gate down while it runs, since all three want the same mask. Not remembered between sessions.</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="18" column="0">
+    <widget class="QLabel" name="ablationStageLabel">
+     <property name="text">
+      <string>Ablation stage</string>
+     </property>
+     <property name="toolTip">
+      <string>Diagnostic: switches the splat pass on one piece at a time, lightest first, so the frame time can be read at each step. The difference between two steps is what the one thing that step added costs. Read the "draw splats" timer, not the frame rate - vsync hides everything. Two caveats: GPU cost is a maximum over the units that saturate rather than a sum of stages, so a step means "the cost of this given everything below it"; and at the CPU-only stage the splat timer reads nothing, so look at CPU frame time there instead.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="18" column="1">
+    <widget class="QComboBox" name="ablationStageComboBox">
+     <property name="toolTip">
+      <string>Off is the real pass. The stages below it are deliberately wrong pictures - each one is missing everything above it - so nothing here is meant to be left on. Stage 5 is there because going straight from points to full quads moves the vertex maths and the fill at the same time: it runs all of the projection maths and still draws a one-pixel quad, so 5 minus 4 is the vertex work alone and 6 minus 5 is the fill alone.</string>
+     </property>
+     <item>
+      <property name="text">
+       <string>off (full pass)</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>1 - CPU only, no draw call</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>2 - points, 1 texel, white</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>3 - points, all 4 texels</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>4 - points, splat colour</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>5 - vertex maths, 1px quad</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>6 - full quads, opaque, no blend</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>7 - blending, flat alpha</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>8 - Gaussian, no discard</string>
+      </property>
+     </item>
+    </widget>
+   </item>
+   <item row="19" column="0">
+    <widget class="QLabel" name="quadRadiusScaleLabel">
+     <property name="text">
+      <string>Quad radius scale</string>
+     </property>
+     <property name="toolTip">
+      <string>Diagnostic: multiplies every splat's screen-space radius. 1 is the real size. Rasterised area goes as the square of it, while the splat count, all the vertex work and the length of the blend chain stay exactly the same - so this asks whether a cost is proportional to area at all. A cost that falls by half at 0.7 is fill (rasterising, shading, blend bandwidth); one that does not move is per-splat (instance emission, primitive setup), whatever the stage ladder suggests. Not the same as raising the alpha cutoff, which shrinks each splat by its own opacity instead of scaling them all alike. The Gaussian shrinks with the quad, so splats get smaller rather than hard-edged.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="19" column="1">
+    <widget class="QDoubleSpinBox" name="quadRadiusScaleDoubleSpinBox">
+     <property name="toolTip">
+      <string>1 = the real size, and the only value the picture is correct at.</string>
+     </property>
+     <property name="decimals">
+      <number>2</number>
+     </property>
+     <property name="minimum">
+      <double>0.050000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>1.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.050000000000000</double>
+     </property>
+     <property name="value">
+      <double>1.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="20" column="0" colspan="2">
     <widget class="QCheckBox" name="accumBuffer8BitCheckBox">
      <property name="text">
       <string>8-bit accumulation buffer</string>
@@ -837,7 +991,7 @@
      </property>
     </widget>
    </item>
-   <item row="17" column="0" colspan="2">
+   <item row="20" column="0" colspan="2">
     <widget class="QFrame" name="diagnosticsSeparatorLine">
      <property name="frameShape">
       <enum>QFrame::HLine</enum>
@@ -847,7 +1001,7 @@
      </property>
     </widget>
    </item>
-   <item row="18" column="0" colspan="2">
+   <item row="21" column="0" colspan="2">
     <widget class="QLabel" name="diagnosticsSectionLabel">
      <property name="text">
       <string>Diagnostics</string>
@@ -860,7 +1014,7 @@
      </property>
     </widget>
    </item>
-   <item row="19" column="0">
+   <item row="22" column="0">
     <widget class="QLabel" name="sizeClampLabel">
      <property name="text">
       <string>Size clamp min/max (m)</string>
@@ -870,7 +1024,7 @@
      </property>
     </widget>
    </item>
-   <item row="19" column="1">
+   <item row="22" column="1">
     <widget class="QWidget" name="sizeClampWidget" native="true">
      <layout class="QHBoxLayout" name="sizeClampHorizontalLayout">
       <property name="leftMargin">
@@ -936,7 +1090,7 @@
      </layout>
     </widget>
    </item>
-   <item row="20" column="0">
+   <item row="23" column="0">
     <widget class="QPushButton" name="countInFrustumPushButton">
      <property name="text">
       <string>Count in frustum</string>
@@ -946,14 +1100,14 @@
      </property>
     </widget>
    </item>
-   <item row="20" column="1">
+   <item row="23" column="1">
     <widget class="QLabel" name="countInFrustumResultLabel">
      <property name="text">
       <string></string>
      </property>
     </widget>
    </item>
-   <item row="21" column="0">
+   <item row="24" column="0">
     <widget class="QLabel" name="distClampLabel">
      <property name="text">
       <string>Distance slice min/max (m)</string>
@@ -963,7 +1117,7 @@
      </property>
     </widget>
    </item>
-   <item row="21" column="1">
+   <item row="24" column="1">
     <widget class="QWidget" name="distClampWidget" native="true">
      <layout class="QHBoxLayout" name="distClampHorizontalLayout">
       <property name="leftMargin">
@@ -1029,7 +1183,7 @@
      </layout>
     </widget>
    </item>
-   <item row="22" column="0">
+   <item row="25" column="0">
     <widget class="QCheckBox" name="showDebugCheckBox">
      <property name="text">
       <string>Show debug</string>
@@ -1039,7 +1193,7 @@
      </property>
     </widget>
    </item>
-   <item row="22" column="1">
+   <item row="25" column="1">
     <widget class="QWidget" name="debugModeWidget" native="true">
      <layout class="QHBoxLayout" name="debugModeHorizontalLayout">
       <property name="leftMargin">
@@ -1084,7 +1238,7 @@
      </layout>
     </widget>
    </item>
-   <item row="23" column="0">
+   <item row="26" column="0">
     <widget class="QLabel" name="overdrawRangeLabel">
      <property name="text">
       <string>Overdraw range (layers)</string>
@@ -1094,7 +1248,7 @@
      </property>
     </widget>
    </item>
-   <item row="23" column="1">
+   <item row="26" column="1">
     <widget class="QWidget" name="overdrawRangeWidget" native="true">
      <layout class="QHBoxLayout" name="overdrawRangeHorizontalLayout">
       <property name="leftMargin">
@@ -1156,7 +1310,7 @@
      </layout>
     </widget>
    </item>
-   <item row="24" column="0">
+   <item row="27" column="0">
     <widget class="QPushButton" name="frustumReportPushButton">
      <property name="text">
       <string>Frustum report</string>
@@ -1166,14 +1320,14 @@
      </property>
     </widget>
    </item>
-   <item row="24" column="1">
+   <item row="27" column="1">
     <widget class="QLabel" name="frustumReportResultLabel">
      <property name="text">
       <string></string>
      </property>
     </widget>
    </item>
-   <item row="25" column="0">
+   <item row="28" column="0">
     <widget class="QPushButton" name="resetImportancePushButton">
      <property name="text">
       <string>Reset importance</string>
@@ -1183,14 +1337,14 @@
      </property>
     </widget>
    </item>
-   <item row="25" column="1">
+   <item row="28" column="1">
     <widget class="QLabel" name="resetImportanceResultLabel">
      <property name="text">
       <string></string>
      </property>
     </widget>
    </item>
-   <item row="26" column="0">
+   <item row="29" column="0">
     <widget class="QPushButton" name="saturationSnapshotsPushButton">
      <property name="text">
       <string>Saturation snapshots</string>
@@ -1200,14 +1354,14 @@
      </property>
     </widget>
    </item>
-   <item row="26" column="1">
+   <item row="29" column="1">
     <widget class="QLabel" name="saturationSnapshotsResultLabel">
      <property name="text">
       <string></string>
      </property>
     </widget>
    </item>
-   <item row="27" column="0" colspan="2">
+   <item row="30" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
