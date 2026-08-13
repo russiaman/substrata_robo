@@ -40,10 +40,12 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->maxTreeDepthSpinBox,              SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->numDrawSlicesSpinBox,             SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->drawSliceLimitSpinBox,            SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
+	connect(this->visibleSlicingCheckBox,           SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->sliceGrowthDoubleSpinBox,         SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->saturationGateCheckBox,           SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->saturationThresholdDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->saturationMaskDownscaleSpinBox,   SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
+	connect(this->coverageShrinkStrengthDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->layerCapSpinBox,                  SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->layerCapOnCheckBox,               SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->layerCapOpaqueCheckBox,           SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
@@ -52,6 +54,8 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->coverageCapOnCheckBox,            SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->ablationStageComboBox,            SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged()));
 	connect(this->quadRadiusScaleDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->areaScaleGammaDoubleSpinBox,      SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->areaScaleRefPxDoubleSpinBox,      SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->hideTestComboBox,                 SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged()));
 	connect(this->accumBuffer8BitCheckBox,          SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->distClampMinDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
@@ -103,8 +107,11 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->coverageCapOnCheckBox->setChecked(false); // Not persisted, for the same reason as the layer cap's tick above.
 	this->ablationStageComboBox->setCurrentIndex(0); // Not persisted: every stage but 0 draws a deliberately incomplete picture, and finding one still selected after a restart would read as a broken scene.
 	this->quadRadiusScaleDoubleSpinBox->setValue(1.0); // Not persisted either, and for the same reason: anything but 1 is a deliberately wrong picture.
+	this->areaScaleGammaDoubleSpinBox->setValue(1.0); // Not persisted, same reason - inert while quad radius scale is 1, but kept off by default like the rest of this row.
+	this->areaScaleRefPxDoubleSpinBox->setValue(20.0);
 	this->hideTestComboBox->setCurrentIndex(settings_->value("gaussian_splats/hide_test_centre", false).toBool() ? 1 : 0); // Conservative by default: it is the only one of the two that leaves a picture.
 	this->drawSliceLimitSpinBox->setValue(0); // Deliberately not persisted, like the debug views: it draws an incomplete frame, and a session starting with it on would look like broken LoD.
+	this->visibleSlicingCheckBox->setChecked(false); // Not persisted either, but for the opposite reason to the views above: it cannot change the picture, and an A/B is only honest if both sessions start from the same placement.
 	this->showDebugCheckBox->setChecked(false); // Deliberately not persisted - a momentary debug view, not a preference; starting a session with it silently on would be confusing.
 	this->debugModeComboBox->setCurrentIndex(0); // Overdraw. Not persisted either, for the same reason - it only says which measure the view above shows.
 	this->overdrawRangeMinDoubleSpinBox->setValue(settings_->value("gaussian_splats/overdraw_range_min", 2.0).toDouble());
@@ -120,6 +127,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	if(this->saturationThresholdDoubleSpinBox->value() <= 0.0)
 		this->saturationThresholdDoubleSpinBox->setValue(1.0 - 1.0 / 255.0);
 	this->saturationMaskDownscaleSpinBox->setValue(settings_->value("gaussian_splats/saturation_mask_downscale", 4).toInt());
+	this->coverageShrinkStrengthDoubleSpinBox->setValue(0.0); // Not persisted, like the layer/coverage cap "on" ticks: a session starting with this silently engaged would read as broken LoD rather than as a setting left on.
 	this->accumBuffer8BitCheckBox->setChecked(settings_->value("gaussian_splats/accum_buffer_8bit", false).toBool());
 	this->clipCheckBox->setChecked(false); // Deliberately not persisted: it removes splats from the picture, and finding it still on after a restart would read as the scene having lost geometry.
 	// The distance slice is deliberately not persisted, for the same reason as the overdraw view: it is a momentary way of

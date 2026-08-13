@@ -4085,13 +4085,17 @@ void MainWindow::gaussianSplatSettingsChanged()
 	// GaussianSplatRenderer::getAblationStage().
 	opengl_engine->getSplatRenderer().setAblationStage(ui->gaussianSplatSettingsWidget->ablationStageComboBox->currentIndex());
 	opengl_engine->getSplatRenderer().setQuadRadiusScale((float)ui->gaussianSplatSettingsWidget->quadRadiusScaleDoubleSpinBox->value()); // DIAGNOSTIC ONLY - see getQuadRadiusScale().
+	opengl_engine->getSplatRenderer().setAreaScaleGamma((float)ui->gaussianSplatSettingsWidget->areaScaleGammaDoubleSpinBox->value()); // DIAGNOSTIC ONLY - see getAreaScaleGamma().
+	opengl_engine->getSplatRenderer().setAreaScaleRefPx((float)ui->gaussianSplatSettingsWidget->areaScaleRefPxDoubleSpinBox->value()); // DIAGNOSTIC ONLY - see getAreaScaleRefPx().
 	opengl_engine->getSplatRenderer().setHideTestConservative(ui->gaussianSplatSettingsWidget->hideTestComboBox->currentIndex() == 0);
 	opengl_engine->getSplatRenderer().setDrawSliceLimit(ui->gaussianSplatSettingsWidget->drawSliceLimitSpinBox->value()); // DIAGNOSTIC ONLY - see GaussianSplatRenderer::getDrawSliceLimit().
 	opengl_engine->getSplatRenderer().setNumDrawSlices(ui->gaussianSplatSettingsWidget->numDrawSlicesSpinBox->value());
 	opengl_engine->getSplatRenderer().setSliceGrowth((float)ui->gaussianSplatSettingsWidget->sliceGrowthDoubleSpinBox->value());
+	opengl_engine->getSplatRenderer().setVisibleSlicingEnabled(ui->gaussianSplatSettingsWidget->visibleSlicingCheckBox->isChecked()); // See getVisibleSlicingEnabled().
 	opengl_engine->getSplatRenderer().setSaturationGateEnabled(ui->gaussianSplatSettingsWidget->saturationGateCheckBox->isChecked());
 	opengl_engine->getSplatRenderer().setSaturationThreshold((float)ui->gaussianSplatSettingsWidget->saturationThresholdDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setSaturationMaskDownscale(ui->gaussianSplatSettingsWidget->saturationMaskDownscaleSpinBox->value());
+	opengl_engine->getSplatRenderer().setCoverageShrinkStrength((float)ui->gaussianSplatSettingsWidget->coverageShrinkStrengthDoubleSpinBox->value()); // DIAGNOSTIC ONLY - see getCoverageShrinkStrength().
 	opengl_engine->getSplatRenderer().setAccumBuffer8Bit(ui->gaussianSplatSettingsWidget->accumBuffer8BitCheckBox->isChecked());
 	const bool splat_clip = ui->gaussianSplatSettingsWidget->clipCheckBox->isChecked();
 	opengl_engine->getSplatRenderer().setHideOverdrawEnabled(splat_clip && splat_debug_measure == 1);

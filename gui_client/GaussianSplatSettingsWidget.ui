@@ -601,6 +601,16 @@
        </widget>
       </item>
       <item>
+       <widget class="QCheckBox" name="visibleSlicingCheckBox">
+        <property name="text">
+         <string>by visible</string>
+        </property>
+        <property name="toolTip">
+         <string>Places the slice boundaries so each slice holds an equal share of the splats actually in frustum, instead of an equal share of the draw order. The draw order is sorted by distance and covers the whole cloud including what is behind you, so the nearest splats by distance are a sphere around the camera - standing above a forest looking into the distance, the first slices are almost all ground below and behind, and the saturation census after each of them photographs a mask that is still completely black. Nothing is culled and the whole order is still drawn: only where it is cut moves, so this cannot change the picture, only where the censuses happen. Costs a few thousand point-in-frustum tests per cloud per frame, whatever the cloud's size. Off = the plain index split, for A/B against the same camera.</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QSpinBox" name="drawSliceLimitSpinBox">
         <property name="toolTip">
          <string>Diagnostic: stops after this many slices, so the frame is deliberately incomplete - with 6 slices and a limit of 3, only the nearest half of every cloud is drawn. Raise it one step at a time and watch the splat pass time: the step that costs the most is the depth range the fill is actually in. 0 = no limit, the whole cloud, which is the only setting the picture is correct at.</string>
@@ -717,6 +727,28 @@
         </property>
         <property name="value">
          <number>4</number>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="coverageShrinkStrengthDoubleSpinBox">
+        <property name="prefix">
+         <string>shrink </string>
+        </property>
+        <property name="toolTip">
+         <string>Diagnostic: instead of the gate's binary keep/drop, shrinks a splat's quad by (1 - coverage * this), where coverage is the mean accumulated coverage already under it (a continuous estimate, read from a mean pyramid built alongside the gate's own). 0 (default, off): no shrink. 1: a splat over an already-fully-covered pixel shrinks to nothing; 0.5 shrinks it by at most half. Requires the gate above to be on - it reads the coverage the gate's own mark pass already computed rather than paying for a pass of its own.</string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.050000000000000</double>
         </property>
        </widget>
       </item>
@@ -955,30 +987,101 @@
       <string>Quad radius scale</string>
      </property>
      <property name="toolTip">
-      <string>Diagnostic: multiplies every splat's screen-space radius. 1 is the real size. Rasterised area goes as the square of it, while the splat count, all the vertex work and the length of the blend chain stay exactly the same - so this asks whether a cost is proportional to area at all. A cost that falls by half at 0.7 is fill (rasterising, shading, blend bandwidth); one that does not move is per-splat (instance emission, primitive setup), whatever the stage ladder suggests. Not the same as raising the alpha cutoff, which shrinks each splat by its own opacity instead of scaling them all alike. The Gaussian shrinks with the quad, so splats get smaller rather than hard-edged.</string>
+      <string>Diagnostic: multiplies every splat's screen-space radius. 1 is the real size. Rasterised area goes as the square of it, while the splat count, all the vertex work and the length of the blend chain stay exactly the same - so this asks whether a cost is proportional to area at all. A cost that falls by half at 0.7 is fill (rasterising, shading, blend bandwidth); one that does not move is per-splat (instance emission, primitive setup), whatever the stage ladder suggests. Not the same as raising the alpha cutoff, which shrinks each splat by its own opacity instead of scaling them all alike. The Gaussian shrinks with the quad, so splats get smaller rather than hard-edged.&#10;&#10;The two boxes beside it (gamma, ref) make the reduction area-weighted instead of flat: splats at or above the reference radius get the full reduction, smaller ones a tapering fraction of it - see their own tooltips. Both inert while this is 1.</string>
      </property>
     </widget>
    </item>
    <item row="19" column="1">
-    <widget class="QDoubleSpinBox" name="quadRadiusScaleDoubleSpinBox">
-     <property name="toolTip">
-      <string>1 = the real size, and the only value the picture is correct at.</string>
-     </property>
-     <property name="decimals">
-      <number>2</number>
-     </property>
-     <property name="minimum">
-      <double>0.050000000000000</double>
-     </property>
-     <property name="maximum">
-      <double>1.000000000000000</double>
-     </property>
-     <property name="singleStep">
-      <double>0.050000000000000</double>
-     </property>
-     <property name="value">
-      <double>1.000000000000000</double>
-     </property>
+    <widget class="QWidget" name="quadRadiusScaleWidget" native="true">
+     <layout class="QHBoxLayout" name="quadRadiusScaleHorizontalLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QDoubleSpinBox" name="quadRadiusScaleDoubleSpinBox">
+        <property name="toolTip">
+         <string>1 = the real size, and the only value the picture is correct at.</string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.050000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.050000000000000</double>
+        </property>
+        <property name="value">
+         <double>1.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="areaScaleGammaDoubleSpinBox">
+        <property name="toolTip">
+         <string>Activation speed: how sharply the reduction above concentrates on splats bigger than the reference radius beside it, instead of being applied flatly to every splat regardless of size. 1 = weight is linear in the splat's own screen-space area. Above 1, smaller splats are increasingly spared and the reduction concentrates on the biggest ones; below 1, a partial reduction spreads onto smaller splats too. Inert while Quad radius scale is 1.</string>
+        </property>
+        <property name="prefix">
+         <string>gamma </string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.100000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>8.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.100000000000000</double>
+        </property>
+        <property name="value">
+         <double>1.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="areaScaleRefPxDoubleSpinBox">
+        <property name="toolTip">
+         <string>Reference radius, in screen pixels (before either scale). Splats at or above it get the full Quad radius scale reduction; smaller ones get a fraction of it, tapering off at the rate gamma sets. Inert while Quad radius scale is 1.</string>
+        </property>
+        <property name="prefix">
+         <string>ref </string>
+        </property>
+        <property name="suffix">
+         <string> px</string>
+        </property>
+        <property name="decimals">
+         <number>0</number>
+        </property>
+        <property name="minimum">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>10000.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>5.000000000000000</double>
+        </property>
+        <property name="value">
+         <double>20.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
    <item row="20" column="0" colspan="2">
