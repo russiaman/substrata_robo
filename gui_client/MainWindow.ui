@@ -441,7 +441,7 @@
     <number>8</number>
    </attribute>
    <widget class="QWidget" name="gaussianSplatSettingsDockWidgetContents">
-    <layout class="QVBoxLayout" name="verticalLayout_12">
+    <layout class="QVBoxLayout" name="gaussianSplatSettingsVerticalLayout">
      <property name="spacing">
       <number>0</number>
      </property>
@@ -458,7 +458,29 @@
       <number>0</number>
      </property>
      <item>
-      <widget class="GaussianSplatSettingsWidget" name="gaussianSplatSettingsWidget" native="true"/>
+      <!-- The settings form is tall enough that its minimum height alone fills the dock area, which starved
+      any other dock stacked with it (Editor / Environment / World Settings) down to zero height.  Wrapped in a
+      scroll area, same as editorDockWidget above, so the panel scrolls instead of demanding its full height. -->
+      <widget class="QScrollArea" name="gaussianSplatSettingsScrollArea">
+       <property name="widgetResizable">
+        <bool>true</bool>
+       </property>
+       <widget class="QWidget" name="gaussianSplatSettingsScrollAreaContents">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>69</width>
+          <height>233</height>
+         </rect>
+        </property>
+        <layout class="QVBoxLayout" name="gaussianSplatSettingsScrollLayout">
+         <item>
+          <widget class="GaussianSplatSettingsWidget" name="gaussianSplatSettingsWidget" native="true"/>
+         </item>
+        </layout>
+       </widget>
+      </widget>
      </item>
     </layout>
    </widget>
