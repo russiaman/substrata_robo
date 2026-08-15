@@ -784,6 +784,29 @@
        </widget>
       </item>
       <item>
+       <widget class="QComboBox" name="coverageShrinkModeComboBox">
+        <property name="toolTip">
+         <string>Which formula the box to the right feeds. Both read the same coverage estimate and differ only in what they do with it, so switching between them compares the formulas on one frame.
+
+by coverage: the original. Scales the quad's radii by (1 - coverage * value), which narrows the Gaussian along with the quad. Over a half-covered pixel at full strength the splat keeps a quarter of its area, but only half the light through that pixel was still there to lose - so it discards more than the coverage allows, and that overshoot is part of what shows as a band at a slice boundary.
+
+by light loss: the value becomes a budget on light lost instead. Stopping the quad early throws away the splat's own alpha at that radius, attenuated by the light still getting through, so the honest place to stop is where alpha falls to a threshold the coverage sets - the same question the alpha cutoff answers, with a threshold raised by how finished the pixel is. The budget is added to the alpha cutoff rather than replacing it, so a pixel with no coverage is left at exactly the alpha cutoff however high this is set, and the extra light given up is the budget times the coverage. The same Gaussian is drawn over a shorter quad, i.e. the faint edge is truncated rather than the splat being made smaller.
+
+Measured at matched draw time against raising the alpha cutoff on its own: a quarter of the error overall, and a seventh of it in the sparsely covered regions where the visible holes are. Both save the same amount on a solid wall; only this one leaves the thin regions alone, because only this one asks whether there was anything there to lose.</string>
+        </property>
+        <item>
+         <property name="text">
+          <string>by coverage</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>by light loss</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item>
        <widget class="QDoubleSpinBox" name="coverageShrinkStrengthDoubleSpinBox">
         <property name="prefix">
          <string>shrink </string>

@@ -4096,6 +4096,7 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setSaturationThreshold((float)ui->gaussianSplatSettingsWidget->saturationThresholdDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setSaturationMaskDownscale(ui->gaussianSplatSettingsWidget->saturationMaskDownscaleSpinBox->value());
 	opengl_engine->getSplatRenderer().setCoverageShrinkStrength((float)ui->gaussianSplatSettingsWidget->coverageShrinkStrengthDoubleSpinBox->value()); // DIAGNOSTIC ONLY - see getCoverageShrinkStrength().
+	opengl_engine->getSplatRenderer().setCoverageShrinkMode(ui->gaussianSplatSettingsWidget->coverageShrinkModeComboBox->currentIndex()); // DIAGNOSTIC ONLY - see getCoverageShrinkMode().
 	opengl_engine->getSplatRenderer().setEWAProjectionFixEnabled(ui->gaussianSplatSettingsWidget->ewaProjectionFixCheckBox->isChecked()); // See getEWAProjectionFixEnabled().
 	opengl_engine->getSplatRenderer().setNearFadeWidth((float)ui->gaussianSplatSettingsWidget->nearFadeWidthDoubleSpinBox->value()); // See getNearFadeWidth().
 	opengl_engine->getSplatRenderer().setAccumBuffer8Bit(ui->gaussianSplatSettingsWidget->accumBuffer8BitCheckBox->isChecked());

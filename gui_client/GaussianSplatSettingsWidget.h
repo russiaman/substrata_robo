@@ -49,6 +49,15 @@ signals:;
 
 protected slots:
 	void settingsChanged();
+
+	// The one shrink box serves both shrink modes, and the same number means different things in them - see
+	// GaussianSplatRenderer::getCoverageShrinkMode(). This gives each mode its own remembered value, so flipping the
+	// combo box compares two settings that were each tuned rather than one number reinterpreted.
+	void coverageShrinkModeChanged(int mode);
 private:
 	QSettings* settings;
+
+	// Last value the shrink box held in each mode, indexed by mode - see coverageShrinkModeChanged().
+	double coverage_shrink_value_for_mode[2];
+	int coverage_shrink_prev_mode;
 };

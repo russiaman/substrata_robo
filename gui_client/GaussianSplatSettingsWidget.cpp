@@ -12,9 +12,15 @@ Copyright Glare Technologies Limited 2026 -
 GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	QWidget* parent
 )
-:	settings(NULL)
+:	settings(NULL),
+	coverage_shrink_prev_mode(0)
 {
 	setupUi(this);
+
+	// Per-mode starting values for the shared shrink box - see coverageShrinkModeChanged(). Mode 0 starts off; mode 1
+	// starts at the setting measured to be worth having, which init() then selects - see there.
+	coverage_shrink_value_for_mode[0] = 0.0;
+	coverage_shrink_value_for_mode[1] = 0.02;
 
 	connect(this->pixelScaleLimitDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->maxSplatsBudgetSpinBox,           SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
@@ -48,6 +54,10 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->saturationThresholdDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->saturationMaskDownscaleSpinBox,   SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->coverageShrinkStrengthDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	// Two connections, in this order: the mode's own handler swaps the value in the shared box first, so that by the time
+	// settingsChanged() reads the box it holds the value belonging to the mode now selected.
+	connect(this->coverageShrinkModeComboBox,       SIGNAL(currentIndexChanged(int)), this, SLOT(coverageShrinkModeChanged(int)));
+	connect(this->coverageShrinkModeComboBox,       SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged()));
 	connect(this->layerCapSpinBox,                  SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->layerCapOnCheckBox,               SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->layerCapOpaqueCheckBox,           SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
@@ -131,7 +141,16 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	if(this->saturationThresholdDoubleSpinBox->value() <= 0.0)
 		this->saturationThresholdDoubleSpinBox->setValue(1.0 - 1.0 / 255.0);
 	this->saturationMaskDownscaleSpinBox->setValue(settings_->value("gaussian_splats/saturation_mask_downscale", 4).toInt());
-	this->coverageShrinkStrengthDoubleSpinBox->setValue(0.0); // Not persisted, like the layer/coverage cap "on" ticks: a session starting with this silently engaged would read as broken LoD rather than as a setting left on.
+	// Not persisted, deliberately: a fixed starting point is what makes one session's measurements comparable with the
+	// next one's. The value is the box's mode 0 entry only for the moment it takes the line below to switch modes, which
+	// parks it and brings mode 1's own in - see coverageShrinkModeChanged().
+	this->coverageShrinkStrengthDoubleSpinBox->setValue(0.0);
+
+	// The mode the measurements picked, engaged at the budget they picked. Unlike the shrink's own historical default of
+	// off, this one starts on: at 0.02 it costs about a sixth of the splat pass and its mean error against drawing every
+	// splat in full is under one 8-bit level, which is below what the picture shows. Mode 0 at any setting, and this mode
+	// far above this setting, both visibly thin out the sparsely covered regions; this setting does not - session050.
+	this->coverageShrinkModeComboBox->setCurrentIndex(1);
 	this->accumBuffer8BitCheckBox->setChecked(settings_->value("gaussian_splats/accum_buffer_8bit", false).toBool());
 	this->clipCheckBox->setChecked(false); // Deliberately not persisted: it removes splats from the picture, and finding it still on after a restart would read as the scene having lost geometry.
 	// The distance slice is deliberately not persisted, for the same reason as the overdraw view: it is a momentary way of
@@ -151,6 +170,26 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->mergeFlattenCheckBox->setChecked(settings_->value("gaussian_splats/merge_flatten", true).toBool());
 
 	this->settings = settings_; // Last, so that none of the above wrote anything - see the note at the top of this function.
+}
+
+
+void GaussianSplatSettingsWidget::coverageShrinkModeChanged(int mode)
+{
+	if((mode < 0) || (mode > 1) || (mode == coverage_shrink_prev_mode))
+		return;
+
+	// Park the value the box holds under the mode it was tuned for, and bring back the other mode's own. Without this
+	// the same number would carry across a mode change and mean something else on the other side, which is exactly the
+	// comparison this control exists to make honest - see GaussianSplatRenderer::getCoverageShrinkMode().
+	coverage_shrink_value_for_mode[coverage_shrink_prev_mode] = this->coverageShrinkStrengthDoubleSpinBox->value();
+	coverage_shrink_prev_mode = mode;
+
+	// The label and the step go with the value: in mode 1 the number is a budget on light lost, which lives down where
+	// the alpha cutoff does (a hundredth is already a visible amount of light), not a shrink factor spanning 0 to 1.
+	this->coverageShrinkStrengthDoubleSpinBox->setPrefix((mode == 0) ? "shrink " : "loss ");
+	this->coverageShrinkStrengthDoubleSpinBox->setDecimals((mode == 0) ? 2 : 3);
+	this->coverageShrinkStrengthDoubleSpinBox->setSingleStep((mode == 0) ? 0.05 : 0.005);
+	this->coverageShrinkStrengthDoubleSpinBox->setValue(coverage_shrink_value_for_mode[mode]);
 }
 
 
