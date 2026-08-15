@@ -125,7 +125,10 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->areaScaleRefPxDoubleSpinBox->setValue(20.0);
 	this->hideTestComboBox->setCurrentIndex(settings_->value("gaussian_splats/hide_test_centre", false).toBool() ? 1 : 0); // Conservative by default: it is the only one of the two that leaves a picture.
 	this->drawSliceLimitSpinBox->setValue(0); // Deliberately not persisted, like the debug views: it draws an incomplete frame, and a session starting with it on would look like broken LoD.
-	this->visibleSlicingCheckBox->setChecked(false); // Not persisted either, but for the opposite reason to the views above: it cannot change the picture, and an A/B is only honest if both sessions start from the same placement.
+	// Still not persisted, for the same reason as the shrink mode below: an A/B is only honest if both sessions start
+	// from the same placement. On rather than off now, though - it puts the slice boundaries where the censuses have
+	// something to find, which is what everything riding on the saturation gate depends on.
+	this->visibleSlicingCheckBox->setChecked(true);
 	this->showDebugCheckBox->setChecked(false); // Deliberately not persisted - a momentary debug view, not a preference; starting a session with it silently on would be confusing.
 	this->debugModeComboBox->setCurrentIndex(0); // Overdraw. Not persisted either, for the same reason - it only says which measure the view above shows.
 	this->overdrawRangeMinDoubleSpinBox->setValue(settings_->value("gaussian_splats/overdraw_range_min", 2.0).toDouble());
