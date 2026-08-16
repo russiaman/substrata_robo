@@ -45,6 +45,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "JoltUtils.h"
 #include "MiniMap.h"
 #include "PhotoModeUI.h"
+#include "ImGUIDrawing.h"
 #include "BuilderAIUI.h"
 #include "../shared/ProtocolStructs.h"
 #include "GearInventoryUI.h"
@@ -214,6 +215,8 @@ GUIClient::GUIClient(const std::string& base_dir_path_, const std::string& appda
 	resources_dir_path = base_dir_path + "/data/resources";
 
 	scripted_ob_proximity_checker.gui_client = this;
+
+	imgui_drawing = new ImGUIDrawing(this);
 
 	SubstrataLuaVM::SubstrataLuaVMArgs lua_vm_args;
 	lua_vm_args.gui_client = this;
@@ -6242,7 +6245,7 @@ void GUIClient::timerEvent(const MouseCursorState& mouse_cursor_state)
 
 				try
 				{
-					const AnimatedTexObDataProcessStats stats = animation_data.process(this, opengl_engine.ptr(), device_manager, d3d_device, model_and_texture_loader_task_manager, ob, anim_time, dt);
+					const AnimatedTexObDataProcessStats stats = animation_data.process(*animated_texture_manager, this, opengl_engine.ptr(), device_manager, d3d_device, model_and_texture_loader_task_manager, ob, anim_time, dt);
 					num_mp4_textures_processed += stats.num_mp4_textures_processed;
 				}
 				catch(glare::Exception& e)
@@ -10335,6 +10338,12 @@ void GUIClient::handleMessages(double global_time, double cur_time)
 #endif
 
 
+void GUIClient::buildImGuiContent(double last_timerEvent_CPU_work_elapsed, double last_updateGL_time)
+{
+	imgui_drawing->drawWindows(last_timerEvent_CPU_work_elapsed, last_updateGL_time); // See ImGUIDrawing.cpp
+}
+
+
 std::string GUIClient::getDiagnosticsString(bool do_graphics_diagnostics, bool do_physics_diagnostics, bool do_terrain_diagnostics, double last_timerEvent_CPU_work_elapsed, double last_updateGL_time)
 {
 	std::string msg;
@@ -11829,6 +11838,56 @@ void GUIClient::bakeLightmapsForAllObjectsInParcel(uint32 lightmap_flag)
 	}
 	else
 		showErrorNotification("You must be in a parcel to trigger lightmapping on it.");
+}
+
+
+void GUIClient::removeLightmapsForAllObjectsInParcel()
+{
+	int num_lightmaps_removed = 0;
+	const Parcel* cur_parcel = NULL;
+	{
+		Lock lock(world_state->mutex);
+
+		// Get current parcel
+		for(auto& it : world_state->parcels)
+		{
+			const Parcel* parcel = it.second.ptr();
+
+			if(parcel->pointInParcel(cam_controller.getFirstPersonPosition()))
+			{
+				cur_parcel = parcel;
+				break;
+			}
+		}
+
+		if(cur_parcel)
+		{
+			for(auto it = world_state->objects.valuesBegin(); it != world_state->objects.valuesEnd(); ++it)
+			{
+				WorldObject* ob = it.getValue().ptr();
+
+				if(cur_parcel->pointInParcel(ob->pos) && objectModificationAllowed(*ob))
+				{
+					if(BitUtils::isBitSet(ob->flags, WorldObject::LIGHTMAP_NEEDS_COMPUTING_FLAG) || !ob->lightmap_url.empty())
+					{
+						BitUtils::zeroBit(ob->flags, WorldObject::LIGHTMAP_NEEDS_COMPUTING_FLAG);
+						ob->lightmap_url.clear();
+
+						// Mark as from-local-dirty to send an object updated message to the server
+						ob->from_local_other_dirty = true;
+						this->world_state->dirty_from_local_objects.insert(ob);
+
+						num_lightmaps_removed++;
+					}
+				}
+			}
+		}
+	} // End lock scope
+
+	if(cur_parcel)
+		showInfoNotification("Cleared pending or built lightmaps for " + toString(num_lightmaps_removed) + " objects in current parcel.");
+	else
+		showErrorNotification("You must be in a parcel to remove lightmaps from it.");
 }
 
 

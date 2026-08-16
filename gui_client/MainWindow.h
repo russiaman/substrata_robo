@@ -98,6 +98,7 @@ private slots:;
 	void on_actionShow_Log_triggered();
 	void on_actionBake_Lightmaps_fast_for_all_objects_in_parcel_triggered();
 	void on_actionBake_lightmaps_high_quality_for_all_objects_in_parcel_triggered();
+	void on_actionRemove_lightmaps_for_all_objects_in_parcel_triggered();
 	void on_actionSummon_Bike_triggered();
 	void on_actionSummon_Hovercar_triggered();
 	void on_actionSummon_Boat_triggered();
@@ -138,6 +139,7 @@ private slots:;
 	void gamepadButtonXChanged(bool pressed);
 	void gamepadButtonAChanged(bool pressed);
 	void glWidgetViewportResized(int w, int h);
+	void buildImGuiUI(); // Called from GlWidget::paintGL() while building an ImGui frame.  Builds the ImGui info window.
 	void onIndigoViewDockWidgetVisibilityChanged(bool v);
 	void glWidgetCutShortcutTriggered();
 	void glWidgetCopyShortcutTriggered();

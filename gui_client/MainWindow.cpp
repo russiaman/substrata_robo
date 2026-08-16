@@ -33,6 +33,7 @@ Copyright Glare Technologies Limited 2024 -
 #include "URLWidget.h"
 #include "URLWhitelist.h"
 #include "URLParser.h"
+#include "ImGUIDrawing.h"
 #include "CEF.h"
 #include "ThreadMessages.h"
 #include "MeshBuilding.h"
@@ -533,6 +534,7 @@ void MainWindow::initialiseUI()
 	ui->objectEditor->init();
 
 	ui->diagnosticsWidget->init(settings);
+	gui_client.imgui_drawing->show_frame_time_graphs = ui->diagnosticsWidget->showFrameTimeGraphsCheckBox->isChecked(); // init() restores the checkbox state from the settings, so initialise the ImGUI window checkbox from it.
 	connect(ui->diagnosticsWidget, SIGNAL(settingsChangedSignal()), this, SLOT(diagnosticsWidgetChanged()));
 	connect(ui->diagnosticsWidget, SIGNAL(reloadTerrainSignal()), this, SLOT(diagnosticsReloadTerrain()));
 	connect(ui->diagnosticsWidget->diagnosticsTextEdit->verticalScrollBar(),   SIGNAL(valueChanged(int)), this, SLOT(diagnosticsScrollChanged()));
@@ -566,6 +568,7 @@ void MainWindow::initialiseUI()
 	connect(ui->glWidget, SIGNAL(gamepadButtonXChangedSignal(bool)), this, SLOT(gamepadButtonXChanged(bool)));
 	connect(ui->glWidget, SIGNAL(gamepadButtonAChangedSignal(bool)), this, SLOT(gamepadButtonAChanged(bool)));
 	connect(ui->glWidget, SIGNAL(viewportResizedSignal(int, int)), this, SLOT(glWidgetViewportResized(int, int)));
+	connect(ui->glWidget, SIGNAL(buildImGuiUISignal()), this, SLOT(buildImGuiUI()));
 	connect(ui->glWidget, SIGNAL(cutShortcutActivated()), this, SLOT(glWidgetCutShortcutTriggered()));
 	connect(ui->glWidget, SIGNAL(copyShortcutActivated()), this, SLOT(glWidgetCopyShortcutTriggered()));
 	connect(ui->glWidget, SIGNAL(pasteShortcutActivated()), this, SLOT(glWidgetPasteShortcutTriggered()));
@@ -853,6 +856,9 @@ void MainWindow::closeEvent(QCloseEvent* event)
 
 	ui->glWidget->makeCurrent();
 
+	CPU_render_stats_widget = nullptr;
+	GPU_render_stats_widget = nullptr;
+
 	// If we are in fullscreen mode, exit it before we save the window state.  This is because we want to start next time not in fullscreen mode.
 	if(this->isFullScreen())
 		exitFromFullScreenMode();
@@ -865,10 +871,6 @@ void MainWindow::closeEvent(QCloseEvent* event)
 	stopMCPClientServer();
 
 	gui_client.shutdown();
-
-	CPU_render_stats_widget = nullptr;
-	GPU_render_stats_widget = nullptr;
-
 
 	this->opengl_engine = NULL;
 	ui->glWidget->shutdown(); // Shuts down OpenGL Engine.
@@ -1332,7 +1334,12 @@ void MainWindow::timerEvent(QTimerEvent* event)
 #endif
 
 	updateDiagnostics();
-	
+
+	// The ImGUI info window has a 'show frame time graphs' checkbox as well.  If it has been changed, update the diagnostics widget checkbox, which is what
+	// actually creates and destroys the render stats widgets (in diagnosticsWidgetChanged()).
+	if(gui_client.imgui_drawing->show_frame_time_graphs != ui->diagnosticsWidget->showFrameTimeGraphsCheckBox->isChecked())
+		ui->diagnosticsWidget->showFrameTimeGraphsCheckBox->setChecked(gui_client.imgui_drawing->show_frame_time_graphs);
+
 	updateStatusBar();
 
 	runScreenshotCode();
@@ -3707,6 +3714,12 @@ void MainWindow::on_actionBake_lightmaps_high_quality_for_all_objects_in_parcel_
 }
 
 
+void MainWindow::on_actionRemove_lightmaps_for_all_objects_in_parcel_triggered()
+{
+	gui_client.removeLightmapsForAllObjectsInParcel();
+}
+
+
 void MainWindow::on_actionSummon_Bike_triggered()
 {
 	try
@@ -4042,6 +4055,8 @@ void MainWindow::diagnosticsWidgetChanged()
 		CPU_render_stats_widget = nullptr;
 		GPU_render_stats_widget = nullptr;
 	}
+
+	gui_client.imgui_drawing->show_frame_time_graphs = ui->diagnosticsWidget->showFrameTimeGraphsCheckBox->isChecked(); // Keep the checkbox in the ImGUI info window in sync.
 
 	gui_client.diagnosticsSettingsChanged();
 }
@@ -4516,6 +4531,9 @@ void MainWindow::glWidgetMousePressed(QMouseEvent* e)
 	if(!opengl_engine)
 		return;
 
+	if(ui->glWidget->imGuiWantsMouseInput()) // If the mouse is over an ImGui window, don't pass the event on to the client.
+		return;
+
 	const Vec2f widget_pos((float)e->pos().x(), (float)e->pos().y());
 
 	MouseEvent mouse_event;
@@ -4534,6 +4552,9 @@ void MainWindow::glWidgetMousePressed(QMouseEvent* e)
 void MainWindow::glWidgetMouseReleased(QMouseEvent* e)
 {
 	if(!opengl_engine)
+		return;
+
+	if(ui->glWidget->imGuiWantsMouseInput())
 		return;
 
 	const Vec2f widget_pos((float)e->pos().x(), (float)e->pos().y());
@@ -4784,6 +4805,9 @@ void MainWindow::glWidgetMouseDoubleClicked(QMouseEvent* e)
 {
 	//conPrint("MainWindow::glWidgetMouseDoubleClicked()");
 
+	if(ui->glWidget->imGuiWantsMouseInput())
+		return;
+
 	const Vec2f widget_pos((float)e->pos().x(), (float)e->pos().y());
 	const Vec2f gl_coords = GLCoordsForGLWidgetPos(this, widget_pos);
 
@@ -4800,6 +4824,9 @@ void MainWindow::glWidgetMouseDoubleClicked(QMouseEvent* e)
 void MainWindow::glWidgetMouseMoved(QMouseEvent* e)
 {
 	if(ui->glWidget->opengl_engine.isNull() || !ui->glWidget->opengl_engine->initSucceeded())
+		return;
+
+	if(ui->glWidget->imGuiWantsMouseInput())
 		return;
 
 	const Vec2f widget_pos((float)e->pos().x(), (float)e->pos().y());
@@ -4944,37 +4971,17 @@ void MainWindow::glWidgetKeyPressed(QKeyEvent* e)
 		return;
 	}
 
-#if BUILD_TESTS
-	if(e->key() == Qt::Key_F6)
+	// F2 toggles the ImGui info window.  Handled before the imGuiWantsKeyboardInput() check below, so that the window can always be closed again.
+	if(e->key() == Qt::Key_F2)
 	{
-		ui->glWidget->opengl_engine->show_ssao = !ui->glWidget->opengl_engine->show_ssao;
-		conPrint("Toggling show_ssao to " + boolToString(ui->glWidget->opengl_engine->show_ssao));
+		if(!ui->glWidget->show_imgui_window)
+			ui->glWidget->checkInitImGui();
+		ui->glWidget->show_imgui_window = !ui->glWidget->show_imgui_window;
+		return;
 	}
-	if(e->key() == Qt::Key_F7)
-	{
-		ui->glWidget->opengl_engine->toggleShowTexDebug(0);
-	}
-	if(e->key() == Qt::Key_F8)
-	{
-		ui->glWidget->opengl_engine->toggleShowTexDebug(1);
-	}
-	if(e->key() == Qt::Key_F9)
-	{
-		ui->glWidget->opengl_engine->toggleShowTexDebug(2);
-	}
-	if(e->key() == Qt::Key_F10)
-	{
-		ui->glWidget->opengl_engine->toggleShowTexDebug(3);
-	}
-	if(e->key() == Qt::Key_F11)
-	{
-		ui->glWidget->opengl_engine->toggleShowTexDebug(4);
-	}
-	if(e->key() == Qt::Key_F12)
-	{
-		ui->glWidget->opengl_engine->toggleShowTexDebug(5);
-	}
-#endif
+
+	if(ui->glWidget->imGuiWantsKeyboardInput()) // If ImGui is using the keyboard input (e.g. the user is typing into an ImGui text field), don't pass the event on to the client.
+		return;
 
 	KeyEvent key_event;
 	setKeyEventFromQt(e, key_event);
@@ -5002,6 +5009,9 @@ void MainWindow::glWidgetKeyPressed(QKeyEvent* e)
 
 void MainWindow::glWidgetkeyReleased(QKeyEvent* e)
 {
+	if(ui->glWidget->imGuiWantsKeyboardInput())
+		return;
+
 	KeyEvent key_event;
 	setKeyEventFromQt(e, key_event);
 
@@ -5017,6 +5027,9 @@ void MainWindow::glWidgetFocusOut()
 
 void MainWindow::glWidgetMouseWheelEvent(QWheelEvent* e)
 {
+	if(ui->glWidget->imGuiWantsMouseInput())
+		return;
+
 	const Vec2f widget_pos((float)e->pos().x(), (float)e->pos().y());
 	const Vec2f gl_coords = GLCoordsForGLWidgetPos(this, widget_pos);
 
@@ -5051,6 +5064,13 @@ void MainWindow::gamepadButtonAChanged(bool pressed)
 void MainWindow::glWidgetViewportResized(int w, int h)
 {
 	gui_client.viewportResized(w, h);
+}
+
+
+// Called from GlWidget::paintGL() while it is building an ImGui frame.
+void MainWindow::buildImGuiUI()
+{
+	gui_client.buildImGuiContent(last_timerEvent_CPU_work_elapsed, last_updateGL_time); // See ImGUIDrawing.cpp for the window contents.
 }
 
 
