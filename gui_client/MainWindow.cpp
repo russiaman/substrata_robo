@@ -4069,8 +4069,20 @@ void MainWindow::gaussianSplatSettingsChanged()
 	// One measure drives both debug tools: which one the combo box says, whether each is on is its own checkbox. 1 = layer
 	// count, 2 = summed alpha, 0 = off - see GaussianSplatRenderer::getShowOverdrawMode(), and getHideMode() for the pair
 	// below, which is the same measure applied destructively rather than as a colour ramp.
-	const int splat_debug_measure = (ui->gaussianSplatSettingsWidget->debugModeComboBox->currentIndex() == 1) ? 2 : 1;
-	opengl_engine->getSplatRenderer().setShowOverdrawMode(ui->gaussianSplatSettingsWidget->showDebugCheckBox->isChecked() ? splat_debug_measure : 0);
+	// Entries 2 and up are not measures of the splats at all but levels of the coverage pyramid, which is a view of what
+	// the shrink reads rather than of what was drawn - see GaussianSplatRenderer::getShowCoverageMapLevel(). It has to
+	// switch the overdraw ramp off rather than share it: the ramp's own modes turn the saturation gate off, and the gate
+	// is what builds the pyramid this one needs.
+	const int splat_debug_index = ui->gaussianSplatSettingsWidget->debugModeComboBox->currentIndex();
+	const bool splat_debug_on = ui->gaussianSplatSettingsWidget->showDebugCheckBox->isChecked();
+	// Two levels rather than every one of them: a fine level to see the shape of the coverage and a coarse one to see
+	// what a big quad is answered with. The levels between say nothing the pair does not.
+	const int coverage_map_levels[] = { 1, 3 };
+	const bool show_coverage_map = splat_debug_on && (splat_debug_index >= 2) && (splat_debug_index - 2 < (int)staticArrayNumElems(coverage_map_levels));
+	opengl_engine->getSplatRenderer().setShowCoverageMapLevel(show_coverage_map ? coverage_map_levels[splat_debug_index - 2] : -1);
+
+	const int splat_debug_measure = (splat_debug_index == 1) ? 2 : 1;
+	opengl_engine->getSplatRenderer().setShowOverdrawMode((splat_debug_on && !show_coverage_map) ? splat_debug_measure : 0);
 	opengl_engine->getSplatRenderer().setOverdrawRangeMin((float)ui->gaussianSplatSettingsWidget->overdrawRangeMinDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setOverdrawRangeMax((float)ui->gaussianSplatSettingsWidget->overdrawRangeMaxDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setMaxLayerDensity((float)ui->gaussianSplatSettingsWidget->maxLayerDensityDoubleSpinBox->value());
@@ -4097,10 +4109,14 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setSaturationMaskDownscale(ui->gaussianSplatSettingsWidget->saturationMaskDownscaleSpinBox->value());
 	opengl_engine->getSplatRenderer().setCoverageShrinkStrength((float)ui->gaussianSplatSettingsWidget->coverageShrinkStrengthDoubleSpinBox->value()); // DIAGNOSTIC ONLY - see getCoverageShrinkStrength().
 	opengl_engine->getSplatRenderer().setCoverageShrinkMode(ui->gaussianSplatSettingsWidget->coverageShrinkModeComboBox->currentIndex()); // DIAGNOSTIC ONLY - see getCoverageShrinkMode().
+	opengl_engine->getSplatRenderer().setCoverageReduceMode(ui->gaussianSplatSettingsWidget->coverageReduceModeComboBox->currentIndex()); // See getCoverageReduceMode(). Lives in the Draw slices row: it is a property of the census, not of the shrink formula.
 	opengl_engine->getSplatRenderer().setEWAProjectionFixEnabled(ui->gaussianSplatSettingsWidget->ewaProjectionFixCheckBox->isChecked()); // See getEWAProjectionFixEnabled().
 	opengl_engine->getSplatRenderer().setNearFadeWidth((float)ui->gaussianSplatSettingsWidget->nearFadeWidthDoubleSpinBox->value()); // See getNearFadeWidth().
 	opengl_engine->getSplatRenderer().setAccumBuffer8Bit(ui->gaussianSplatSettingsWidget->accumBuffer8BitCheckBox->isChecked());
-	const bool splat_clip = ui->gaussianSplatSettingsWidget->clipCheckBox->isChecked();
+	// Clip follows the combo box, so it has to stand down in the coverage-map modes, which are not one of its measures.
+	// Not merely pointless there but destructive: hiding overdraw switches the saturation gate off, and the gate's mark
+	// pass is what builds the pyramid the map is a view of.
+	const bool splat_clip = ui->gaussianSplatSettingsWidget->clipCheckBox->isChecked() && !show_coverage_map;
 	opengl_engine->getSplatRenderer().setHideOverdrawEnabled(splat_clip && splat_debug_measure == 1);
 	opengl_engine->getSplatRenderer().setHideAlphaEnabled(splat_clip && splat_debug_measure == 2);
 	opengl_engine->getSplatRenderer().setDistClampMin((float)ui->gaussianSplatSettingsWidget->distClampMinDoubleSpinBox->value());

@@ -58,6 +58,6 @@ private:
 	QSettings* settings;
 
 	// Last value the shrink box held in each mode, indexed by mode - see coverageShrinkModeChanged().
-	double coverage_shrink_value_for_mode[2];
+	double coverage_shrink_value_for_mode[3];
 	int coverage_shrink_prev_mode;
 };

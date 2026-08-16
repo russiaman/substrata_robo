@@ -682,6 +682,23 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QComboBox" name="coverageReduceModeComboBox">
+        <property name="toolTip">
+         <string>How the coverage pyramid the shrink reads is reduced from one level to the next. It sits in this row because it is a property of the census machinery, not of the shrink formula that consumes it - both shrink modes read whichever answer this produces.&#10;&#10;mean (the original): a coarse texel is the average coverage under it. In the middle of a solid surface that is fine. At the edge of one it is not: a splat straddling the boundary between finished and unfinished screen gets an answer describing neither half, and over the unfinished half it is too high, so the splat truncates itself as if those pixels were done. On a low-opacity splat the truncation radius reaches zero at a modest threshold and the splat vanishes outright rather than being trimmed - which is what an unfinished region ringed by finished ones (a cushion against a wall) shows as holes full of flickering splat-sized rectangles.&#10;&#10;min: a coarse texel is the least covered pixel under it, so the answer becomes a lower bound and the straddling splat above draws in full. The error changes direction - the shrink can then only fail to save work, never take light that was needed. This is the rule the binary gate's own pyramid has always used.&#10;&#10;Left on mean by default so earlier sessions' numbers reproduce. Watch the difference with the "Coverage Ln" debug views.</string>
+        </property>
+        <item>
+         <property name="text">
+          <string>cov mean</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>cov min</string>
+         </property>
+        </item>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
@@ -792,6 +809,8 @@ by coverage: the original. Scales the quad's radii by (1 - coverage * value), wh
 
 by light loss: the value becomes a budget on light lost instead. Stopping the quad early throws away the splat's own alpha at that radius, attenuated by the light still getting through, so the honest place to stop is where alpha falls to a threshold the coverage sets - the same question the alpha cutoff answers, with a threshold raised by how finished the pixel is. The budget is added to the alpha cutoff rather than replacing it, so a pixel with no coverage is left at exactly the alpha cutoff however high this is set, and the extra light given up is the budget times the coverage. The same Gaussian is drawn over a shorter quad, i.e. the faint edge is truncated rather than the splat being made smaller.
 
+loss capped: the same as "by light loss" with the 1/(1 - coverage) amplification removed, so the threshold is the alpha cutoff plus budget times coverage and can never exceed the alpha cutoff plus the budget. "by light loss" is sound for one splat on its own and wrong for a stack: the budget it licenses is spent again, in full, by every splat over the same pixel, and the amplification makes that ruinous - at coverage 0.99 the factor is 99, so a 0.02 budget asks for a threshold of 2.0 and removes every remaining splat outright instead of trimming its edge. The pixel then freezes at whatever coverage it had reached (0.92 measured on a velvet cushion, against 0.999 without any shrink) and the missing light reads as a hole onto what is behind - one that flickers as the camera turns, because where a pixel freezes depends on where the slice boundaries happened to fall.
+
 Measured at matched draw time against raising the alpha cutoff on its own: a quarter of the error overall, and a seventh of it in the sparsely covered regions where the visible holes are. Both save the same amount on a solid wall; only this one leaves the thin regions alone, because only this one asks whether there was anything there to lose.</string>
         </property>
         <item>
@@ -802,6 +821,11 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
         <item>
          <property name="text">
           <string>by light loss</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>loss capped</string>
          </property>
         </item>
        </widget>
@@ -1373,7 +1397,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
       <item>
        <widget class="QComboBox" name="debugModeComboBox">
         <property name="toolTip">
-         <string>Which measure the debug ramp and Clip work on. See the tooltip on "Show debug" for what each one answers.</string>
+         <string>Which measure the debug ramp and Clip work on. See the tooltip on "Show debug" for what each one answers.&#10;&#10;The "Coverage Ln" entries are a different kind of view: instead of a ramp over what the splats produced, they draw the coverage pyramid the shrink reads, in grey - black is nothing covered, white is finished. Level 0 is one texel per "mask 1/n" pixels; each level up is twice as coarse, and the coarse levels are the ones a big splat's quad actually samples. Flipping the reduce mode beside Draw slices between mean and min while watching one of these is what shows the difference the switch makes. Needs the saturation gate on, since its mark pass is what builds the pyramid; Clip and the range boxes do nothing in these modes.</string>
         </property>
         <item>
          <property name="text">
@@ -1383,6 +1407,16 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
         <item>
          <property name="text">
           <string>Alpha</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Coverage L1</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Coverage L3</string>
          </property>
         </item>
        </widget>

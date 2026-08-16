@@ -21,6 +21,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	// starts at the setting measured to be worth having, which init() then selects - see there.
 	coverage_shrink_value_for_mode[0] = 0.0;
 	coverage_shrink_value_for_mode[1] = 0.02;
+	coverage_shrink_value_for_mode[2] = 0.1; // Mode 2's threshold is bounded, so the same number is far milder in it than in mode 1 - 0.1 is where it was measured to pay, at 16 ms against 22.2 with no shrink, with nothing visible given up.
 
 	connect(this->pixelScaleLimitDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->maxSplatsBudgetSpinBox,           SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
@@ -53,6 +54,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->saturationGateCheckBox,           SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->saturationThresholdDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->saturationMaskDownscaleSpinBox,   SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
+	connect(this->coverageReduceModeComboBox,       SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged()));
 	connect(this->coverageShrinkStrengthDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	// Two connections, in this order: the mode's own handler swaps the value in the shared box first, so that by the time
 	// settingsChanged() reads the box it holds the value belonging to the mode now selected.
@@ -131,6 +133,11 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->visibleSlicingCheckBox->setChecked(true);
 	this->showDebugCheckBox->setChecked(false); // Deliberately not persisted - a momentary debug view, not a preference; starting a session with it silently on would be confusing.
 	this->debugModeComboBox->setCurrentIndex(0); // Overdraw. Not persisted either, for the same reason - it only says which measure the view above shows.
+	// Not persisted, like the other A/B switches: both reduce modes have to start a session in the same place or one
+	// session's numbers cannot be set beside another's. Min rather than the original mean: mean answers a splat that
+	// straddles the edge of a finished region with a number describing neither half, and too high over the unfinished
+	// half, which showed as splat-sized rectangles winking in and out of a cushion as the camera turned - session051.
+	this->coverageReduceModeComboBox->setCurrentIndex(1);
 	this->overdrawRangeMinDoubleSpinBox->setValue(settings_->value("gaussian_splats/overdraw_range_min", 2.0).toDouble());
 	this->overdrawRangeMaxDoubleSpinBox->setValue(settings_->value("gaussian_splats/overdraw_range_max", 100.0).toDouble());
 	this->maxLayerDensityDoubleSpinBox->setValue(settings_->value("gaussian_splats/max_layer_density", 0.0).toDouble());
@@ -150,10 +157,14 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->coverageShrinkStrengthDoubleSpinBox->setValue(0.0);
 
 	// The mode the measurements picked, engaged at the budget they picked. Unlike the shrink's own historical default of
-	// off, this one starts on: at 0.02 it costs about a sixth of the splat pass and its mean error against drawing every
-	// splat in full is under one 8-bit level, which is below what the picture shows. Mode 0 at any setting, and this mode
-	// far above this setting, both visibly thin out the sparsely covered regions; this setting does not - session050.
-	this->coverageShrinkModeComboBox->setCurrentIndex(1);
+	// off, this one starts on.
+	//
+	// Mode 2 rather than session050's mode 1: mode 1 at 0.02 was measured at 17.1 ms against 22.2 ms with no shrink at
+	// all, but it bought that by removing whole splats over well-covered pixels rather than trimming their edges, which
+	// froze the pixel short of full coverage and read as holes onto the floor that flickered as the camera turned. Mode
+	// 2 bounds the threshold, so the knob can be turned five times further before it costs anything visible: at 0.1 it
+	// is about 16 ms with no artefacts, i.e. cheaper than mode 1 ever managed and correct as well - session051.
+	this->coverageShrinkModeComboBox->setCurrentIndex(2);
 	this->accumBuffer8BitCheckBox->setChecked(settings_->value("gaussian_splats/accum_buffer_8bit", false).toBool());
 	this->clipCheckBox->setChecked(false); // Deliberately not persisted: it removes splats from the picture, and finding it still on after a restart would read as the scene having lost geometry.
 	// The distance slice is deliberately not persisted, for the same reason as the overdraw view: it is a momentary way of
@@ -178,7 +189,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 
 void GaussianSplatSettingsWidget::coverageShrinkModeChanged(int mode)
 {
-	if((mode < 0) || (mode > 1) || (mode == coverage_shrink_prev_mode))
+	if((mode < 0) || (mode >= (int)(sizeof(coverage_shrink_value_for_mode) / sizeof(coverage_shrink_value_for_mode[0]))) || (mode == coverage_shrink_prev_mode))
 		return;
 
 	// Park the value the box holds under the mode it was tuned for, and bring back the other mode's own. Without this
@@ -189,6 +200,8 @@ void GaussianSplatSettingsWidget::coverageShrinkModeChanged(int mode)
 
 	// The label and the step go with the value: in mode 1 the number is a budget on light lost, which lives down where
 	// the alpha cutoff does (a hundredth is already a visible amount of light), not a shrink factor spanning 0 to 1.
+	// Mode 2 is mode 1's number with the amplification taken out, so it wants the same units, range and step - and the
+	// same label, since it is still a budget on light. Only mode 0 differs.
 	this->coverageShrinkStrengthDoubleSpinBox->setPrefix((mode == 0) ? "shrink " : "loss ");
 	this->coverageShrinkStrengthDoubleSpinBox->setDecimals((mode == 0) ? 2 : 3);
 	this->coverageShrinkStrengthDoubleSpinBox->setSingleStep((mode == 0) ? 0.05 : 0.005);
