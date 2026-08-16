@@ -145,11 +145,11 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->numDrawSlicesSpinBox->setValue(settings_->value("gaussian_splats/num_draw_slices", 1).toInt());
 	this->sliceGrowthDoubleSpinBox->setValue(settings_->value("gaussian_splats/slice_growth", 1.0).toDouble());
 	this->saturationGateCheckBox->setChecked(settings_->value("gaussian_splats/saturation_gate", false).toBool());
-	this->saturationThresholdDoubleSpinBox->setValue(settings_->value("gaussian_splats/saturation_threshold", 1.0 - 1.0 / 255.0).toDouble());
+	this->saturationThresholdDoubleSpinBox->setValue(settings_->value("gaussian_splats/saturation_threshold", 0.96).toDouble());
 	// A threshold of 0 would mark every pixel as finished the moment the gate ran, so it cannot be a value anyone chose.
 	// It is what the bug described above wrote into existing settings stores before it was fixed; treat it as unset.
 	if(this->saturationThresholdDoubleSpinBox->value() <= 0.0)
-		this->saturationThresholdDoubleSpinBox->setValue(1.0 - 1.0 / 255.0);
+		this->saturationThresholdDoubleSpinBox->setValue(0.96);
 	this->saturationMaskDownscaleSpinBox->setValue(settings_->value("gaussian_splats/saturation_mask_downscale", 4).toInt());
 	// Not persisted, deliberately: a fixed starting point is what makes one session's measurements comparable with the
 	// next one's. The value is the box's mode 0 entry only for the moment it takes the line below to switch modes, which
