@@ -4144,10 +4144,15 @@ void MainWindow::gaussianSplatSettingsChanged()
 
 
 // "Count in frustum" button - one-off, not live. See GaussianSplatRenderer::countSplatsInFrustum().
+// Also mirrors the result to stdout with the fraction, to size the ceiling for potential traversal frustum-cull work
+// (session054 §2A) without needing to read it off the panel.
 void MainWindow::countSplatsInFrustumRequested()
 {
-	const size_t count = opengl_engine->getSplatRenderer().countSplatsInFrustum();
-	ui->gaussianSplatSettingsWidget->countInFrustumResultLabel->setText(QtUtils::toQString(toString(count) + " splats"));
+	const GaussianSplatRenderer::FrustumCounts counts = opengl_engine->getSplatRenderer().countSplatsInFrustum();
+	const double pct = counts.total > 0 ? (100.0 * (double)counts.in_frustum / (double)counts.total) : 0.0;
+	const std::string msg = toString(counts.in_frustum) + " / " + toString(counts.total) + " splats in frustum (" + doubleToStringNDecimalPlaces(pct, 1) + "%)";
+	ui->gaussianSplatSettingsWidget->countInFrustumResultLabel->setText(QtUtils::toQString(msg));
+	conPrint("Count in frustum: " + msg);
 }
 
 
