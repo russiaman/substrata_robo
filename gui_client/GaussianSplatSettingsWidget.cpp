@@ -47,6 +47,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->overdrawRangeMaxDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->maxLayerDensityDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->maxTreeDepthSpinBox,              SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
+	connect(this->frustumCullCheckBox,              SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->numDrawSlicesSpinBox,             SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->drawSliceLimitSpinBox,            SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->visibleSlicingCheckBox,           SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
@@ -142,6 +143,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->overdrawRangeMaxDoubleSpinBox->setValue(settings_->value("gaussian_splats/overdraw_range_max", 100.0).toDouble());
 	this->maxLayerDensityDoubleSpinBox->setValue(settings_->value("gaussian_splats/max_layer_density", 0.0).toDouble());
 	this->maxTreeDepthSpinBox->setValue(settings_->value("gaussian_splats/max_tree_depth", 0).toInt());
+	this->frustumCullCheckBox->setChecked(settings_->value("gaussian_splats/frustum_cull", true).toBool()); // SESSION055 - see GaussianSplatRenderer::setFrustumCullEnabled().
 	this->numDrawSlicesSpinBox->setValue(settings_->value("gaussian_splats/num_draw_slices", 1).toInt());
 	this->sliceGrowthDoubleSpinBox->setValue(settings_->value("gaussian_splats/slice_growth", 1.0).toDouble());
 	this->saturationGateCheckBox->setChecked(settings_->value("gaussian_splats/saturation_gate", false).toBool());
@@ -232,6 +234,7 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/overdraw_range_max", this->overdrawRangeMaxDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/max_layer_density", this->maxLayerDensityDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/max_tree_depth", this->maxTreeDepthSpinBox->value());
+		settings->setValue("gaussian_splats/frustum_cull", this->frustumCullCheckBox->isChecked());
 		settings->setValue("gaussian_splats/num_draw_slices", this->numDrawSlicesSpinBox->value());
 		settings->setValue("gaussian_splats/slice_growth", this->sliceGrowthDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/saturation_gate", this->saturationGateCheckBox->isChecked());

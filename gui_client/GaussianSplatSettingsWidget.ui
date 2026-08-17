@@ -612,6 +612,19 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QCheckBox" name="frustumCullCheckBox">
+        <property name="text">
+         <string>frustum cull</string>
+        </property>
+        <property name="toolTip">
+         <string>Cull LoD traversal by the camera frustum: nodes whose centre lies outside the frustum (dilated by 1.5 * feature_size) are neither drawn nor expanded, pruning entire subtrees behind the camera. Adds an angular re-kick threshold (~5 deg) so turning in place refreshes the frontier. On by default from session055. Turn off to compare against the old rotation-invariant traversal.</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
