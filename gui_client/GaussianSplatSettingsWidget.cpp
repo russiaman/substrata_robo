@@ -7,6 +7,9 @@ Copyright Glare Technologies Limited 2026 -
 
 
 #include <QtCore/QSettings>
+#include <QtWidgets/QAbstractItemView>
+#include <qt/QtUtils.h>
+#include "../qt/SignalBlocker.h"
 
 
 GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
@@ -83,6 +86,10 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->mergeFlattenCheckBox,             SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->mergeCoplanarPushButton,          SIGNAL(clicked()), this, SIGNAL(mergeCoplanarRequestedSignal()));
 	connect(this->restoreUnmergedPushButton,        SIGNAL(clicked()), this, SIGNAL(restoreUnmergedRequestedSignal()));
+
+	// activated(int) fires only on user interaction, not on programmatic model updates, so the ~1Hz refresh from
+	// MainWindow can't accidentally re-select anything.
+	connect(this->sceneSplatsComboBox,              SIGNAL(activated(int)), this, SLOT(splatComboActivated(int)));
 }
 
 
@@ -250,4 +257,51 @@ void GaussianSplatSettingsWidget::settingsChanged()
 	}
 
 	emit settingsChangedSignal();
+}
+
+
+void GaussianSplatSettingsWidget::splatComboActivated(int index)
+{
+	if(index < 0) return;
+	const QVariant item_data = this->sceneSplatsComboBox->itemData(index);
+	if(!item_data.isValid()) return;
+	emit splatSelectedSignal(item_data.toULongLong());
+}
+
+
+void GaussianSplatSettingsWidget::setSplatList(const std::vector<std::pair<uint64_t, std::string>>& items)
+{
+	// Don't disturb the visible popup while the user is picking.
+	if(this->sceneSplatsComboBox->view()->isVisible())
+		return;
+
+	// Fast path: same list as last time - skip rebuild to avoid needless UI churn.
+	if((int)items.size() == this->sceneSplatsComboBox->count())
+	{
+		bool same = true;
+		for(size_t i = 0; i < items.size(); ++i)
+		{
+			if(this->sceneSplatsComboBox->itemData((int)i).toULongLong() != (qulonglong)items[i].first)
+			{
+				same = false;
+				break;
+			}
+		}
+		if(same) return;
+	}
+
+	// Preserve current selection by UID if still present.
+	const int prev_idx = this->sceneSplatsComboBox->currentIndex();
+	const qulonglong prev_uid = (prev_idx >= 0) ? this->sceneSplatsComboBox->itemData(prev_idx).toULongLong() : 0;
+
+	SignalBlocker blocker(this->sceneSplatsComboBox);
+	this->sceneSplatsComboBox->clear();
+	int restore_idx = -1;
+	for(size_t i = 0; i < items.size(); ++i)
+	{
+		this->sceneSplatsComboBox->addItem(QtUtils::toQString(items[i].second), (qulonglong)items[i].first);
+		if((qulonglong)items[i].first == prev_uid && prev_uid != 0)
+			restore_idx = (int)i;
+	}
+	this->sceneSplatsComboBox->setCurrentIndex(restore_idx);
 }

@@ -1598,7 +1598,30 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </item>
     </layout>
    </item>
-   <item row="29" column="0" colspan="2">
+   <item row="29" column="0">
+    <widget class="QLabel" name="sceneSplatsLabel">
+     <property name="text">
+      <string>Scene splats</string>
+     </property>
+     <property name="toolTip">
+      <string>Pick a Gaussian splat object in the world to select it (its transform gizmo appears). Refreshed while the panel is open. Convenience tool when a scene has many splats and clicking the right one in the viewport is awkward.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="29" column="1">
+    <widget class="QComboBox" name="sceneSplatsComboBox">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="toolTip">
+      <string>Pick a Gaussian splat object in the world to select it (its transform gizmo appears). Refreshed while the panel is open.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="30" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>

@@ -7,6 +7,10 @@ Copyright Glare Technologies Limited 2026 -
 
 
 #include "ui_GaussianSplatSettingsWidget.h"
+#include <cstdint>
+#include <string>
+#include <utility>
+#include <vector>
 
 class QSettings;
 
@@ -37,8 +41,14 @@ public:
 
 	void init(QSettings* settings);
 
+	// Refresh the "Scene splats" dropdown from an externally-built list of (UID, label) pairs.
+	// Called ~1Hz from MainWindow while the panel's dock is visible; skipped internally while the
+	// popup is open so user selection isn't disrupted, and skipped when the list hasn't changed.
+	void setSplatList(const std::vector<std::pair<uint64_t, std::string>>& items);
+
 signals:;
 	void settingsChangedSignal();
+	void splatSelectedSignal(quint64 ob_uid); // "Scene splats" dropdown - user picked a splat; MainWindow selects the corresponding WorldObject.
 	void countInFrustumRequestedSignal(); // Emitted by the "Count in frustum" button - see GaussianSplatRenderer::countSplatsInFrustum().
 	void frustumReportRequestedSignal(); // Emitted by the "Frustum report" button - see GaussianSplatRenderer::getFrustumStructureReport().
 	void resetImportanceRequestedSignal(); // Emitted by the "Reset importance" button - see GaussianSplatRenderer::resetImportanceAccumulator().
@@ -49,6 +59,7 @@ signals:;
 
 protected slots:
 	void settingsChanged();
+	void splatComboActivated(int index); // "Scene splats" dropdown - user picked an entry.
 
 	// The one shrink box serves both shrink modes, and the same number means different things in them - see
 	// GaussianSplatRenderer::getCoverageShrinkMode(). This gives each mode its own remembered value, so flipping the

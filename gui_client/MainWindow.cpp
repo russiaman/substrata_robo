@@ -548,6 +548,7 @@ void MainWindow::initialiseUI()
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(resetImportanceRequestedSignal()), this, SLOT(resetSplatImportanceRequested()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(mergeCoplanarRequestedSignal()), this, SLOT(mergeCoplanarSplatsRequested()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(restoreUnmergedRequestedSignal()), this, SLOT(restoreUnmergedSplatsRequested()));
+	connect(ui->gaussianSplatSettingsWidget, SIGNAL(splatSelectedSignal(quint64)), this, SLOT(gaussianSplatSettingsSplatSelected(quint64)));
 	// NOTE: gaussianSplatSettingsChanged() isn't called here to apply the just-loaded values immediately - opengl_engine
 	// doesn't exist yet this early in initialiseUI() (see afterGLInitInitialise(), where that call actually happens).
 	connect(ui->diagnosticsWidget->diagnosticsTextEdit->horizontalScrollBar(), SIGNAL(valueChanged(int)), this, SLOT(diagnosticsScrollChanged()));
@@ -1456,6 +1457,37 @@ void MainWindow::updateDiagnostics()
 
 			updating_diagnostics_text = false;
 		}
+	}
+
+	// Refresh the "Scene splats" dropdown in the Splat settings panel while it's open.  Same ~1Hz cadence as the
+	// diagnostics text above (num_frames_since_fps_timer_reset == 1); tied to the splat settings dock's own visibility
+	// rather than the diagnostics dock's, so the two panels are independent.  setSplatList() itself is a no-op when
+	// the list hasn't changed and when the popup is open, so the periodic call is cheap.
+	if(ui->gaussianSplatSettingsDockWidget->isVisible() && (gui_client.num_frames_since_fps_timer_reset == 1) && gui_client.world_state.nonNull())
+	{
+		std::vector<std::pair<uint64_t, std::string>> splat_items;
+		{
+			Lock lock(gui_client.world_state->mutex);
+			splat_items.reserve(16);
+			for(auto it = gui_client.world_state->objects.valuesBegin(); it != gui_client.world_state->objects.valuesEnd(); ++it)
+			{
+				WorldObject* ob = it.getValue().ptr();
+				if(ob->isSplat())
+				{
+					std::string label = "#" + toString(ob->uid.value());
+					if(!ob->model_url.empty())
+					{
+						const std::string url = toStdString(ob->model_url);
+						const size_t slash = url.find_last_of("/\\");
+						label += "  " + (slash == std::string::npos ? url : url.substr(slash + 1));
+					}
+					splat_items.emplace_back((uint64_t)ob->uid.value(), label);
+				}
+			}
+		}
+		std::sort(splat_items.begin(), splat_items.end(),
+			[](const std::pair<uint64_t, std::string>& a, const std::pair<uint64_t, std::string>& b) { return a.first < b.first; });
+		ui->gaussianSplatSettingsWidget->setSplatList(splat_items);
 	}
 }
 
@@ -4283,6 +4315,22 @@ void MainWindow::diagnosticsReloadTerrain()
 	}
 
 	// Just leave terrain_system null, will be reinitialised in MainWindow::updateGroundPlane().
+}
+
+
+void MainWindow::gaussianSplatSettingsSplatSelected(quint64 ob_uid)
+{
+	// Mirrors the "Go to object by ID" flow (see on_actionGoto_Object_By_ID_triggered): drop any
+	// current selection, then re-select the target so its transform gizmo appears.
+	if(gui_client.world_state.isNull()) return;
+	Lock lock(gui_client.world_state->mutex);
+	auto res = gui_client.world_state->objects.find(UID((uint64)ob_uid));
+	if(res != gui_client.world_state->objects.end())
+	{
+		WorldObject* ob = res.getValue().ptr();
+		gui_client.deselectObject();
+		gui_client.selectObject(ob, /*selected_mat_index=*/0);
+	}
 }
 
 

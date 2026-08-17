@@ -116,6 +116,7 @@ private slots:;
 
 	void diagnosticsWidgetChanged();
 	void diagnosticsReloadTerrain();
+	void gaussianSplatSettingsSplatSelected(quint64 ob_uid);
 	void gaussianSplatSettingsChanged();
 	void countSplatsInFrustumRequested();
 	void frustumStructureReportRequested();
