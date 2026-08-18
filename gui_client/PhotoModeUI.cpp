@@ -64,26 +64,25 @@ static double sliderValForCamSpeed(double multiplier)
 static const double cam_speed_baseline_scale = 1.0;
 
 
+// Focus distance slider: straight log scale over [focus_dist_min_m, focus_dist_max_m], v in [0, 1] linear
+// on the slider. Unlike Camera speed there's no natural "1x" reference point to centre on, so this is a
+// plain log-uniform mapping rather than the piecewise symmetric one - it gives a constant *proportional*
+// step everywhere on the track, so a scroll/drag step is as fine on a super-macro close focus (millimetres)
+// as it is coarse-but-usable out at tens of metres, instead of the old linear-in-1/(1-v) mapping's fixed
+// absolute step regardless of position.
+static const double focus_dist_min_m = 0.001;
+static const double focus_dist_max_m = 100.0;
+
 static double focusDistForSliderVal(double slider_val)
 {
-	return 1.0 / (1.0 - slider_val) - 1.0;
+	return focus_dist_min_m * std::pow(focus_dist_max_m / focus_dist_min_m, slider_val);
 }
 
 static double sliderValForFocusDist(double d)
 {
-	/*
-	d = 1 / (1 - v) - 1
-	d + 1 = 1 / (1 - v)
-	(d + 1) (1 - v) = 1
-	(d + 1) - v(d + 1) = 1
-	- v(d + 1) = 1 - (d + 1)
-	-v = (1 - (d + 1)) / (d + 1)
-	v = -(1 - (d + 1)) / (d + 1)
-	v = (-1 + (d + 1)) / (d + 1)
-	v = ((d + 1) - 1) / (d + 1)
-	v = d / (d + 1)
-	*/
-	return d / (d + 1.0);
+	// d = min * (max/min)^v  =>  v = log(d/min) / log(max/min)
+	d = myClamp(d, focus_dist_min_m, focus_dist_max_m);
+	return std::log(d / focus_dist_min_m) / std::log(focus_dist_max_m / focus_dist_min_m);
 }
 
 
@@ -275,8 +274,8 @@ PhotoModeUI::PhotoModeUI(GUIClient* gui_client_, GLUIRef gl_ui_, const Reference
 	makePhotoModeSlider(dof_blur_slider, /*label=*/"Depth of field blur", /*tooltip=*/"Depth of field blur strength",
 		/*min val=*/0.0, /*max val=*/1.0, /*initial val=*/opengl_engine->getCurrentScene()->dof_blur_strength, /*scroll speed=*/1.0, /*parent grid container=*/camera_grid_container);
 
-	makePhotoModeSlider(dof_focus_distance_slider, /*label=*/"Focus Distance", /*tooltip=*/"Focus Distance", 
-		/*min val=*/0.001, /*max val=*/1.0, /*initial val=*/sliderValForFocusDist(opengl_engine->getCurrentScene()->dof_blur_focus_distance), /*scroll speed=*/1.0, /*parent grid container=*/camera_grid_container);
+	makePhotoModeSlider(dof_focus_distance_slider, /*label=*/"Focus Distance", /*tooltip=*/"Focus Distance",
+		/*min val=*/0.0, /*max val=*/1.0, /*initial val=*/sliderValForFocusDist(opengl_engine->getCurrentScene()->dof_blur_focus_distance), /*scroll speed=*/0.5, /*parent grid container=*/camera_grid_container);
 
 	makePhotoModeSlider(ev_adjust_slider, /*label=*/"EV adjust", /*tooltip=*/"EV adjust", 
 		/*min val=*/-8, /*max val=*/8, /*initial val=*/0, /*scroll speed=*/1.0, /*parent grid container=*/camera_grid_container);
