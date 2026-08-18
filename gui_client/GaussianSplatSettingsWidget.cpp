@@ -91,6 +91,11 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	// activated(int) fires only on user interaction, not on programmatic model updates, so the ~1Hz refresh from
 	// MainWindow can't accidentally re-select anything.
 	connect(this->sceneSplatsComboBox,              SIGNAL(activated(int)), this, SLOT(splatComboActivated(int)));
+
+	// SESSION059: toggled(bool) fires on setChecked() too, unlike activated(int) above - setHideCheckboxState() blocks
+	// this connection with SignalBlocker while syncing, so a programmatic sync never loops back into
+	// splatHideToggledSignal as if the user had clicked it.
+	connect(this->hideSplatCheckBox,                SIGNAL(toggled(bool)), this, SLOT(hideCheckBoxToggled(bool)));
 }
 
 
@@ -274,6 +279,23 @@ void GaussianSplatSettingsWidget::splatComboActivated(int index)
 	const QVariant item_data = this->sceneSplatsComboBox->itemData(index);
 	if(!item_data.isValid()) return;
 	emit splatSelectedSignal(item_data.toULongLong());
+}
+
+
+void GaussianSplatSettingsWidget::hideCheckBoxToggled(bool checked)
+{
+	const int idx = this->sceneSplatsComboBox->currentIndex();
+	if(idx < 0) return;
+	const QVariant item_data = this->sceneSplatsComboBox->itemData(idx);
+	if(!item_data.isValid()) return;
+	emit splatHideToggledSignal(item_data.toULongLong(), checked);
+}
+
+
+void GaussianSplatSettingsWidget::setHideCheckboxState(bool hidden)
+{
+	SignalBlocker blocker(this->hideSplatCheckBox); // Don't let this programmatic sync re-emit splatHideToggledSignal - see the .h comment.
+	this->hideSplatCheckBox->setChecked(hidden);
 }
 
 

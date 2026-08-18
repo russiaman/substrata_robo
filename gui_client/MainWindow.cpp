@@ -549,6 +549,7 @@ void MainWindow::initialiseUI()
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(mergeCoplanarRequestedSignal()), this, SLOT(mergeCoplanarSplatsRequested()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(restoreUnmergedRequestedSignal()), this, SLOT(restoreUnmergedSplatsRequested()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(splatSelectedSignal(quint64)), this, SLOT(gaussianSplatSettingsSplatSelected(quint64)));
+	connect(ui->gaussianSplatSettingsWidget, SIGNAL(splatHideToggledSignal(quint64, bool)), this, SLOT(gaussianSplatSettingsHideToggled(quint64, bool))); // SESSION059
 	// NOTE: gaussianSplatSettingsChanged() isn't called here to apply the just-loaded values immediately - opengl_engine
 	// doesn't exist yet this early in initialiseUI() (see afterGLInitInitialise(), where that call actually happens).
 	connect(ui->diagnosticsWidget->diagnosticsTextEdit->horizontalScrollBar(), SIGNAL(valueChanged(int)), this, SLOT(diagnosticsScrollChanged()));
@@ -4331,6 +4332,26 @@ void MainWindow::gaussianSplatSettingsSplatSelected(quint64 ob_uid)
 		WorldObject* ob = res.getValue().ptr();
 		gui_client.deselectObject();
 		gui_client.selectObject(ob, /*selected_mat_index=*/0);
+
+		// SESSION059: sync the "Hide" checkbox to whatever this object's actual hidden state already is (false unless
+		// the user hid it earlier this session - never persisted, see GaussianSplatRenderer::setObjectHidden()), so
+		// picking a different object from the dropdown doesn't show the previous object's checkbox state.
+		if(ob->splat_handle != GaussianSplatRenderer::invalid_handle)
+			ui->gaussianSplatSettingsWidget->setHideCheckboxState(opengl_engine->getSplatRenderer().getObjectHidden(ob->splat_handle));
+	}
+}
+
+
+void MainWindow::gaussianSplatSettingsHideToggled(quint64 ob_uid, bool hidden)
+{
+	if(gui_client.world_state.isNull()) return;
+	Lock lock(gui_client.world_state->mutex);
+	auto res = gui_client.world_state->objects.find(UID((uint64)ob_uid));
+	if(res != gui_client.world_state->objects.end())
+	{
+		WorldObject* ob = res.getValue().ptr();
+		if(ob->splat_handle != GaussianSplatRenderer::invalid_handle)
+			opengl_engine->getSplatRenderer().setObjectHidden(ob->splat_handle, hidden);
 	}
 }
 

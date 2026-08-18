@@ -117,6 +117,7 @@ private slots:;
 	void diagnosticsWidgetChanged();
 	void diagnosticsReloadTerrain();
 	void gaussianSplatSettingsSplatSelected(quint64 ob_uid);
+	void gaussianSplatSettingsHideToggled(quint64 ob_uid, bool hidden); // SESSION059 - see GaussianSplatSettingsWidget::splatHideToggledSignal.
 	void gaussianSplatSettingsChanged();
 	void countSplatsInFrustumRequested();
 	void frustumStructureReportRequested();

@@ -46,9 +46,15 @@ public:
 	// popup is open so user selection isn't disrupted, and skipped when the list hasn't changed.
 	void setSplatList(const std::vector<std::pair<uint64_t, std::string>>& items);
 
+	// SESSION059: sync the "Hide" checkbox to the currently-picked object's actual hidden state, without re-emitting
+	// splatHideToggledSignal (blocks the checkbox's own signal while setting it). MainWindow calls this right after a
+	// combo-box pick, since the widget itself has no access to GaussianSplatRenderer's per-object state.
+	void setHideCheckboxState(bool hidden);
+
 signals:;
 	void settingsChangedSignal();
 	void splatSelectedSignal(quint64 ob_uid); // "Scene splats" dropdown - user picked a splat; MainWindow selects the corresponding WorldObject.
+	void splatHideToggledSignal(quint64 ob_uid, bool hidden); // SESSION059: "Hide" checkbox toggled by the user, for whichever object the "Scene splats" dropdown currently has picked - see GaussianSplatRenderer::setObjectHidden().
 	void countInFrustumRequestedSignal(); // Emitted by the "Count in frustum" button - see GaussianSplatRenderer::countSplatsInFrustum().
 	void frustumReportRequestedSignal(); // Emitted by the "Frustum report" button - see GaussianSplatRenderer::getFrustumStructureReport().
 	void resetImportanceRequestedSignal(); // Emitted by the "Reset importance" button - see GaussianSplatRenderer::resetImportanceAccumulator().
@@ -60,6 +66,7 @@ signals:;
 protected slots:
 	void settingsChanged();
 	void splatComboActivated(int index); // "Scene splats" dropdown - user picked an entry.
+	void hideCheckBoxToggled(bool checked); // SESSION059: "Hide" checkbox - reads the combo box's current UID and re-emits as splatHideToggledSignal(uid, checked).
 
 	// The one shrink box serves both shrink modes, and the same number means different things in them - see
 	// GaussianSplatRenderer::getCoverageShrinkMode(). This gives each mode its own remembered value, so flipping the

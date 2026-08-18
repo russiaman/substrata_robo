@@ -1645,17 +1645,31 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
     </widget>
    </item>
    <item row="30" column="1">
-    <widget class="QComboBox" name="sceneSplatsComboBox">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <property name="toolTip">
-      <string>Pick a Gaussian splat object in the world to select it (its transform gizmo appears). Refreshed while the panel is open.</string>
-     </property>
-    </widget>
+    <layout class="QHBoxLayout" name="sceneSplatsHorizontalLayout">
+     <item>
+      <widget class="QComboBox" name="sceneSplatsComboBox">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="toolTip">
+        <string>Pick a Gaussian splat object in the world to select it (its transform gizmo appears). Refreshed while the panel is open.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="hideSplatCheckBox">
+       <property name="text">
+        <string>Hide</string>
+       </property>
+       <property name="toolTip">
+        <string>Debug tool: leave the object currently picked above out of the render pipeline entirely, without changing its saved data. Per-object, always off at the start of a session - never saved.</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
    <item row="31" column="0" colspan="2">
     <spacer name="verticalSpacer">
