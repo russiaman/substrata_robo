@@ -8,6 +8,8 @@ Copyright Glare Technologies Limited 2025 -
 
 #include "GUIClient.h"
 #include "ThreadMessages.h"
+#include <opengl/OpenGLEngine.h>
+#include <opengl/GaussianSplatRenderer.h>
 #include "../shared/Protocol.h"
 #include "../shared/ImageDecoding.h"
 #include <graphics/jpegdecoder.h>
@@ -24,6 +26,39 @@ Copyright Glare Technologies Limited 2025 -
 
 
 static const float COL_1_ALIGNMENT_PX = 170;
+
+
+// "Near clip" override: the two values engaged when the Photo Mode "Near clip" checkbox is off (very close
+// approach: e.g. inside a Gaussian splat capture) and when it is on (default, safe).  The splat renderer's
+// near-epsilon has to track the camera's near-clip distance - keeping it at 0.1 while dropping the near
+// clip to 0.001 still culls every splat between them and defeats the whole point of the override.
+static const double near_clip_default_m       = 0.22;
+static const double near_clip_override_m      = 0.001;
+static const float  splat_near_epsilon_default = 0.1f;  // Historical hardcode in gaussian_splat_vert_shader.glsl.
+static const float  splat_near_epsilon_override = 0.001f;
+
+
+// Camera speed slider carries a piecewise-log value in [-1, 1] so that 1x sits at the slider's exact
+// centre while the range still spans 0.001x - 10x.  Symmetric log10 across three decades on the left and
+// one on the right - a straight log10 slider would put 1x at 3/4 of the track instead.
+static double camSpeedForSliderVal(double slider_val)
+{
+	return (slider_val <= 0.0) ? std::pow(10.0, 3.0 * slider_val) : std::pow(10.0, slider_val);
+}
+
+static double sliderValForCamSpeed(double multiplier)
+{
+	if(multiplier <= 0.0)
+		return -1.0;
+	return (multiplier <= 1.0) ? (std::log10(multiplier) / 3.0) : std::log10(multiplier);
+}
+
+// The "1x" the slider centre shows is the ordinary in-game camera speed - i.e. what MainWindow's startup
+// setMoveScale(0.3f) intended, rather than raw move_speed_scale = 1.  The slider's multiplier and the
+// field's value are therefore related by multiplier * cam_speed_baseline_scale = move_speed_scale.  Keeping
+// the mapping in one place here means the slider stays right if this baseline is ever retuned.  See
+// found_camera_speed_weirdness.md for why the app ships with a factor here at all.
+static const double cam_speed_baseline_scale = 0.3;
 
 
 static double focusDistForSliderVal(double slider_val)
@@ -191,7 +226,50 @@ PhotoModeUI::PhotoModeUI(GUIClient* gui_client_, GLUIRef gl_ui_, const Reference
 	}
 
 
-	makePhotoModeSlider(dof_blur_slider, /*label=*/"Depth of field blur", /*tooltip=*/"Depth of field blur strength", 
+	// "Near clip" override: a two-state control rather than a slider, because for splat scenes the interesting
+	// choice is binary - either keep the safe defaults (near clip 0.22 m, splat cull 0.1 m) or drop both
+	// to 0.001 m so the camera can approach as close as the projection tolerates.  Sits between Autofocus
+	// and Depth of field so it is next to the other image-forming controls rather than the exposure ones.
+	{
+		GLUIGridContainer::CreateArgs grid_args;
+		grid_args.background_alpha = 0.2f;
+		grid_args.background_colour = Colour3f(0.2f);
+		grid_args.interior_cell_y_padding_px = 2;
+		GLUIGridContainerRef near_clip_grid = new GLUIGridContainer(*gl_ui_, grid_args);
+		near_clip_grid->debug_name = "near clip grid";
+		near_clip_grid->setColumnMinXPx(/*col=*/1, COL_1_ALIGNMENT_PX);
+
+		{
+			GLUITextView::CreateArgs text_view_args;
+			text_view_args.background_alpha = 0;
+			text_view_args.text_colour = Colour3f(0.9f);
+			text_view_args.tooltip = "Near clip";
+
+			near_clip_label = new GLUITextView(*gl_ui, "Near clip", Vec2f(0), text_view_args);
+			near_clip_grid->setCellWidget(0, 0, near_clip_label);
+		}
+
+		{
+			GLUICheckBox::CreateArgs args;
+			args.tooltip = "Checked (default): near-clip 0.22 m and splat near-epsilon 0.1 m - the safe values. "
+				"Unchecked: both drop to 0.001 m, so the camera can approach very close geometry "
+				"(e.g. inside a Gaussian splat capture); expect projection artefacts on the closest "
+				"splats, because the EWA affine approximation breaks down near the camera plane.";
+			args.box_colour = Colour3f(0.2f);
+			args.mouseover_box_colour = Colour3f(0.3f);
+			args.checked = true; // Default = the historical hardcoded behaviour.
+			near_clip_override_checkbox = new GLUICheckBox(*gl_ui, gui_client->base_dir_path + "/data/gl_data/ui/tick.png", args);
+			near_clip_override_checkbox->handler = this;
+			near_clip_grid->setCellWidget(1, 0, near_clip_override_checkbox);
+		}
+
+		camera_grid_container->addWidgetOnNewRow(near_clip_grid);
+	}
+	// Apply the initial (checked) state immediately, so the cam_controller and splat renderer match the checkbox.
+	gui_client->cam_controller.near_draw_dist = near_clip_default_m;
+	opengl_engine->getSplatRenderer().setNearEpsilon(splat_near_epsilon_default);
+
+	makePhotoModeSlider(dof_blur_slider, /*label=*/"Depth of field blur", /*tooltip=*/"Depth of field blur strength",
 		/*min val=*/0.0, /*max val=*/1.0, /*initial val=*/opengl_engine->getCurrentScene()->dof_blur_strength, /*scroll speed=*/1.0, /*parent grid container=*/camera_grid_container);
 
 	makePhotoModeSlider(dof_focus_distance_slider, /*label=*/"Focus Distance", /*tooltip=*/"Focus Distance", 
@@ -206,8 +284,16 @@ PhotoModeUI::PhotoModeUI(GUIClient* gui_client_, GLUIRef gl_ui_, const Reference
 	makePhotoModeSlider(focal_length_slider, /*label=*/"Focal length", /*tooltip=*/"Camera focal length", 
 		/*min val=*/0.010, /*max val=*/1.0, /*initial val=*/0.025, /*scroll speed=*/0.05, /*parent grid container=*/camera_grid_container);
 
-	makePhotoModeSlider(roll_slider, /*label=*/"Roll", /*tooltip=*/"Camera roll angle", 
+	makePhotoModeSlider(roll_slider, /*label=*/"Roll", /*tooltip=*/"Camera roll angle",
 		/*min val=*/-90, /*max val=*/90, /*initial val=*/0, /*scroll speed=*/1.0, /*parent grid container=*/camera_grid_container);
+
+	// Camera speed multiplier: 1x at slider centre = the ordinary in-game speed (i.e. the baseline set at
+	// app startup), 0.001x fully left, 10x fully right, log-mapped so both extremes are usable across the
+	// track's width - see camSpeedForSliderVal.  Initial value picked up from CameraController in case
+	// something else has already scaled it.
+	makePhotoModeSlider(camera_speed_slider, /*label=*/"Camera speed", /*tooltip=*/"Multiplier on the ordinary camera movement speed. Slider centre = 1x (normal), left = 0.001x, right = 10x. Log scale.",
+		/*min val=*/-1.0, /*max val=*/1.0, /*initial val=*/sliderValForCamSpeed(gui_client->cam_controller.getMoveScale() / cam_speed_baseline_scale), /*scroll speed=*/0.5, /*parent grid container=*/camera_grid_container);
+	camera_speed_slider.value_view->setText(doubleToStringMaxNDecimalPlaces(camSpeedForSliderVal(camera_speed_slider.slider->getValue()), 3) + "x");
 
 	{
 		GLUITextButton::CreateArgs args;
@@ -563,6 +649,14 @@ void PhotoModeUI::eventOccurred(GLUICallbackEvent& event)
 
 			event.accepted = true;
 		}
+		else if(event.widget == near_clip_override_checkbox.ptr())
+		{
+			const bool checked = near_clip_override_checkbox->isChecked();
+			gui_client->cam_controller.near_draw_dist = checked ? near_clip_default_m : near_clip_override_m;
+			opengl_engine->getSplatRenderer().setNearEpsilon(checked ? splat_near_epsilon_default : splat_near_epsilon_override);
+
+			event.accepted = true;
+		}
 		else if(event.widget == take_screenshot_button.ptr())
 		{
 			gui_client->ui_interface->takeScreenshot();
@@ -664,6 +758,13 @@ void PhotoModeUI::sliderValueChangedEventOccurred(GLUISliderValueChangedEvent& e
 		angles.z = ::degreeToRad(event.value);
 		gui_client->cam_controller.setAngles(angles);
 	}
+	else if(event.widget == camera_speed_slider.slider.ptr())
+	{
+		const double multiplier = camSpeedForSliderVal(event.value);
+		camera_speed_slider.value_view->setText(doubleToStringMaxNDecimalPlaces(multiplier, 3) + "x");
+
+		gui_client->cam_controller.setMoveScale(multiplier * cam_speed_baseline_scale);
+	}
 	else if(event.widget == sun_theta_slider.slider.ptr())
 	{
 		sun_theta_slider.value_view->setText(doubleToStringMaxNDecimalPlaces(event.value, 2)); // Update value text view
@@ -721,12 +822,19 @@ void PhotoModeUI::resetControlsToPhotoModeDefaults()
 	autofocus_eye_button->setToggled(true);
 
 	// Reset sliders, will reset actual values in OpenGLEngine as well via sliderValueChangedEventOccurred().
+	// Restore the "Near clip" override to its default (checked) state, and re-apply the two values in case
+	// the user had unchecked it.
+	near_clip_override_checkbox->setChecked(true);
+	gui_client->cam_controller.near_draw_dist = near_clip_default_m;
+	opengl_engine->getSplatRenderer().setNearEpsilon(splat_near_epsilon_default);
+
 	dof_blur_slider.setValue(0.0, gl_ui);
 	dof_focus_distance_slider.setValueNoEvent(sliderValForFocusDist(1.0), gl_ui); // setValueNoEvent so don't disable autofocus
 	ev_adjust_slider.setValue(0.0, gl_ui);
 	saturation_slider.setValue(1.0, gl_ui);
 	focal_length_slider.setValue(0.025, gl_ui);
 	roll_slider.setValue(0.0, gl_ui);
+	camera_speed_slider.setValue(sliderValForCamSpeed(1.0), gl_ui); // 1x = slider centre.
 
 	opengl_engine->getCurrentScene()->dof_blur_strength = 0.0f; // Should already be set to zero but make sure.
 }
@@ -743,12 +851,19 @@ void PhotoModeUI::resetControlsToNonPhotoModeDefaults()
 	//autofocus_eye_button->setToggled(false);
 
 	// Reset sliders, will reset actual values in OpenGLEngine as well via sliderValueChangedEventOccurred().
+	// Restore the "Near clip" override to its default (checked) state, and re-apply the two values in case
+	// the user had unchecked it.
+	near_clip_override_checkbox->setChecked(true);
+	gui_client->cam_controller.near_draw_dist = near_clip_default_m;
+	opengl_engine->getSplatRenderer().setNearEpsilon(splat_near_epsilon_default);
+
 	dof_blur_slider.setValue(0.0, gl_ui);
 	dof_focus_distance_slider.setValue(sliderValForFocusDist(1.0), gl_ui);
 	ev_adjust_slider.setValue(0.0, gl_ui);
 	saturation_slider.setValue(1.0, gl_ui);
 	focal_length_slider.setValue(0.025, gl_ui);
 	roll_slider.setValue(0.0, gl_ui);
+	camera_speed_slider.setValue(sliderValForCamSpeed(1.0), gl_ui); // 1x = slider centre.
 
 	opengl_engine->getCurrentScene()->dof_blur_strength = 0.0f; // Should already be set to zero but make sure.
 

@@ -160,7 +160,9 @@ static inline float doRunFactor(bool runpressed)
 void PlayerPhysics::processMoveForwards(float factor, bool runpressed, CameraController& cam)
 {
 	last_runpressed = runpressed;
-	move_desired_vel += ::toVec3f(cam.getForwardsMoveVec()) * factor * move_speed * doRunFactor(runpressed);
+	// getMoveScale() was previously a dead knob - written (setMoveScale(0.3f) at startup) but not read here.
+	// Reading it lets UIs (e.g. Photo Mode's Camera-speed slider) actually change movement speed.
+	move_desired_vel += ::toVec3f(cam.getForwardsMoveVec()) * factor * move_speed * doRunFactor(runpressed) * (float)cam.getMoveScale();
 
 	// When the player spawns, gravity will be turned off, so they don't e.g. fall through buildings before they have been loaded.
 	// Turn it on as soon as the player tries to move.
@@ -171,7 +173,7 @@ void PlayerPhysics::processMoveForwards(float factor, bool runpressed, CameraCon
 void PlayerPhysics::processStrafeRight(float factor, bool runpressed, CameraController& cam)
 {
 	last_runpressed = runpressed;
-	move_desired_vel += ::toVec3f(cam.getRightMoveVec()) * factor * move_speed * doRunFactor(runpressed);
+	move_desired_vel += ::toVec3f(cam.getRightMoveVec()) * factor * move_speed * doRunFactor(runpressed) * (float)cam.getMoveScale();
 
 	this->gravity_enabled = true;
 }
@@ -203,7 +205,7 @@ void PlayerPhysics::processMoveUp(float factor, bool runpressed, CameraControlle
 	const bool underwater = isUnderWater(/*foot pos=*/toVec4fPos(jolt_character->GetPosition()), *m_physics_world);
 
 	if(fly_mode || (cam.current_cam_mode == CameraController::CameraMode_FreeCamera) || underwater)
-		move_desired_vel += Vec3f(0,0,1) * factor * move_speed * doRunFactor(runpressed);
+		move_desired_vel += Vec3f(0,0,1) * factor * move_speed * doRunFactor(runpressed) * (float)cam.getMoveScale();
 
 	this->gravity_enabled = true;
 }

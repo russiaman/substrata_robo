@@ -136,7 +136,8 @@ private:
 public:
 	QGamepad* gamepad;
 	Reference<OpenGLEngine> opengl_engine;
-	float near_draw_dist;
+	// Near draw distance is owned by CameraController::near_draw_dist so both the Qt (this widget) and
+	// Emscripten (SDLClient) draw sites share one value; PhotoModeUI's "Near clip" slider writes there.
 	float max_draw_dist;
 
 	QTimer* gamepad_init_timer;

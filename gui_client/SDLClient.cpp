@@ -1193,7 +1193,6 @@ static void doOneMainLoopIter()
 		Matrix4f world_to_camera_space_matrix;
 		gui_client->cam_controller.getWorldToCameraMatrix(world_to_camera_space_matrix);
 
-		const float near_draw_dist = 0.22f;
 		const float max_draw_dist = 100000.f;
 
 		const float sensor_width = sensorWidth();
@@ -1201,7 +1200,7 @@ static void doOneMainLoopIter()
 		const float viewport_aspect_ratio = (float)gl_w / (float)gl_h;
 		const float render_aspect_ratio = viewport_aspect_ratio;
 		opengl_engine->setViewportDims(gl_w, gl_h);
-		opengl_engine->setNearDrawDistance(near_draw_dist);
+		opengl_engine->setNearDrawDistance((float)gui_client->cam_controller.near_draw_dist);
 		opengl_engine->setMaxDrawDistance(max_draw_dist);
 		opengl_engine->setPerspectiveCameraTransform(world_to_camera_space_matrix, sensor_width, lens_sensor_dist, render_aspect_ratio, /*lens shift up=*/0.f, /*lens shift right=*/0.f);
 		opengl_engine->draw();

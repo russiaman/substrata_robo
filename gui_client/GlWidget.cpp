@@ -104,7 +104,6 @@ GlWidget::GlWidget(QWidget *parent)
 	cam_controller(NULL),
 	cam_rot_on_mouse_move_enabled(true),
 	cam_move_on_key_input_enabled(true),
-	near_draw_dist(0.22f), // As large as possible as we can get without clipping becoming apparent.
 	max_draw_dist(1000.f),
 	gamepad(NULL),
 	print_output(NULL),
@@ -536,7 +535,7 @@ void GlWidget::paintGL()
 		const Matrix4f world_to_camera_space_matrix = Matrix4f::rotationAroundXAxis(Maths::pi_2<float>()) * Matrix4f::translationMatrix(-(cam_pos.toVec4fVector()));
 
 		opengl_engine->setViewportDims(viewport_w, viewport_h);
-		opengl_engine->setNearDrawDistance(near_draw_dist);
+		opengl_engine->setNearDrawDistance((float)cam_controller->near_draw_dist);
 		opengl_engine->setMaxDrawDistance(max_draw_dist);
 		opengl_engine->setDiagonalOrthoCameraTransform(world_to_camera_space_matrix, /*sensor_width*/screenshot_ortho_sensor_width_m, /*render_aspect_ratio=*/1.f);
 		//opengl_engine->setOrthoCameraTransform(world_to_camera_space_matrix, /*sensor_width*/screenshot_ortho_sensor_width_m, /*render_aspect_ratio=*/1.f, 0, 0);
@@ -555,7 +554,7 @@ void GlWidget::paintGL()
 		const float lens_sensor_dist = (float)cam_controller->lens_sensor_dist;
 		const float render_aspect_ratio = (float)viewport_w / (float)viewport_h;
 		opengl_engine->setViewportDims(viewport_w, viewport_h);
-		opengl_engine->setNearDrawDistance(near_draw_dist);
+		opengl_engine->setNearDrawDistance((float)cam_controller->near_draw_dist);
 		opengl_engine->setMaxDrawDistance(max_draw_dist);
 		opengl_engine->setPerspectiveCameraTransform(world_to_camera_space_matrix, sensor_width, lens_sensor_dist, render_aspect_ratio, /*lens shift up=*/0.f, /*lens shift right=*/0.f);
 		//opengl_engine->setOrthoCameraTransform(world_to_camera_space_matrix, 1000.f, render_aspect_ratio, /*lens shift up=*/0.f, /*lens shift right=*/0.f);

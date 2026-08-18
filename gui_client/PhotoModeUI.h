@@ -8,6 +8,7 @@ Copyright Glare Technologies Limited 2025 -
 
 #include <opengl/ui/GLUI.h>
 #include <opengl/ui/GLUIButton.h>
+#include <opengl/ui/GLUICheckBox.h>
 #include <opengl/ui/GLUIWindow.h>
 #include <opengl/ui/GLUITextButton.h>
 #include <opengl/ui/GLUICallbackHandler.h>
@@ -100,6 +101,13 @@ private:
 	GLUITextButtonRef autofocus_off_button;
 	GLUITextButtonRef autofocus_eye_button;
 
+	// "Near clip" override checkbox: on = the app's default near-clip distance and the splat renderer's
+	// default near-epsilon (safe, matches historical behaviour); off = both dropped to 0.001, so the camera
+	// can approach very close geometry (e.g. Gaussian splat captures in Photo Mode) at the cost of the
+	// projection artefacts near_epsilon exists to hide.  See GaussianSplatRenderer::setNearEpsilon().
+	GLUITextViewRef near_clip_label;
+	GLUICheckBoxRef near_clip_override_checkbox;
+
 	GLUIButtonRef take_screenshot_button;
 	GLUITextButtonRef show_screenshots_button;
 	GLUITextButtonRef upload_photo_button;
@@ -120,6 +128,7 @@ private:
 	PhotoModeSlider saturation_slider;
 	PhotoModeSlider focal_length_slider;
 	PhotoModeSlider roll_slider;
+	PhotoModeSlider camera_speed_slider; // Writes CameraController::move_speed_scale (see setMoveScale). Piecewise log scale, 1x at slider centre.
 
 	PhotoModeSlider sun_theta_slider;
 	PhotoModeSlider sun_phi_slider;

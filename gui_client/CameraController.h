@@ -39,6 +39,7 @@ public:
 
 	void setMouseSensitivity(double sensitivity);
 	void setMoveScale(double move_scale); // Adjust camera movement speed based on world scale
+	double getMoveScale() const { return move_speed_scale; } // Current multiplier, so UIs (e.g. Photo Mode) can initialise their controls from it.
 
 	void getWorldToCameraMatrix(Matrix4f& world_to_camera_matrix_out);
 
@@ -127,6 +128,13 @@ private:
 
 public:
 	double lens_sensor_dist, lens_shift_up, lens_shift_right;
+
+	// Distance from the camera to the near clip plane, in metres.  Used by both the Qt (GlWidget) and
+	// Emscripten (SDLClient) draw sites, so a UI (e.g. the Photo Mode "Near clip" slider) can adjust it
+	// in one place and both clients pick it up on the next frame.  Default 0.22 - as large as possible
+	// without clipping becoming apparent on typical scenes; drop it when the camera has to get very close
+	// to detailed geometry (e.g. Gaussian splat captures in Photo Mode).
+	double near_draw_dist;
 private:
 
 	bool third_person;

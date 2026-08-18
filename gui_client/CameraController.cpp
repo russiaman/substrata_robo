@@ -47,6 +47,7 @@ CameraController::CameraController()
 	free_cam_vel = Vec3d(0.0);
 
 	lens_sensor_dist = 0.025;
+	near_draw_dist = 0.22; // Metres.  See CameraController.h for the rationale for this default.
 
 	autofocus_mode = AutofocusMode_Off;
 
