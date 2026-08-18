@@ -5824,7 +5824,7 @@ int main(int argc, char *argv[])
 
 			mw.gui_client.cam_controller.setFirstAndThirdPersonPositions(Vec3d(0,0,4.7));
 			mw.ui->glWidget->setCameraController(&mw.gui_client.cam_controller);
-			mw.gui_client.cam_controller.setMoveScale(0.3f);
+			mw.gui_client.cam_controller.setMoveScale(1.0f); // No scaling by default; Photo Mode's speed slider is the only thing that should ever change this.
 
 
 

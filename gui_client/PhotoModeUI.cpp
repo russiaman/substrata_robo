@@ -53,12 +53,15 @@ static double sliderValForCamSpeed(double multiplier)
 	return (multiplier <= 1.0) ? (std::log10(multiplier) / 3.0) : std::log10(multiplier);
 }
 
-// The "1x" the slider centre shows is the ordinary in-game camera speed - i.e. what MainWindow's startup
-// setMoveScale(0.3f) intended, rather than raw move_speed_scale = 1.  The slider's multiplier and the
-// field's value are therefore related by multiplier * cam_speed_baseline_scale = move_speed_scale.  Keeping
-// the mapping in one place here means the slider stays right if this baseline is ever retuned.  See
-// found_camera_speed_weirdness.md for why the app ships with a factor here at all.
-static const double cam_speed_baseline_scale = 0.3;
+// The "1x" the slider centre shows is the ordinary in-game camera speed, i.e. move_speed_scale = 1 (no
+// scaling), which is also CameraController's constructor default and MainWindow's startup value. The
+// slider's multiplier and the field's value are related by multiplier * cam_speed_baseline_scale =
+// move_speed_scale. Keeping the mapping in one place here means the slider stays right if this baseline is
+// ever retuned. See found_camera_speed_weirdness.md for background on this knob; the previous 0.3 value here
+// mistakenly assumed that was already the effective default speed, but PlayerPhysics.cpp only started
+// reading move_speed_scale in this same change, so 0.3 instead made ordinary (non-Photo-Mode) navigation
+// 3.3x slower than before - fixed by using the true baseline, 1.0.
+static const double cam_speed_baseline_scale = 1.0;
 
 
 static double focusDistForSliderVal(double slider_val)
