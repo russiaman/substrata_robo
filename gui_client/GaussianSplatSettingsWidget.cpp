@@ -76,6 +76,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->areaScaleRefPxDoubleSpinBox,      SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->hideTestComboBox,                 SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged()));
 	connect(this->accumBuffer8BitCheckBox,          SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
+	connect(this->dofDepthModeComboBox,             SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged()));
 	connect(this->distClampMinDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->distClampMaxDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->distClampInvertCheckBox,          SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
@@ -175,6 +176,12 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// is about 16 ms with no artefacts, i.e. cheaper than mode 1 ever managed and correct as well - session051.
 	this->coverageShrinkModeComboBox->setCurrentIndex(2);
 	this->accumBuffer8BitCheckBox->setChecked(settings_->value("gaussian_splats/accum_buffer_8bit", false).toBool());
+	// Off by default, matching upstream behaviour: splats don't write depth, so DoF blurs them as it always has.
+	// The two other modes both change how splats look under DoF/fog and should be an opt-in for new installs.
+	{
+		const int stored = settings_->value("gaussian_splats/dof_depth_mode", 0).toInt();
+		this->dofDepthModeComboBox->setCurrentIndex((stored < 0) ? 0 : ((stored > 2) ? 2 : stored));
+	}
 	this->clipCheckBox->setChecked(false); // Deliberately not persisted: it removes splats from the picture, and finding it still on after a restart would read as the scene having lost geometry.
 	// The distance slice is deliberately not persisted, for the same reason as the overdraw view: it is a momentary way of
 	// looking into a capture, not a preference, and a session that silently started with half the cloud missing would read
@@ -249,6 +256,7 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/saturation_mask_downscale", this->saturationMaskDownscaleSpinBox->value());
 		settings->setValue("gaussian_splats/coverage_cap_threshold", this->coverageCapThresholdDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/accum_buffer_8bit", this->accumBuffer8BitCheckBox->isChecked());
+		settings->setValue("gaussian_splats/dof_depth_mode", this->dofDepthModeComboBox->currentIndex());
 		settings->setValue("gaussian_splats/merge_colour_tol", this->mergeColourTolDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/merge_angle_tol_deg", this->mergeAngleTolDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/merge_across_cm", this->mergeAcrossDoubleSpinBox->value());

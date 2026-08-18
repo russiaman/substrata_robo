@@ -4161,6 +4161,7 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setEWAProjectionFixEnabled(ui->gaussianSplatSettingsWidget->ewaProjectionFixCheckBox->isChecked()); // See getEWAProjectionFixEnabled().
 	opengl_engine->getSplatRenderer().setNearFadeWidth((float)ui->gaussianSplatSettingsWidget->nearFadeWidthDoubleSpinBox->value()); // See getNearFadeWidth().
 	opengl_engine->getSplatRenderer().setAccumBuffer8Bit(ui->gaussianSplatSettingsWidget->accumBuffer8BitCheckBox->isChecked());
+	opengl_engine->getSplatRenderer().setDoFDepthMode(ui->gaussianSplatSettingsWidget->dofDepthModeComboBox->currentIndex()); // See GaussianSplatRenderer::SplatDoFDepthMode.
 	// Clip follows the combo box, so it has to stand down in the coverage-map modes, which are not one of its measures.
 	// Not merely pointless there but destructive: hiding overdraw switches the saturation gate off, and the gate's mark
 	// pass is what builds the pyramid the map is a view of.
