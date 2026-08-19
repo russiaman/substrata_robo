@@ -54,6 +54,10 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->filterDilationLatencyDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
 	connect(this->filterMinRotRateDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
 	connect(this->filterMinTransRateDoubleSpinBox,  SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
+	connect(this->coarseFloorCheckBox,              SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION063 K4
+	connect(this->coarsePixelScaleDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K4
+	connect(this->coarseDilationLatencyDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K4
+	connect(this->coarseLayerDebugCheckBox,         SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION063 K4
 	connect(this->numDrawSlicesSpinBox,             SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->drawSliceLimitSpinBox,            SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->visibleSlicingCheckBox,           SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
@@ -160,9 +164,12 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->maxLayerDensityDoubleSpinBox->setValue(settings_->value("gaussian_splats/max_layer_density", 0.0).toDouble());
 	this->maxTreeDepthSpinBox->setValue(settings_->value("gaussian_splats/max_tree_depth", 0).toInt());
 	this->frustumCullCheckBox->setChecked(settings_->value("gaussian_splats/frustum_cull", true).toBool()); // SESSION055 - see GaussianSplatRenderer::setFrustumCullEnabled(). SESSION063: also drives the split filter path.
-	this->filterDilationLatencyDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_dilation_latency", 0.6).toDouble()); // SESSION063 K3
+	this->filterDilationLatencyDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_dilation_latency", 0.06).toDouble()); // SESSION063 K3
 	this->filterMinRotRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_rot_rate", 45.0).toDouble());
 	this->filterMinTransRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_trans_rate", 2.0).toDouble());
+	this->coarseFloorCheckBox->setChecked(settings_->value("gaussian_splats/coarse_floor", true).toBool()); // SESSION063 K4
+	this->coarsePixelScaleDoubleSpinBox->setValue(settings_->value("gaussian_splats/coarse_pixel_scale", 30.0).toDouble());
+	this->coarseDilationLatencyDoubleSpinBox->setValue(settings_->value("gaussian_splats/coarse_dilation_latency", 0.9).toDouble());
 	this->numDrawSlicesSpinBox->setValue(settings_->value("gaussian_splats/num_draw_slices", 1).toInt());
 	this->sliceGrowthDoubleSpinBox->setValue(settings_->value("gaussian_splats/slice_growth", 1.0).toDouble());
 	this->saturationGateCheckBox->setChecked(settings_->value("gaussian_splats/saturation_gate", false).toBool());
@@ -263,6 +270,9 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/filter_dilation_latency", this->filterDilationLatencyDoubleSpinBox->value()); // SESSION063 K3
 		settings->setValue("gaussian_splats/filter_min_rot_rate", this->filterMinRotRateDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/filter_min_trans_rate", this->filterMinTransRateDoubleSpinBox->value());
+		settings->setValue("gaussian_splats/coarse_floor", this->coarseFloorCheckBox->isChecked()); // SESSION063 K4
+		settings->setValue("gaussian_splats/coarse_pixel_scale", this->coarsePixelScaleDoubleSpinBox->value());
+		settings->setValue("gaussian_splats/coarse_dilation_latency", this->coarseDilationLatencyDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/num_draw_slices", this->numDrawSlicesSpinBox->value());
 		settings->setValue("gaussian_splats/slice_growth", this->sliceGrowthDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/saturation_gate", this->saturationGateCheckBox->isChecked());
