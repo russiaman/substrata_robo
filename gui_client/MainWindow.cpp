@@ -4137,6 +4137,9 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setMaxTreeDepth(ui->gaussianSplatSettingsWidget->maxTreeDepthSpinBox->value());
 	opengl_engine->getSplatRenderer().setFrustumCullEnabled(ui->gaussianSplatSettingsWidget->frustumCullCheckBox->isChecked()); // SESSION055 - see getFrustumCullEnabled().
 	opengl_engine->getSplatRenderer().setSplitFilterEnabled(ui->gaussianSplatSettingsWidget->frustumCullCheckBox->isChecked()); // SESSION063: split filter path is tied to the frustum-cull toggle - see getSplitFilterEnabled().
+	opengl_engine->getSplatRenderer().setFilterDilationLatency((float)ui->gaussianSplatSettingsWidget->filterDilationLatencyDoubleSpinBox->value()); // SESSION063 K3
+	opengl_engine->getSplatRenderer().setFilterMinRotRateDegPerS((float)ui->gaussianSplatSettingsWidget->filterMinRotRateDoubleSpinBox->value());
+	opengl_engine->getSplatRenderer().setFilterMinTransRateMPerS((float)ui->gaussianSplatSettingsWidget->filterMinTransRateDoubleSpinBox->value());
 	// Draw-path only, so unlike the settings above these don't need a traversal refresh to take effect.
 	opengl_engine->getSplatRenderer().setLayerCap(ui->gaussianSplatSettingsWidget->layerCapOnCheckBox->isChecked() ?
 		ui->gaussianSplatSettingsWidget->layerCapSpinBox->value() : 0); // The tick bypasses the cap without clearing the value, so an A/B keeps the setting - see the checkbox's tooltip.

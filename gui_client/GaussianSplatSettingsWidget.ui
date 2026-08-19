@@ -654,10 +654,91 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
          <string>frustum cull</string>
         </property>
         <property name="toolTip">
-         <string>Cull LoD traversal by the camera frustum: nodes whose centre lies outside the frustum (dilated by 1.5 * feature_size) are neither drawn nor expanded, pruning entire subtrees behind the camera. Adds an angular re-kick threshold (~5 deg) so turning in place refreshes the frontier. On by default from session055. Turn off to compare against the old rotation-invariant traversal.</string>
+         <string>Cull LoD traversal by the camera frustum: nodes whose centre lies outside the frustum (dilated by 1.5 * feature_size) are neither drawn nor expanded, pruning entire subtrees behind the camera. Adds an angular re-kick threshold (~5 deg) so turning in place refreshes the frontier. On by default from session055. Turn off to compare against the old rotation-invariant traversal. SESSION063: also drives the split filter (orientation-independent U(P) + per-orientation filter).</string>
         </property>
         <property name="checked">
          <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="filterDilationLatencyDoubleSpinBox">
+        <property name="prefix">
+         <string>dil latency </string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION063 K3: split-filter dilation window (seconds). The filter keeps nodes this much "ahead" of the camera's motion so the frustum edge doesn't trail during the filter's latency. Bigger = the edge holds under fast rotation/translation but more off-screen nodes are kept. The old cull path used 0.3. Applies live.</string>
+        </property>
+        <property name="decimals">
+         <number>3</number>
+        </property>
+        <property name="minimum">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>2.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.020000000000000</double>
+        </property>
+        <property name="value">
+         <double>0.600000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="filterMinRotRateDoubleSpinBox">
+        <property name="prefix">
+         <string>rot floor </string>
+        </property>
+        <property name="suffix">
+         <string> deg/s</string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION063 K3: baseline angular rate (deg/s) the split-filter dilation assumes even from a standstill, so the static-&gt;moving transition is covered before the motion tracker catches up. Applies live.</string>
+        </property>
+        <property name="decimals">
+         <number>1</number>
+        </property>
+        <property name="minimum">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>720.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>5.000000000000000</double>
+        </property>
+        <property name="value">
+         <double>45.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="filterMinTransRateDoubleSpinBox">
+        <property name="prefix">
+         <string>trans floor </string>
+        </property>
+        <property name="suffix">
+         <string> m/s</string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION063 K3: baseline translation rate (m/s) the split-filter dilation assumes even from a standstill, covering the static-&gt;moving transition for camera movement. Applies live.</string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>100.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.500000000000000</double>
+        </property>
+        <property name="value">
+         <double>2.000000000000000</double>
         </property>
        </widget>
       </item>
