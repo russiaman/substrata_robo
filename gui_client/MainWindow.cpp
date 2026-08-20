@@ -4192,7 +4192,10 @@ void MainWindow::countSplatsInFrustumRequested()
 {
 	const GaussianSplatRenderer::FrustumCounts counts = opengl_engine->getSplatRenderer().countSplatsInFrustum();
 	const double pct = counts.total > 0 ? (100.0 * (double)counts.in_frustum / (double)counts.total) : 0.0;
-	const std::string msg = toString(counts.in_frustum) + " / " + toString(counts.total) + " splats in frustum (" + doubleToStringNDecimalPlaces(pct, 1) + "%)";
+	// SESSION066: also report the live LoD draw list (counts.drawn) - unlike in_frustum this responds to the pixel_scale
+	// limit and camera position, since it's what the LoD selection/filter actually picked this frame (S(P,R)).
+	const std::string msg = toString(counts.in_frustum) + " / " + toString(counts.total) + " in frustum (" + doubleToStringNDecimalPlaces(pct, 1) + "%), " +
+		toString(counts.drawn) + " drawn (LoD)";
 	ui->gaussianSplatSettingsWidget->countInFrustumResultLabel->setText(QtUtils::toQString(msg));
 	conPrint("Count in frustum: " + msg);
 }
