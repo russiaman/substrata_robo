@@ -41,7 +41,6 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->alphaAdjustIgnoreCheckBox,        SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->countInFrustumPushButton,         SIGNAL(clicked()), this, SIGNAL(countInFrustumRequestedSignal()));
 	connect(this->frustumReportPushButton,          SIGNAL(clicked()), this, SIGNAL(frustumReportRequestedSignal()));
-	connect(this->resetImportancePushButton,        SIGNAL(clicked()), this, SIGNAL(resetImportanceRequestedSignal()));
 	connect(this->saturationSnapshotsPushButton,    SIGNAL(clicked()), this, SIGNAL(saturationSnapshotsRequestedSignal())); // DIAGNOSTIC ONLY - see GaussianSplatSettingsWidget.h.
 	connect(this->showDebugCheckBox,                SIGNAL(toggled(bool)), this, SLOT(settingsChanged()));
 	connect(this->debugModeComboBox,                SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged()));

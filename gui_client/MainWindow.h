@@ -123,7 +123,6 @@ private slots:;
 	void frustumStructureReportRequested();
 	void saturationSnapshotsRequested(); // DIAGNOSTIC ONLY - see OpenGLEngine::requestSplatSaturationSnapshots().
 	void layerCapEstimateRequested(); // DIAGNOSTIC ONLY - see OpenGLEngine::estimateSplatLayerCapSaving().
-	void resetSplatImportanceRequested();
 	void mergeCoplanarSplatsRequested();
 	void restoreUnmergedSplatsRequested();
 	void diagnosticsScrollChanged();

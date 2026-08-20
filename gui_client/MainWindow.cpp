@@ -545,7 +545,6 @@ void MainWindow::initialiseUI()
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(frustumReportRequestedSignal()), this, SLOT(frustumStructureReportRequested()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(saturationSnapshotsRequestedSignal()), this, SLOT(saturationSnapshotsRequested()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(layerCapEstimateRequestedSignal()), this, SLOT(layerCapEstimateRequested())); // DIAGNOSTIC ONLY - see MainWindow::saturationSnapshotsRequested().
-	connect(ui->gaussianSplatSettingsWidget, SIGNAL(resetImportanceRequestedSignal()), this, SLOT(resetSplatImportanceRequested()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(mergeCoplanarRequestedSignal()), this, SLOT(mergeCoplanarSplatsRequested()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(restoreUnmergedRequestedSignal()), this, SLOT(restoreUnmergedSplatsRequested()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(splatSelectedSignal(quint64)), this, SLOT(gaussianSplatSettingsSplatSelected(quint64)));
@@ -4210,7 +4209,6 @@ void MainWindow::frustumStructureReportRequested()
 		(float)ui->gaussianSplatSettingsWidget->mergeAngleTolDoubleSpinBox->value());
 	conPrint("\n" + report);
 	ui->gaussianSplatSettingsWidget->frustumReportResultLabel->setText("written to log");
-	ui->gaussianSplatSettingsWidget->resetImportanceResultLabel->setText(""); // A viewpoint has just been added, so whatever this said about the last reset is stale.
 }
 
 
@@ -4261,14 +4259,6 @@ void MainWindow::layerCapEstimateRequested()
 {
 	opengl_engine->getSplatRenderer().requestLayerCapEstimate();
 	ui->gaussianSplatSettingsWidget->layerCapEstimateResultLabel->setText("written to log"); // The number itself lands in the log and in the splat diagnostics; this label only says where to look, since the measurement happens a frame later.
-}
-
-
-// "Reset importance" button. See GaussianSplatRenderer::resetImportanceAccumulator().
-void MainWindow::resetSplatImportanceRequested()
-{
-	opengl_engine->getSplatRenderer().resetImportanceAccumulator();
-	ui->gaussianSplatSettingsWidget->resetImportanceResultLabel->setText("cleared");
 }
 
 
