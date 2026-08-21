@@ -82,6 +82,8 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->areaScaleRefPxDoubleSpinBox,      SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->hideTestComboBox,                 SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged()));
 	connect(this->accumBuffer8BitCheckBox,          SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
+	connect(this->accumBufferScaleDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION067
+	connect(this->accumUpsampleBilinearCheckBox,    SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->dofDepthModeComboBox,             SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged()));
 	connect(this->distClampMinDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->distClampMaxDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
@@ -193,6 +195,11 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// is about 16 ms with no artefacts, i.e. cheaper than mode 1 ever managed and correct as well - session051.
 	this->coverageShrinkModeComboBox->setCurrentIndex(2);
 	this->accumBuffer8BitCheckBox->setChecked(settings_->value("gaussian_splats/accum_buffer_8bit", false).toBool());
+	// SESSION067 - not persisted, deliberately, for the same reason the coverage-shrink knobs above are not: this one
+	// changes what every timing in the session means, so a fixed starting point of 1 (off) is what keeps one session's
+	// measurements comparable with the next one's. The bilinear switch rides along with it.
+	this->accumBufferScaleDoubleSpinBox->setValue(1.0);
+	this->accumUpsampleBilinearCheckBox->setChecked(true);
 	// Off by default, matching upstream behaviour: splats don't write depth, so DoF blurs them as it always has.
 	// The two other modes both change how splats look under DoF/fog and should be an opt-in for new installs.
 	{

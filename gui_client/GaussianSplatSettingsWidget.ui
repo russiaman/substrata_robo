@@ -1441,7 +1441,49 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="24" column="0" colspan="2">
+   <item row="25" column="0" colspan="2">
+    <layout class="QHBoxLayout" name="accumBufferScaleLayout">
+     <item>
+      <widget class="QDoubleSpinBox" name="accumBufferScaleDoubleSpinBox">
+       <property name="prefix">
+        <string>buffer scale </string>
+       </property>
+       <property name="decimals">
+        <number>2</number>
+       </property>
+       <property name="minimum">
+        <double>0.100000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>1.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.050000000000000</double>
+       </property>
+       <property name="value">
+        <double>1.000000000000000</double>
+       </property>
+       <property name="toolTip">
+        <string>Renders the splats into an accumulation buffer this fraction of the frame's size, then scales the result back up in the resolve. The splat pass is bound by blend bandwidth, which scales with pixels: on the interior scene, blending alone is about 9 ms of a 17 ms frame, so 0.5 (a quarter of the pixels) takes it to roughly 9 ms total. The LoD selection deliberately does not follow this - the same splats are drawn, just into a smaller buffer - so the ~6.3 ms of per-splat vertex and instance work is untouched and is the floor of this knob whatever the scale. Returns bend before that floor: at pixel scale limit 2 the LoD brings splats to about 2 px, so at half scale they land on the vertex shader's half-pixel low-pass floor and area falls by about 3.3x rather than 4x. 1 = off, and every path then behaves exactly as it did without this setting. Rebuilds the accumulation framebuffer when changed.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="accumUpsampleBilinearCheckBox">
+       <property name="text">
+        <string>bilinear upsample</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+       <property name="toolTip">
+        <string>How the resolve reads a downscaled accumulation buffer back up to the frame. Bilinear is what makes the downscale usable: a splat is a Gaussian, so its screen footprint is band-limited by construction, and a smooth reconstruction of it loses far less than the same downscale would on ordinary geometry. Unchecking gives nearest, i.e. visibly blocky - kept as a diagnostic, since seeing the blocks is how one confirms the buffer really is smaller, and it is the honest baseline the bilinear cost is compared against. Ignored at buffer scale 1, where the buffer is indexed one-to-one.</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item row="26" column="0" colspan="2">
     <widget class="QFrame" name="diagnosticsSeparatorLine">
      <property name="frameShape">
       <enum>QFrame::HLine</enum>
@@ -1451,7 +1493,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="25" column="0" colspan="2">
+   <item row="27" column="0" colspan="2">
     <widget class="QLabel" name="diagnosticsSectionLabel">
      <property name="text">
       <string>Diagnostics</string>
@@ -1464,7 +1506,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="26" column="0">
+   <item row="28" column="0">
     <widget class="QLabel" name="sizeClampLabel">
      <property name="text">
       <string>Size clamp min/max (m)</string>
@@ -1474,7 +1516,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="26" column="1">
+   <item row="28" column="1">
     <widget class="QWidget" name="sizeClampWidget" native="true">
      <layout class="QHBoxLayout" name="sizeClampHorizontalLayout">
       <property name="leftMargin">
@@ -1540,7 +1582,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="27" column="0">
+   <item row="29" column="0">
     <widget class="QLabel" name="distClampLabel">
      <property name="text">
       <string>Distance slice min/max (m)</string>
@@ -1550,7 +1592,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="27" column="1">
+   <item row="29" column="1">
     <widget class="QWidget" name="distClampWidget" native="true">
      <layout class="QHBoxLayout" name="distClampHorizontalLayout">
       <property name="leftMargin">
@@ -1616,7 +1658,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="28" column="0">
+   <item row="30" column="0">
     <widget class="QCheckBox" name="showDebugCheckBox">
      <property name="text">
       <string>Show debug</string>
@@ -1626,7 +1668,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="28" column="1">
+   <item row="30" column="1">
     <widget class="QWidget" name="debugModeWidget" native="true">
      <layout class="QHBoxLayout" name="debugModeHorizontalLayout">
       <property name="leftMargin">
@@ -1681,7 +1723,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="29" column="0">
+   <item row="31" column="0">
     <widget class="QLabel" name="overdrawRangeLabel">
      <property name="text">
       <string>Overdraw range (layers)</string>
@@ -1691,7 +1733,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="29" column="1">
+   <item row="31" column="1">
     <widget class="QWidget" name="overdrawRangeWidget" native="true">
      <layout class="QHBoxLayout" name="overdrawRangeHorizontalLayout">
       <property name="leftMargin">
@@ -1756,7 +1798,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
    <!-- The one-off diagnostic actions sit together in a single row at the foot of the panel, rather than
    each taking a form row of its own: they are not settings, and interleaving them with the live controls above
    made the panel taller than the dock for no gain.  Their result labels follow in the row below, same order. -->
-   <item row="30" column="0" colspan="2">
+   <item row="32" column="0" colspan="2">
     <layout class="QHBoxLayout" name="diagnosticButtonsHorizontalLayout">
      <item>
       <widget class="QPushButton" name="countInFrustumPushButton">
@@ -1790,7 +1832,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </item>
     </layout>
    </item>
-   <item row="31" column="0" colspan="2">
+   <item row="33" column="0" colspan="2">
     <layout class="QHBoxLayout" name="diagnosticResultsHorizontalLayout">
      <item>
       <widget class="QLabel" name="countInFrustumResultLabel">
@@ -1815,7 +1857,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </item>
     </layout>
    </item>
-   <item row="32" column="0">
+   <item row="34" column="0">
     <widget class="QLabel" name="sceneSplatsLabel">
      <property name="text">
       <string>Scene splats</string>
@@ -1825,7 +1867,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="32" column="1">
+   <item row="34" column="1">
     <layout class="QHBoxLayout" name="sceneSplatsHorizontalLayout">
      <item>
       <widget class="QComboBox" name="sceneSplatsComboBox">
@@ -1852,7 +1894,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </item>
     </layout>
    </item>
-   <item row="33" column="0" colspan="2">
+   <item row="35" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
