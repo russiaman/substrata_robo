@@ -1945,6 +1945,104 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
     </layout>
    </item>
    <item row="35" column="0" colspan="2">
+    <widget class="QFrame" name="postProcessingSeparatorLine">
+     <property name="frameShape">
+      <enum>QFrame::HLine</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Sunken</enum>
+     </property>
+    </widget>
+   </item>
+   <item row="36" column="0" colspan="2">
+    <widget class="QLabel" name="postProcessingLabel">
+     <property name="text">
+      <string>Post processing</string>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">font-weight: bold;</string>
+     </property>
+    </widget>
+   </item>
+   <item row="37" column="0" colspan="2">
+    <layout class="QHBoxLayout" name="deconvLayout">
+     <item>
+      <widget class="QCheckBox" name="deconvEnabledCheckBox">
+       <property name="text">
+        <string>matched deconvolution</string>
+       </property>
+       <property name="toolTip">
+        <string>SESSION068 - Approximate inverse of the KNOWN blur the downscale + bilinear upsample introduce on the splat buffer. Two Gaussian sources (the +0.3 low-pass on the 2D covariance diagonal, variance 0.3 texels^2; and the bilinear-tent kernel, variance 1/6), and the excess over scale 1 is undone by a discrete 5-point laplacian with an analytically derived strength: no per-scene tuning. Inert at buffer scale 1 by construction, so this checkbox does nothing there. Restores contrast lost to the upscale; cannot create detail the buffer does not carry.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QDoubleSpinBox" name="deconvGainDoubleSpinBox">
+       <property name="prefix">
+        <string>gain </string>
+       </property>
+       <property name="decimals">
+        <number>2</number>
+       </property>
+       <property name="minimum">
+        <double>0.000000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>10.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.050000000000000</double>
+       </property>
+       <property name="value">
+        <double>1.000000000000000</double>
+       </property>
+       <property name="toolTip">
+        <string>A/B multiplier on the analytically derived deconvolution strength. 1.0 = exactly as derived. Kept as a diagnostic knob to verify the derivation by eye: if the visually pleasing value is far from 1.0, the derivation is off, not the default. Result is clamped to the four-neighbour min/max regardless of gain, so this cannot ring by construction.</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item row="38" column="0" colspan="2">
+    <layout class="QHBoxLayout" name="rcasLayout">
+     <item>
+      <widget class="QCheckBox" name="rcasEnabledCheckBox">
+       <property name="text">
+        <string>RCAS sharpen</string>
+       </property>
+       <property name="toolTip">
+        <string>SESSION068 - AMD FidelityFX RCAS (MIT). A contrast-adaptive sharpen whose output is bounded by the four-neighbour min/max by construction, so it cannot ring or halo. Independent of the deconvolution above so either can be A/B tested alone or both applied together (deconvolution first, RCAS on top). Inert at buffer scale 1.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QDoubleSpinBox" name="rcasSharpnessDoubleSpinBox">
+       <property name="prefix">
+        <string>sharpness </string>
+       </property>
+       <property name="decimals">
+        <number>2</number>
+       </property>
+       <property name="minimum">
+        <double>0.000000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>1.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.050000000000000</double>
+       </property>
+       <property name="value">
+        <double>0.500000000000000</double>
+       </property>
+       <property name="toolTip">
+        <string>RCAS sharpness, 0..1 - fraction of the algorithm's safe maximum lobe. 0 = mild, 1 = the strongest RCAS considers safe.</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item row="39" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>

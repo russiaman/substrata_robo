@@ -86,6 +86,10 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->accumUpsampleBilinearCheckBox,    SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->areaSliceModeComboBox,            SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged())); // SESSION067 DIAGNOSTIC
 	connect(this->areaSlicePxDoubleSpinBox,         SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->deconvEnabledCheckBox,            SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION068
+	connect(this->deconvGainDoubleSpinBox,          SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->rcasEnabledCheckBox,              SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
+	connect(this->rcasSharpnessDoubleSpinBox,       SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->dofDepthModeComboBox,             SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged()));
 	connect(this->distClampMinDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->distClampMaxDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
@@ -205,6 +209,13 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// Likewise not persisted - a slice left on would silently make the next session's frame a fraction of the cloud.
 	this->areaSliceModeComboBox->setCurrentIndex(0);
 	this->areaSlicePxDoubleSpinBox->setValue(256.0);
+	// SESSION068 - post-processing enhancers.  Not persisted: they only do anything at buffer scale < 1, which is itself
+	// not persisted, and both need A/B comparison against off to be measured meaningfully - so "off, at derived defaults"
+	// is the honest starting point for every session.
+	this->deconvEnabledCheckBox->setChecked(false);
+	this->deconvGainDoubleSpinBox->setValue(1.0);
+	this->rcasEnabledCheckBox->setChecked(false);
+	this->rcasSharpnessDoubleSpinBox->setValue(0.5);
 	// Off by default, matching upstream behaviour: splats don't write depth, so DoF blurs them as it always has.
 	// The two other modes both change how splats look under DoF/fog and should be an opt-in for new installs.
 	{

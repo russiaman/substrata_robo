@@ -4175,6 +4175,11 @@ void MainWindow::gaussianSplatSettingsChanged()
 	// SESSION067 DIAGNOSTIC - the projected-area slice, see GaussianSplatRenderer::getAreaSliceMode(). Index 0 = off.
 	opengl_engine->getSplatRenderer().setAreaSliceMode(ui->gaussianSplatSettingsWidget->areaSliceModeComboBox->currentIndex());
 	opengl_engine->getSplatRenderer().setAreaSlicePx((float)ui->gaussianSplatSettingsWidget->areaSlicePxDoubleSpinBox->value());
+	// SESSION068 - post-processing enhancers, both independent for A/B testing. Both inert at buffer scale 1 by the resolve setter.
+	opengl_engine->getSplatRenderer().setDeconvEnabled(ui->gaussianSplatSettingsWidget->deconvEnabledCheckBox->isChecked());
+	opengl_engine->getSplatRenderer().setDeconvGain((float)ui->gaussianSplatSettingsWidget->deconvGainDoubleSpinBox->value());
+	opengl_engine->getSplatRenderer().setRCASEnabled(ui->gaussianSplatSettingsWidget->rcasEnabledCheckBox->isChecked());
+	opengl_engine->getSplatRenderer().setRCASSharpness((float)ui->gaussianSplatSettingsWidget->rcasSharpnessDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setDoFDepthMode(ui->gaussianSplatSettingsWidget->dofDepthModeComboBox->currentIndex()); // See GaussianSplatRenderer::SplatDoFDepthMode.
 	// Clip follows the combo box, so it has to stand down in the coverage-map modes, which are not one of its measures.
 	// Not merely pointless there but destructive: hiding overdraw switches the saturation gate off, and the gate's mark
