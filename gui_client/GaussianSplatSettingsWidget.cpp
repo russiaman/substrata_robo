@@ -84,6 +84,8 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->accumBuffer8BitCheckBox,          SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->accumBufferScaleDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION067
 	connect(this->accumUpsampleBilinearCheckBox,    SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
+	connect(this->areaSliceModeComboBox,            SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged())); // SESSION067 DIAGNOSTIC
+	connect(this->areaSlicePxDoubleSpinBox,         SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->dofDepthModeComboBox,             SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged()));
 	connect(this->distClampMinDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->distClampMaxDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
@@ -200,6 +202,9 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// measurements comparable with the next one's. The bilinear switch rides along with it.
 	this->accumBufferScaleDoubleSpinBox->setValue(1.0);
 	this->accumUpsampleBilinearCheckBox->setChecked(true);
+	// Likewise not persisted - a slice left on would silently make the next session's frame a fraction of the cloud.
+	this->areaSliceModeComboBox->setCurrentIndex(0);
+	this->areaSlicePxDoubleSpinBox->setValue(256.0);
 	// Off by default, matching upstream behaviour: splats don't write depth, so DoF blurs them as it always has.
 	// The two other modes both change how splats look under DoF/fog and should be an opt-in for new installs.
 	{

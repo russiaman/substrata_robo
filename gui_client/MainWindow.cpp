@@ -4172,6 +4172,9 @@ void MainWindow::gaussianSplatSettingsChanged()
 	// SESSION067 - see GaussianSplatRenderer::getAccumBufferScale(). 1 leaves every path exactly as it was without it.
 	opengl_engine->getSplatRenderer().setAccumBufferScale((float)ui->gaussianSplatSettingsWidget->accumBufferScaleDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setAccumUpsampleBilinear(ui->gaussianSplatSettingsWidget->accumUpsampleBilinearCheckBox->isChecked());
+	// SESSION067 DIAGNOSTIC - the projected-area slice, see GaussianSplatRenderer::getAreaSliceMode(). Index 0 = off.
+	opengl_engine->getSplatRenderer().setAreaSliceMode(ui->gaussianSplatSettingsWidget->areaSliceModeComboBox->currentIndex());
+	opengl_engine->getSplatRenderer().setAreaSlicePx((float)ui->gaussianSplatSettingsWidget->areaSlicePxDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setDoFDepthMode(ui->gaussianSplatSettingsWidget->dofDepthModeComboBox->currentIndex()); // See GaussianSplatRenderer::SplatDoFDepthMode.
 	// Clip follows the combo box, so it has to stand down in the coverage-map modes, which are not one of its measures.
 	// Not merely pointless there but destructive: hiding overdraw switches the saturation gate off, and the gate's mark

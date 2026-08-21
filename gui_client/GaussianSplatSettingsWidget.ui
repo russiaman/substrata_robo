@@ -1469,6 +1469,56 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
       </widget>
      </item>
      <item>
+      <widget class="QComboBox" name="areaSliceModeComboBox">
+       <property name="toolTip">
+        <string>DIAGNOSTIC. Draws only one half of the cloud, split by each splat's own projected area on screen. This is the axis the pass is actually paid in - blended pixels - unlike the size and distance slices further down. On the interior scene the splats above 256 px of area are 13% of the cloud but 85% of the fill, and they are also the smooth ones that survive a heavy downscale, so the two halves are very nearly "almost all of the cost" and "almost all of the detail". Draw each alone, at its own buffer scale, to see what a two-layer split would cost and look like before it is built. Threshold is in frame pixels, matching the Frustum report's "Fill by splat size" histogram, and is converted internally so it selects the same splats at any buffer scale.</string>
+       </property>
+       <item>
+        <property name="text">
+         <string>all splats</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>only large</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>only small</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item>
+      <widget class="QDoubleSpinBox" name="areaSlicePxDoubleSpinBox">
+       <property name="prefix">
+        <string>at </string>
+       </property>
+       <property name="suffix">
+        <string> px</string>
+       </property>
+       <property name="decimals">
+        <number>0</number>
+       </property>
+       <property name="minimum">
+        <double>1.000000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>1000000.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>64.000000000000000</double>
+       </property>
+       <property name="value">
+        <double>256.000000000000000</double>
+       </property>
+       <property name="toolTip">
+        <string>Area of one splat, in frame pixels, that divides "large" from "small" for the slice beside this. Read it off the Frustum report's "Fill by splat size" histogram, whose buckets are in the same unit. 256 px (a radius of about 9 px) is where the measured split puts 13% of the splats and 85% of the fill on the large side.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QCheckBox" name="accumUpsampleBilinearCheckBox">
        <property name="text">
         <string>bilinear upsample</string>
