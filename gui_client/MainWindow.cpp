@@ -4144,6 +4144,10 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setCoarsePixelScale((float)ui->gaussianSplatSettingsWidget->coarsePixelScaleDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setFilterCoarseDilationLatency((float)ui->gaussianSplatSettingsWidget->coarseDilationLatencyDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setCoarseLayerDebug(ui->gaussianSplatSettingsWidget->coarseLayerDebugCheckBox->isChecked()); // SESSION063 K4 debug
+	// SESSION071: the setter itself is a no-op unless the mode actually changed, so calling it from this every-settings-
+	// change path costs nothing; when it does change it re-derives and re-uploads the merged colours - see setMergeColourMode().
+	opengl_engine->getSplatRenderer().setMergeColourMode(ui->gaussianSplatSettingsWidget->energyMergeColourCheckBox->isChecked() ?
+		GaussianSplatMergeColourMode_Energy : GaussianSplatMergeColourMode_Legacy);
 	// Draw-path only, so unlike the settings above these don't need a traversal refresh to take effect.
 	opengl_engine->getSplatRenderer().setLayerCap(ui->gaussianSplatSettingsWidget->layerCapOnCheckBox->isChecked() ?
 		ui->gaussianSplatSettingsWidget->layerCapSpinBox->value() : 0); // The tick bypasses the cap without clearing the value, so an A/B keeps the setting - see the checkbox's tooltip.
