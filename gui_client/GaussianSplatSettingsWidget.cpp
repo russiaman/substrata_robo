@@ -52,6 +52,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->frustumCullCheckBox,              SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->filterDilationLatencyDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
 	connect(this->filterMinRotRateDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
+	connect(this->filterMaxRotRateDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION071
 	connect(this->filterMinTransRateDoubleSpinBox,  SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
 	connect(this->coarseFloorCheckBox,              SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION063 K4
 	connect(this->coarsePixelScaleDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K4
@@ -174,6 +175,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->frustumCullCheckBox->setChecked(settings_->value("gaussian_splats/frustum_cull", true).toBool()); // SESSION055 - see GaussianSplatRenderer::setFrustumCullEnabled(). SESSION063: also drives the split filter path.
 	this->filterDilationLatencyDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_dilation_latency", 0.06).toDouble()); // SESSION063 K3
 	this->filterMinRotRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_rot_rate", 45.0).toDouble());
+	this->filterMaxRotRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_max_rot_rate", 40.0).toDouble()); // SESSION071
 	this->filterMinTransRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_trans_rate", 2.0).toDouble());
 	this->coarseFloorCheckBox->setChecked(settings_->value("gaussian_splats/coarse_floor", true).toBool()); // SESSION063 K4
 	this->coarsePixelScaleDoubleSpinBox->setValue(settings_->value("gaussian_splats/coarse_pixel_scale", 30.0).toDouble());
@@ -294,6 +296,7 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/frustum_cull", this->frustumCullCheckBox->isChecked());
 		settings->setValue("gaussian_splats/filter_dilation_latency", this->filterDilationLatencyDoubleSpinBox->value()); // SESSION063 K3
 		settings->setValue("gaussian_splats/filter_min_rot_rate", this->filterMinRotRateDoubleSpinBox->value());
+		settings->setValue("gaussian_splats/filter_max_rot_rate", this->filterMaxRotRateDoubleSpinBox->value()); // SESSION071
 		settings->setValue("gaussian_splats/filter_min_trans_rate", this->filterMinTransRateDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/coarse_floor", this->coarseFloorCheckBox->isChecked()); // SESSION063 K4
 		settings->setValue("gaussian_splats/coarse_pixel_scale", this->coarsePixelScaleDoubleSpinBox->value());

@@ -725,6 +725,34 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
        </widget>
       </item>
       <item>
+       <widget class="QDoubleSpinBox" name="filterMaxRotRateDoubleSpinBox">
+        <property name="prefix">
+         <string>rot cap </string>
+        </property>
+        <property name="suffix">
+         <string> deg/s</string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION071: measurement/mitigation cap on the angular rate the split-filter dilation uses (rotation is currently isotropic - same margin on all 6 frustum planes - so a violent flick multiplies the draw list several-fold, session067 §8/§15). Lowering this bounds that cost at the price of edge holes on fast flicks. Default (100000) is effectively uncapped. Applies live.</string>
+        </property>
+        <property name="decimals">
+         <number>0</number>
+        </property>
+        <property name="minimum">
+         <double>15.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>100000.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>20.000000000000000</double>
+        </property>
+        <property name="value">
+         <double>40.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QDoubleSpinBox" name="filterMinTransRateDoubleSpinBox">
         <property name="prefix">
          <string>trans </string>

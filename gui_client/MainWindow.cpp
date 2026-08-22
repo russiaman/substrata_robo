@@ -4138,6 +4138,7 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setSplitFilterEnabled(ui->gaussianSplatSettingsWidget->frustumCullCheckBox->isChecked()); // SESSION063: split filter path is tied to the frustum-cull toggle - see getSplitFilterEnabled().
 	opengl_engine->getSplatRenderer().setFilterDilationLatency((float)ui->gaussianSplatSettingsWidget->filterDilationLatencyDoubleSpinBox->value()); // SESSION063 K3
 	opengl_engine->getSplatRenderer().setFilterMinRotRateDegPerS((float)ui->gaussianSplatSettingsWidget->filterMinRotRateDoubleSpinBox->value());
+	opengl_engine->getSplatRenderer().setFilterMaxRotRateDegPerS((float)ui->gaussianSplatSettingsWidget->filterMaxRotRateDoubleSpinBox->value()); // SESSION071
 	opengl_engine->getSplatRenderer().setFilterMinTransRateMPerS((float)ui->gaussianSplatSettingsWidget->filterMinTransRateDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setCoarseFloorEnabled(ui->gaussianSplatSettingsWidget->coarseFloorCheckBox->isChecked()); // SESSION063 K4
 	opengl_engine->getSplatRenderer().setCoarsePixelScale((float)ui->gaussianSplatSettingsWidget->coarsePixelScaleDoubleSpinBox->value());
