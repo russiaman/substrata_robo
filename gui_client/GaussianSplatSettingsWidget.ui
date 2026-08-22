@@ -2043,6 +2043,16 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
     </layout>
    </item>
    <item row="39" column="0" colspan="2">
+    <widget class="QCheckBox" name="taaEnabledCheckBox">
+     <property name="text">
+      <string>temporal accumulation (TAA)</string>
+     </property>
+     <property name="toolTip">
+      <string>SESSION069 - Renders each frame with a subpixel jitter applied to the splat projection, and averages the resolved splat layer with previous frames' resolves.  In stillness the buffer converges to roughly full-frame quality over ceil(1/scale)^2 frames (about 4 at buffer scale 0.5).  Ghosting is impossible by construction: the scene is static (no motion vectors are ever needed) and the history counter is reset on ANY change - camera move, viewport/scale change, LoD apply, settings change, cloud add/remove.  Inert at buffer scale 1 (no sub-frame-pixel information to reconstruct) and while DoF weighted depth is on (the resolve needs to write gl_FragDepth in that mode, incompatible with drawing into a colour-only TAA target).</string>
+     </property>
+    </widget>
+   </item>
+   <item row="40" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>

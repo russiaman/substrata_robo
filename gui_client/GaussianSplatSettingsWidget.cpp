@@ -90,6 +90,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->deconvGainDoubleSpinBox,          SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->rcasEnabledCheckBox,              SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->rcasSharpnessDoubleSpinBox,       SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->taaEnabledCheckBox,               SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION069
 	connect(this->dofDepthModeComboBox,             SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged()));
 	connect(this->distClampMinDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->distClampMaxDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
@@ -216,6 +217,8 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->deconvGainDoubleSpinBox->setValue(1.0);
 	this->rcasEnabledCheckBox->setChecked(false);
 	this->rcasSharpnessDoubleSpinBox->setValue(0.5);
+	// SESSION069 - TAA off by default, same reason as the enhancers above.
+	this->taaEnabledCheckBox->setChecked(false);
 	// Off by default, matching upstream behaviour: splats don't write depth, so DoF blurs them as it always has.
 	// The two other modes both change how splats look under DoF/fog and should be an opt-in for new installs.
 	{

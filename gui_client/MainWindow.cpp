@@ -4180,6 +4180,8 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setDeconvGain((float)ui->gaussianSplatSettingsWidget->deconvGainDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setRCASEnabled(ui->gaussianSplatSettingsWidget->rcasEnabledCheckBox->isChecked());
 	opengl_engine->getSplatRenderer().setRCASSharpness((float)ui->gaussianSplatSettingsWidget->rcasSharpnessDoubleSpinBox->value());
+	// SESSION069 - temporal accumulation (TAA super-resolution). Inert at buffer scale 1 by construction.
+	opengl_engine->getSplatRenderer().setTAAEnabled(ui->gaussianSplatSettingsWidget->taaEnabledCheckBox->isChecked());
 	opengl_engine->getSplatRenderer().setDoFDepthMode(ui->gaussianSplatSettingsWidget->dofDepthModeComboBox->currentIndex()); // See GaussianSplatRenderer::SplatDoFDepthMode.
 	// Clip follows the combo box, so it has to stand down in the coverage-map modes, which are not one of its measures.
 	// Not merely pointless there but destructive: hiding overdraw switches the saturation gate off, and the gate's mark
