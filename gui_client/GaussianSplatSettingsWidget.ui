@@ -888,27 +888,27 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
        </widget>
       </item>
       <item>
-       <widget class="QDoubleSpinBox" name="mergeAlphaBoostDoubleSpinBox">
+       <widget class="QDoubleSpinBox" name="mergeSpreadWidenDoubleSpinBox">
         <property name="prefix">
-         <string>a-boost </string>
+         <string>widen </string>
         </property>
         <property name="toolTip">
-         <string>SESSION071 DIAGNOSTIC: multiplier on merged (non-leaf) LoD node opacity, clamped to 1. Exists to separate the two candidate causes of the darkening of bright dense surfaces (bridge facing, gravel) that survived the energy merge: if raising this removes the darkening, the merged opacity is still too low there and the dark background is showing through; if it only flattens the image and the grey stays, the colour itself is being averaged with interior splats that real front-to-back compositing never shows. Compounds up the tree, so it is a probe, not a calibration knob. 1 = off. Applies live.</string>
+         <string>SESSION071: how much wider than plain moment-matching a MERGED LoD node's Gaussian is drawn, applied along the spread of its children only - leaves keep their authored size and a flat surface keeps its thickness, so widening does not turn a wall into fog. At 1 (plain moment-matching) the merge produces sigma = L/sqrt(12) = 0.29*L for children filling a cell of width L, while smooth coverage needs sigma/d &gt;~ 0.5; the resulting ~30% ripple in the sum of neighbouring Gaussians shows as a blurred lattice on flat surfaces and reads as darkening, because compositing is concave - peaks lose their excess to saturation while troughs let the dark background through. Isolated on the ablation ladder: stage 7 (flat alpha) keeps the brightness, stage 8 (Gaussian falloff) loses it. Default sqrt(3) = 1.73 is analytic, not tuned: children of half-width h give sigma_spread = h/sqrt(3), the neighbour sits at d = 2h, and sigma &gt;= 0.5*d gives sqrt(3). Re-bakes on change (no traversal).</string>
         </property>
         <property name="decimals">
-         <number>2</number>
+         <number>3</number>
         </property>
         <property name="minimum">
          <double>1.000000000000000</double>
         </property>
         <property name="maximum">
-         <double>8.000000000000000</double>
+         <double>3.000000000000000</double>
         </property>
         <property name="singleStep">
-         <double>0.250000000000000</double>
+         <double>0.050000000000000</double>
         </property>
         <property name="value">
-         <double>1.000000000000000</double>
+         <double>1.732000000000000</double>
         </property>
        </widget>
       </item>
@@ -1419,6 +1419,34 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
       <property name="bottomMargin">
        <number>0</number>
       </property>
+      <item>
+       <widget class="QDoubleSpinBox" name="pointSizePxDoubleSpinBox">
+        <property name="prefix">
+         <string>pt </string>
+        </property>
+        <property name="suffix">
+         <string> px</string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION071 DIAGNOSTIC: side, in pixels, of the point quad that ablation stages 2-5 emit. Those stages collapse each splat to a single pixel so that fill drops out of the timing, which leaves the point cloud too sparse to read colour off. Widening it gives up the timing meaning of those stages in exchange for a legible picture of the colour each selected splat carries with blending switched off - which is what separates &quot;the bright splats are missing from the selection&quot; from &quot;the bright splats are there and the blend is losing them&quot;. 1 = the original one-pixel behaviour. Only affects stages 2-5; stage 0/6 are untouched.</string>
+        </property>
+        <property name="decimals">
+         <number>1</number>
+        </property>
+        <property name="minimum">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>64.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="value">
+         <double>1.000000000000000</double>
+        </property>
+       </widget>
+      </item>
       <item>
        <widget class="QDoubleSpinBox" name="quadRadiusScaleDoubleSpinBox">
         <property name="toolTip">

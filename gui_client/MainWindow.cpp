@@ -4148,7 +4148,7 @@ void MainWindow::gaussianSplatSettingsChanged()
 	// change path costs nothing; when it does change it re-derives and re-uploads the merged colours - see setMergeColourMode().
 	opengl_engine->getSplatRenderer().setMergeColourMode(ui->gaussianSplatSettingsWidget->energyMergeColourCheckBox->isChecked() ?
 		GaussianSplatMergeColourMode_Energy : GaussianSplatMergeColourMode_Legacy);
-	opengl_engine->getSplatRenderer().setMergeAlphaBoost((float)ui->gaussianSplatSettingsWidget->mergeAlphaBoostDoubleSpinBox->value()); // SESSION071 diagnostic
+	opengl_engine->getSplatRenderer().setMergeSpreadWiden((float)ui->gaussianSplatSettingsWidget->mergeSpreadWidenDoubleSpinBox->value()); // SESSION071
 	// Draw-path only, so unlike the settings above these don't need a traversal refresh to take effect.
 	opengl_engine->getSplatRenderer().setLayerCap(ui->gaussianSplatSettingsWidget->layerCapOnCheckBox->isChecked() ?
 		ui->gaussianSplatSettingsWidget->layerCapSpinBox->value() : 0); // The tick bypasses the cap without clearing the value, so an A/B keeps the setting - see the checkbox's tooltip.
@@ -4159,6 +4159,7 @@ void MainWindow::gaussianSplatSettingsChanged()
 	// GaussianSplatRenderer::getAblationStage().
 	opengl_engine->getSplatRenderer().setAblationStage(ui->gaussianSplatSettingsWidget->ablationStageComboBox->currentIndex());
 	opengl_engine->getSplatRenderer().setQuadRadiusScale((float)ui->gaussianSplatSettingsWidget->quadRadiusScaleDoubleSpinBox->value()); // DIAGNOSTIC ONLY - see getQuadRadiusScale().
+	opengl_engine->getSplatRenderer().setPointSizePx((float)ui->gaussianSplatSettingsWidget->pointSizePxDoubleSpinBox->value()); // SESSION071 diagnostic
 	opengl_engine->getSplatRenderer().setAreaScaleGamma((float)ui->gaussianSplatSettingsWidget->areaScaleGammaDoubleSpinBox->value()); // DIAGNOSTIC ONLY - see getAreaScaleGamma().
 	opengl_engine->getSplatRenderer().setAreaScaleRefPx((float)ui->gaussianSplatSettingsWidget->areaScaleRefPxDoubleSpinBox->value()); // DIAGNOSTIC ONLY - see getAreaScaleRefPx().
 	opengl_engine->getSplatRenderer().setHideTestConservative(ui->gaussianSplatSettingsWidget->hideTestComboBox->currentIndex() == 0);

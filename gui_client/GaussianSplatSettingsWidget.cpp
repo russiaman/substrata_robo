@@ -59,7 +59,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->coarseDilationLatencyDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K4
 	connect(this->coarseLayerDebugCheckBox,         SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION063 K4
 	connect(this->energyMergeColourCheckBox,        SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION071
-	connect(this->mergeAlphaBoostDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION071 diagnostic
+	connect(this->mergeSpreadWidenDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION071
 	connect(this->numDrawSlicesSpinBox,             SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->drawSliceLimitSpinBox,            SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->visibleSlicingCheckBox,           SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
@@ -80,6 +80,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->coverageCapThresholdDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->coverageCapOnCheckBox,            SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->ablationStageComboBox,            SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged()));
+	connect(this->pointSizePxDoubleSpinBox,         SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION071 diagnostic
 	connect(this->quadRadiusScaleDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->areaScaleGammaDoubleSpinBox,      SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->areaScaleRefPxDoubleSpinBox,      SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
@@ -155,6 +156,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->coverageCapOnCheckBox->setChecked(false); // Not persisted, for the same reason as the layer cap's tick above.
 	this->ablationStageComboBox->setCurrentIndex(0); // Not persisted: every stage but 0 draws a deliberately incomplete picture, and finding one still selected after a restart would read as a broken scene.
 	this->quadRadiusScaleDoubleSpinBox->setValue(1.0); // Not persisted either, and for the same reason: anything but 1 is a deliberately wrong picture.
+	this->pointSizePxDoubleSpinBox->setValue(1.0); // SESSION071: not persisted, same reason - it is a measurement aid for the ablation stages, not a picture setting.
 	this->areaScaleGammaDoubleSpinBox->setValue(1.0); // Not persisted, same reason - inert while quad radius scale is 1, but kept off by default like the rest of this row.
 	this->areaScaleRefPxDoubleSpinBox->setValue(20.0);
 	this->hideTestComboBox->setCurrentIndex(settings_->value("gaussian_splats/hide_test_centre", false).toBool() ? 1 : 0); // Conservative by default: it is the only one of the two that leaves a picture.
@@ -180,7 +182,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->filterMaxRotRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_max_rot_rate", 40.0).toDouble()); // SESSION071
 	this->filterMinTransRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_trans_rate", 2.0).toDouble());
 	this->energyMergeColourCheckBox->setChecked(settings_->value("gaussian_splats/energy_merge_colour", true).toBool()); // SESSION071
-	this->mergeAlphaBoostDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_alpha_boost", 1.0).toDouble()); // SESSION071 diagnostic
+	this->mergeSpreadWidenDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_spread_widen", 1.732).toDouble()); // SESSION071
 	this->coarseFloorCheckBox->setChecked(settings_->value("gaussian_splats/coarse_floor", true).toBool()); // SESSION063 K4
 	this->coarsePixelScaleDoubleSpinBox->setValue(settings_->value("gaussian_splats/coarse_pixel_scale", 30.0).toDouble());
 	this->coarseDilationLatencyDoubleSpinBox->setValue(settings_->value("gaussian_splats/coarse_dilation_latency", 0.9).toDouble());
@@ -303,7 +305,7 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/filter_max_rot_rate", this->filterMaxRotRateDoubleSpinBox->value()); // SESSION071
 		settings->setValue("gaussian_splats/filter_min_trans_rate", this->filterMinTransRateDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/energy_merge_colour", this->energyMergeColourCheckBox->isChecked()); // SESSION071
-		settings->setValue("gaussian_splats/merge_alpha_boost", this->mergeAlphaBoostDoubleSpinBox->value()); // SESSION071 diagnostic
+		settings->setValue("gaussian_splats/merge_spread_widen", this->mergeSpreadWidenDoubleSpinBox->value()); // SESSION071
 		settings->setValue("gaussian_splats/coarse_floor", this->coarseFloorCheckBox->isChecked()); // SESSION063 K4
 		settings->setValue("gaussian_splats/coarse_pixel_scale", this->coarsePixelScaleDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/coarse_dilation_latency", this->coarseDilationLatencyDoubleSpinBox->value());
