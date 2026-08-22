@@ -4148,6 +4148,7 @@ void MainWindow::gaussianSplatSettingsChanged()
 	// change path costs nothing; when it does change it re-derives and re-uploads the merged colours - see setMergeColourMode().
 	opengl_engine->getSplatRenderer().setMergeColourMode(ui->gaussianSplatSettingsWidget->energyMergeColourCheckBox->isChecked() ?
 		GaussianSplatMergeColourMode_Energy : GaussianSplatMergeColourMode_Legacy);
+	opengl_engine->getSplatRenderer().setMergeAlphaBoost((float)ui->gaussianSplatSettingsWidget->mergeAlphaBoostDoubleSpinBox->value()); // SESSION071 diagnostic
 	// Draw-path only, so unlike the settings above these don't need a traversal refresh to take effect.
 	opengl_engine->getSplatRenderer().setLayerCap(ui->gaussianSplatSettingsWidget->layerCapOnCheckBox->isChecked() ?
 		ui->gaussianSplatSettingsWidget->layerCapSpinBox->value() : 0); // The tick bypasses the cap without clearing the value, so an A/B keeps the setting - see the checkbox's tooltip.

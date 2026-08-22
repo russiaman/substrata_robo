@@ -883,7 +883,32 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
          <string>SESSION071: derive a merged LoD node's colour + opacity from conservation of on-screen premultiplied energy (weight = opacity * silhouette AREA; opacity = 1 - (1 - mean_alpha)^layers) instead of the session063 volume-ratio amplitude. Fixes two artefacts that grow with the pixel scale limit: bright dense regions merging to flat clipped white (the old A&gt;1 branch scaled colour into the clamp), and widely-spread groups going transparent and dark (the old amplitude divided by a parent VOLUME inflated by the merge's spread-of-centres term). Re-derives colours on the loaded scene - no reload, no re-traversal. Applies live.</string>
         </property>
         <property name="checked">
-         <bool>false</bool>
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="mergeAlphaBoostDoubleSpinBox">
+        <property name="prefix">
+         <string>a-boost </string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION071 DIAGNOSTIC: multiplier on merged (non-leaf) LoD node opacity, clamped to 1. Exists to separate the two candidate causes of the darkening of bright dense surfaces (bridge facing, gravel) that survived the energy merge: if raising this removes the darkening, the merged opacity is still too low there and the dark background is showing through; if it only flattens the image and the grey stays, the colour itself is being averaged with interior splats that real front-to-back compositing never shows. Compounds up the tree, so it is a probe, not a calibration knob. 1 = off. Applies live.</string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>8.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.250000000000000</double>
+        </property>
+        <property name="value">
+         <double>1.000000000000000</double>
         </property>
        </widget>
       </item>
