@@ -202,23 +202,23 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// is about 16 ms with no artefacts, i.e. cheaper than mode 1 ever managed and correct as well - session051.
 	this->coverageShrinkModeComboBox->setCurrentIndex(2);
 	this->accumBuffer8BitCheckBox->setChecked(settings_->value("gaussian_splats/accum_buffer_8bit", false).toBool());
-	// SESSION067 - not persisted, deliberately, for the same reason the coverage-shrink knobs above are not: this one
-	// changes what every timing in the session means, so a fixed starting point of 1 (off) is what keeps one session's
-	// measurements comparable with the next one's. The bilinear switch rides along with it.
-	this->accumBufferScaleDoubleSpinBox->setValue(1.0);
+	// SESSION070 - not persisted, deliberately (a session should always start from a known, comparable point) - but the
+	// starting point itself is now the owner's settled working point rather than "everything off": 0.5 buffer scale with
+	// deconvolution + RCAS + TAA all on, at the gain/sharpness values the owner converged on across session069/070. The
+	// bilinear switch rides along with it.
+	this->accumBufferScaleDoubleSpinBox->setValue(0.5);
 	this->accumUpsampleBilinearCheckBox->setChecked(true);
 	// Likewise not persisted - a slice left on would silently make the next session's frame a fraction of the cloud.
 	this->areaSliceModeComboBox->setCurrentIndex(0);
 	this->areaSlicePxDoubleSpinBox->setValue(256.0);
-	// SESSION068 - post-processing enhancers.  Not persisted: they only do anything at buffer scale < 1, which is itself
-	// not persisted, and both need A/B comparison against off to be measured meaningfully - so "off, at derived defaults"
-	// is the honest starting point for every session.
-	this->deconvEnabledCheckBox->setChecked(false);
-	this->deconvGainDoubleSpinBox->setValue(1.0);
-	this->rcasEnabledCheckBox->setChecked(false);
-	this->rcasSharpnessDoubleSpinBox->setValue(0.5);
-	// SESSION069 - TAA off by default, same reason as the enhancers above.
-	this->taaEnabledCheckBox->setChecked(false);
+	// SESSION068/070 - post-processing enhancers.  Not persisted, for the same reason the buffer scale above is not -
+	// but on by default now, at the owner's settled values (session069 §2, session070).
+	this->deconvEnabledCheckBox->setChecked(true);
+	this->deconvGainDoubleSpinBox->setValue(3.0);
+	this->rcasEnabledCheckBox->setChecked(true);
+	this->rcasSharpnessDoubleSpinBox->setValue(0.6);
+	// SESSION069/070 - TAA on by default now too, same reasoning as the enhancers above.
+	this->taaEnabledCheckBox->setChecked(true);
 	// Off by default, matching upstream behaviour: splats don't write depth, so DoF blurs them as it always has.
 	// The two other modes both change how splats look under DoF/fog and should be an opt-in for new installs.
 	{
