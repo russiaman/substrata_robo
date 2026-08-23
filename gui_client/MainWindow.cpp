@@ -4144,6 +4144,10 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setCoarsePixelScale((float)ui->gaussianSplatSettingsWidget->coarsePixelScaleDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setFilterCoarseDilationLatency((float)ui->gaussianSplatSettingsWidget->coarseDilationLatencyDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setCoarseLayerDebug(ui->gaussianSplatSettingsWidget->coarseLayerDebugCheckBox->isChecked()); // SESSION063 K4 debug
+	// SESSION072: live console log toggles - see GaussianSplatRenderer::getFilterDebugLog()'s comment. Off by default: measured to cost real frame time while firing every frame during motion.
+	opengl_engine->getSplatRenderer().setFilterDebugLog(ui->gaussianSplatSettingsWidget->filterLogCheckBox->isChecked());
+	opengl_engine->getSplatRenderer().setKickDebugLog(ui->gaussianSplatSettingsWidget->kickLogCheckBox->isChecked());
+	opengl_engine->getSplatRenderer().setCpuProfLog(ui->gaussianSplatSettingsWidget->profLogCheckBox->isChecked());
 	// SESSION071: the setter itself is a no-op unless the mode actually changed, so calling it from this every-settings-
 	// change path costs nothing; when it does change it re-derives and re-uploads the merged colours - see setMergeColourMode().
 	opengl_engine->getSplatRenderer().setMergeColourMode(ui->gaussianSplatSettingsWidget->energyMergeColourCheckBox->isChecked() ?

@@ -116,6 +116,11 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->presetComboBox,                   SIGNAL(currentIndexChanged(int)), this, SLOT(presetSelected(int)));
 	connect(this->savePresetPushButton,             SIGNAL(clicked()), this, SLOT(savePresetClicked()));
 
+	// SESSION072: "Console logs" row.
+	connect(this->filterLogCheckBox,                SIGNAL(toggled(bool)), this, SLOT(settingsChanged()));
+	connect(this->kickLogCheckBox,                  SIGNAL(toggled(bool)), this, SLOT(settingsChanged()));
+	connect(this->profLogCheckBox,                  SIGNAL(toggled(bool)), this, SLOT(settingsChanged()));
+
 	// activated(int) fires only on user interaction, not on programmatic model updates, so the ~1Hz refresh from
 	// MainWindow can't accidentally re-select anything.
 	connect(this->sceneSplatsComboBox,              SIGNAL(activated(int)), this, SLOT(splatComboActivated(int)));
@@ -157,7 +162,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->sizeClampInvertCheckBox->setChecked(settings_->value("gaussian_splats/size_clamp_invert", false).toBool());
 	this->ewaProjectionFixCheckBox->setChecked(settings_->value("gaussian_splats/ewa_projection_fix", true).toBool());
 	this->nearFadeWidthDoubleSpinBox->setValue(settings_->value("gaussian_splats/near_fade_width", 0.3).toDouble());
-	this->alphaCutoffDoubleSpinBox->setValue(settings_->value("gaussian_splats/alpha_cutoff", 0.2).toDouble()); // SESSION072: was 1/255 (lossless); 0.2 trims low-opacity quads for less overdraw.
+	this->alphaCutoffDoubleSpinBox->setValue(settings_->value("gaussian_splats/alpha_cutoff", 0.0201).toDouble()); // SESSION072: was 1/255 (lossless); 0.0201 owner-corrected value.
 	this->layerCapSpinBox->setValue(settings_->value("gaussian_splats/layer_cap", 0).toInt()); // 0 = uncapped, i.e. the pass as it was before this existed.
 	this->layerCapOpaqueCheckBox->setChecked(settings_->value("gaussian_splats/layer_cap_opaque", true).toBool());
 	this->layerCapOnCheckBox->setChecked(false); // Deliberately not persisted, like the other A/B switches: a session starting with a cap silently applied would look like broken LoD.
@@ -175,6 +180,12 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// something to find, which is what everything riding on the saturation gate depends on.
 	this->visibleSlicingCheckBox->setChecked(true);
 	this->showDebugCheckBox->setChecked(false); // Deliberately not persisted - a momentary debug view, not a preference; starting a session with it silently on would be confusing.
+	// SESSION072: console log toggles - deliberately not persisted, for the same reason as the debug view above. They
+	// cost real frame time while on (measured - main-thread conPrint(), flushed per line, firing every frame during
+	// motion), so a session should never silently start already paying for logging nobody asked to see.
+	this->filterLogCheckBox->setChecked(false);
+	this->kickLogCheckBox->setChecked(false);
+	this->profLogCheckBox->setChecked(false);
 	this->debugModeComboBox->setCurrentIndex(0); // Overdraw. Not persisted either, for the same reason - it only says which measure the view above shows.
 	// Not persisted, like the other A/B switches: both reduce modes have to start a session in the same place or one
 	// session's numbers cannot be set beside another's. Min rather than the original mean: mean answers a splat that
@@ -186,7 +197,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->maxLayerDensityDoubleSpinBox->setValue(settings_->value("gaussian_splats/max_layer_density", 0.0).toDouble());
 	this->maxTreeDepthSpinBox->setValue(settings_->value("gaussian_splats/max_tree_depth", 0).toInt());
 	this->frustumCullCheckBox->setChecked(settings_->value("gaussian_splats/frustum_cull", true).toBool()); // SESSION055 - see GaussianSplatRenderer::setFrustumCullEnabled(). SESSION063: also drives the split filter path.
-	this->filterDilationLatencyDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_dilation_latency", 0.06).toDouble()); // SESSION063 K3
+	this->filterDilationLatencyDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_dilation_latency", 0.17).toDouble()); // SESSION063 K3, SESSION072: matches measured kick-to-drain round trip.
 	this->filterMinRotRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_rot_rate", 10.0).toDouble()); // SESSION072
 	this->filterMaxRotRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_max_rot_rate", 40.0).toDouble()); // SESSION071
 	this->filterMinTransRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_trans_rate", 10.0).toDouble()); // SESSION072
@@ -422,7 +433,7 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->sizeClampInvertCheckBox->setChecked(false);
 	this->ewaProjectionFixCheckBox->setChecked(true);
 	this->nearFadeWidthDoubleSpinBox->setValue(0.3);
-	this->alphaCutoffDoubleSpinBox->setValue(0.2);
+	this->alphaCutoffDoubleSpinBox->setValue(0.0201);
 	this->layerCapSpinBox->setValue(0);
 	this->layerCapOpaqueCheckBox->setChecked(true);
 	this->layerCapOnCheckBox->setChecked(false);
@@ -437,6 +448,9 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->drawSliceLimitSpinBox->setValue(0);
 	this->visibleSlicingCheckBox->setChecked(true);
 	this->showDebugCheckBox->setChecked(false);
+	this->filterLogCheckBox->setChecked(false);
+	this->kickLogCheckBox->setChecked(false);
+	this->profLogCheckBox->setChecked(false);
 	this->debugModeComboBox->setCurrentIndex(0);
 	this->coverageReduceModeComboBox->setCurrentIndex(1);
 	this->overdrawRangeMinDoubleSpinBox->setValue(2.0);
@@ -444,7 +458,7 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->maxLayerDensityDoubleSpinBox->setValue(0.0);
 	this->maxTreeDepthSpinBox->setValue(0);
 	this->frustumCullCheckBox->setChecked(true);
-	this->filterDilationLatencyDoubleSpinBox->setValue(0.06);
+	this->filterDilationLatencyDoubleSpinBox->setValue(0.17);
 	this->filterMinRotRateDoubleSpinBox->setValue(10.0);
 	this->filterMaxRotRateDoubleSpinBox->setValue(40.0);
 	this->filterMinTransRateDoubleSpinBox->setValue(10.0);

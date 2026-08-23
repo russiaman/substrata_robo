@@ -442,14 +442,14 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
       <string>Alpha cutoff</string>
      </property>
      <property name="toolTip">
-      <string>Per-splat quad radius is cut to exactly where its alpha decays to this value, instead of a fixed 3-sigma bound - lossless at the default (1/255 = 0.0039, matches the fragment shader's own discard), trims low-opacity splats' quads further above that (less overdraw, at the cost of their faintest edge). Applies live.</string>
+      <string>Per-splat quad radius is cut to exactly where its alpha decays to this value, instead of a fixed 3-sigma bound - 1/255 = 0.0039 matches the fragment shader's own discard and is lossless; the shipped default (0.0201) trims low-opacity splats' quads for less overdraw, at the cost of their faintest edge. Applies live.</string>
      </property>
     </widget>
    </item>
    <item row="9" column="1">
     <widget class="QDoubleSpinBox" name="alphaCutoffDoubleSpinBox">
      <property name="toolTip">
-      <string>Per-splat quad radius is cut to exactly where its alpha decays to this value, instead of a fixed 3-sigma bound - 1/255 = 0.0039 matches the fragment shader's own discard and is lossless; the shipped default (0.2) trims low-opacity splats' quads for less overdraw, at the cost of their faintest edge. Applies live.</string>
+      <string>Per-splat quad radius is cut to exactly where its alpha decays to this value, instead of a fixed 3-sigma bound - 1/255 = 0.0039 matches the fragment shader's own discard and is lossless; the shipped default (0.0201) trims low-opacity splats' quads for less overdraw, at the cost of their faintest edge. Applies live.</string>
      </property>
      <property name="decimals">
       <number>4</number>
@@ -464,7 +464,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
       <double>0.001000000000000</double>
      </property>
      <property name="value">
-      <double>0.200000000000000</double>
+      <double>0.020100000000000</double>
      </property>
     </widget>
    </item>
@@ -686,7 +686,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
          <string>latency </string>
         </property>
         <property name="toolTip">
-         <string>SESSION063 K3: split-filter dilation window (seconds). The filter keeps nodes this much "ahead" of the camera's motion so the frustum edge doesn't trail during the filter's latency. Bigger = the edge holds under fast rotation/translation but more off-screen nodes are kept. The old cull path used 0.3. Applies live.</string>
+         <string>SESSION063 K3: split-filter dilation window (seconds). The filter keeps nodes this much "ahead" of the camera's motion so the frustum edge doesn't trail during the filter's latency. Bigger = the edge holds under fast rotation/translation but more off-screen nodes are kept. The old cull path used 0.3. SESSION072: default raised 0.06->0.17 - the ~13ms figure elsewhere is just the filter task's own compute; the actual kick-to-drain round trip measured during a fast flick (millions of survivors to issue/draw) was 136-166ms. Applies live.</string>
         </property>
         <property name="decimals">
          <number>3</number>
@@ -701,7 +701,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
          <double>0.020000000000000</double>
         </property>
         <property name="value">
-         <double>0.060000000000000</double>
+         <double>0.170000000000000</double>
         </property>
        </widget>
       </item>
@@ -736,7 +736,9 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
          <string>rot cap </string>
         </property>
         <property name="toolTip">
-         <string>Units: deg/s. SESSION071: measurement/mitigation cap on the angular rate the split-filter dilation uses (rotation is currently isotropic - same margin on all 6 frustum planes - so a violent flick multiplies the draw list several-fold, session067 §8/§15). Lowering this bounds that cost at the price of edge holes on fast flicks. Default (100000) is effectively uncapped. Applies live.</string>
+         <string>Units: deg/s. REQUIRED: must be greater than "rot" (the min rate floor) - if not, the directional (anisotropic) padding can never exceed the floor's own isotropic padding, so max(floor, directional) always picks the floor and the directional term becomes dead weight - no crash, just quietly back to old-style uniform padding on every plane.
+
+SESSION071/072: cap on the angular rate the split-filter dilation uses for its directional (anisotropic) term - see "rot"'s own tooltip for the floor it's capped against. Lowering this bounds dilation cost during a violent flick at the price of edge holes. Default (100000) is effectively uncapped. Applies live.</string>
         </property>
         <property name="decimals">
          <number>0</number>
@@ -855,7 +857,9 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
          <string> s</string>
         </property>
         <property name="toolTip">
-         <string>SESSION063 K4: dilation window (seconds) for the coarse floor - how far ahead of the camera's motion the coarse patches are kept. Set larger than the fine dilation latency so the cheap coarse patches, not the expensive fine set, cover motion-revealed edges. Applies live.</string>
+         <string>REQUIRED: must be greater than "latency" (Frustum settings1) - if not, the coarse band collapses to zero or negative width and coarse stops covering anything fine doesn't already reach, defeating its whole purpose as a cheap wide safety net.
+
+SESSION063 K4: dilation window (seconds) for the coarse floor - how far ahead of the camera's motion the coarse patches are kept. Applies live.</string>
         </property>
         <property name="decimals">
          <number>3</number>
@@ -2264,6 +2268,67 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
     </widget>
    </item>
    <item row="43" column="0" colspan="2">
+    <widget class="QLabel" name="consoleLogsSectionLabel">
+     <property name="text">
+      <string>Console logs</string>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">font-weight: bold;</string>
+     </property>
+     <property name="toolTip">
+      <string>SESSION072: live toggles for stdout diagnostic traces - previously build-time consts that needed a rebuild to flip. Each print runs on the main thread and costs real frame time while it fires every frame during motion (measured) - leave off unless actively measuring something, and turn back off when done.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="44" column="0" colspan="2">
+    <widget class="QWidget" name="consoleLogsWidget" native="true">
+     <layout class="QHBoxLayout" name="consoleLogsHorizontalLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QCheckBox" name="filterLogCheckBox">
+        <property name="text">
+         <string>filter</string>
+        </property>
+        <property name="toolTip">
+         <string>[gsr-filter-kick] / [gsr-filter-drain] - kickOffFilters()/drainFilterResults(). Costs real frame time while it prints every frame during motion - main thread, flushed per line. Off by default.</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="kickLogCheckBox">
+        <property name="text">
+         <string>kick</string>
+        </property>
+        <property name="toolTip">
+         <string>[gsr-kick] / [gsr-rot-blocked] - kickOffTraversals(). Same cost caveat as "filter" - off by default.</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="profLogCheckBox">
+        <property name="text">
+         <string>prof</string>
+        </property>
+        <property name="toolTip">
+         <string>[gsr-prof] - fillTraversalScratch() and the traversal-result VBO upload (session058). Same cost caveat as "filter" - off by default.</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="45" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
