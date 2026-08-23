@@ -7,6 +7,7 @@ Copyright Glare Technologies Limited 2026 -
 
 
 #include "ui_GaussianSplatSettingsWidget.h"
+#include <QtCore/QVariant>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -71,10 +72,20 @@ protected slots:
 	// GaussianSplatRenderer::getCoverageShrinkMode(). This gives each mode its own remembered value, so flipping the
 	// combo box compares two settings that were each tuned rather than one number reinterpreted.
 	void coverageShrinkModeChanged(int mode);
+
+	// SESSION072: "Settings presets" row at the bottom of the panel.
+	void resetToDefaultsClicked(); // "Reset to default" button - every control back to its shipped default. Presets are untouched.
+	void presetSelected(int index); // Preset dropdown - applies the picked slot's saved state (defaults, until something has been Saved into it).
+	void savePresetClicked(); // "Save" button - writes every control's current value into the currently-selected preset slot.
 private:
 	QSettings* settings;
 
 	// Last value the shrink box held in each mode, indexed by mode - see coverageShrinkModeChanged().
 	double coverage_shrink_value_for_mode[3];
 	int coverage_shrink_prev_mode;
+
+	// SESSION072: snapshot of every spin box/check box/combo box on the panel, keyed by objectName - excludes
+	// sceneSplatsComboBox (a per-scene object list, not a setting) and presetComboBox itself. Used by both the preset
+	// Save button and could be reused for any future "export current settings" need.
+	QVariantMap captureAllValues() const;
 };

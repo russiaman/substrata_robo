@@ -8,6 +8,10 @@ Copyright Glare Technologies Limited 2026 -
 
 #include <QtCore/QSettings>
 #include <QtWidgets/QAbstractItemView>
+#include <QtWidgets/QCheckBox>
+#include <QtWidgets/QComboBox>
+#include <QtWidgets/QDoubleSpinBox>
+#include <QtWidgets/QSpinBox>
 #include <qt/QtUtils.h>
 #include "../qt/SignalBlocker.h"
 
@@ -107,6 +111,11 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->mergeCoplanarPushButton,          SIGNAL(clicked()), this, SIGNAL(mergeCoplanarRequestedSignal()));
 	connect(this->restoreUnmergedPushButton,        SIGNAL(clicked()), this, SIGNAL(restoreUnmergedRequestedSignal()));
 
+	// SESSION072: "Settings presets" row.
+	connect(this->resetToDefaultPushButton,         SIGNAL(clicked()), this, SLOT(resetToDefaultsClicked()));
+	connect(this->presetComboBox,                   SIGNAL(currentIndexChanged(int)), this, SLOT(presetSelected(int)));
+	connect(this->savePresetPushButton,             SIGNAL(clicked()), this, SLOT(savePresetClicked()));
+
 	// activated(int) fires only on user interaction, not on programmatic model updates, so the ~1Hz refresh from
 	// MainWindow can't accidentally re-select anything.
 	connect(this->sceneSplatsComboBox,              SIGNAL(activated(int)), this, SLOT(splatComboActivated(int)));
@@ -136,10 +145,10 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// Defaults here match GaussianSplatRenderer's own hardcoded defaults (pixel_scale_limit, max_splats_budget,
 	// resort_move_threshold_ws) and buildGaussianSplatLodTree()'s default lod_base, so a settings store with no saved
 	// values yet reproduces the same behaviour as before this widget existed.
-	this->pixelScaleLimitDoubleSpinBox->setValue(settings_->value("gaussian_splats/pixel_scale_limit", 1.0).toDouble());
+	this->pixelScaleLimitDoubleSpinBox->setValue(settings_->value("gaussian_splats/pixel_scale_limit", 2.0).toDouble()); // SESSION072
 	this->alphaGainDoubleSpinBox->setValue(settings_->value("gaussian_splats/alpha_gain", 1.0).toDouble());   // 1 and 1 = the stored alpha untouched, see GaussianSplatRenderer::getAlphaGain().
 	this->alphaGammaDoubleSpinBox->setValue(settings_->value("gaussian_splats/alpha_gamma", 1.0).toDouble());
-	this->alphaAdjustIgnoreCheckBox->setChecked(false); // Deliberately not persisted, same as the debug view below: it is an A/B switch, and a session starting with the saved gain/gamma silently bypassed would read as them not working.
+	this->alphaAdjustIgnoreCheckBox->setChecked(true); // SESSION072 default on. Deliberately not persisted, same as the debug view below: it is an A/B switch, and a session starting with the saved gain/gamma silently bypassed would read as them not working.
 	this->maxSplatsBudgetSpinBox->setValue(settings_->value("gaussian_splats/max_splats_budget", 10000000).toInt());
 	this->resortMoveThresholdDoubleSpinBox->setValue(settings_->value("gaussian_splats/resort_move_threshold_ws", 0.1).toDouble());
 	this->lodBaseDoubleSpinBox->setValue(settings_->value("gaussian_splats/lod_base", 1.5).toDouble());
@@ -148,11 +157,11 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->sizeClampInvertCheckBox->setChecked(settings_->value("gaussian_splats/size_clamp_invert", false).toBool());
 	this->ewaProjectionFixCheckBox->setChecked(settings_->value("gaussian_splats/ewa_projection_fix", true).toBool());
 	this->nearFadeWidthDoubleSpinBox->setValue(settings_->value("gaussian_splats/near_fade_width", 0.3).toDouble());
-	this->alphaCutoffDoubleSpinBox->setValue(settings_->value("gaussian_splats/alpha_cutoff", 1.0 / 255.0).toDouble());
+	this->alphaCutoffDoubleSpinBox->setValue(settings_->value("gaussian_splats/alpha_cutoff", 0.2).toDouble()); // SESSION072: was 1/255 (lossless); 0.2 trims low-opacity quads for less overdraw.
 	this->layerCapSpinBox->setValue(settings_->value("gaussian_splats/layer_cap", 0).toInt()); // 0 = uncapped, i.e. the pass as it was before this existed.
 	this->layerCapOpaqueCheckBox->setChecked(settings_->value("gaussian_splats/layer_cap_opaque", true).toBool());
 	this->layerCapOnCheckBox->setChecked(false); // Deliberately not persisted, like the other A/B switches: a session starting with a cap silently applied would look like broken LoD.
-	this->coverageCapThresholdDoubleSpinBox->setValue(settings_->value("gaussian_splats/coverage_cap_threshold", 0.95).toDouble()); // 0.95 coverage = about 3 units of summed alpha, see GaussianSplatRenderer::getCoverageCap().
+	this->coverageCapThresholdDoubleSpinBox->setValue(settings_->value("gaussian_splats/coverage_cap_threshold", 0.96).toDouble()); // SESSION072. ~0.96 coverage is about 3 units of summed alpha, see GaussianSplatRenderer::getCoverageCap(). Widget: "Alpha saturation cap" row.
 	this->coverageCapOnCheckBox->setChecked(false); // Not persisted, for the same reason as the layer cap's tick above.
 	this->ablationStageComboBox->setCurrentIndex(0); // Not persisted: every stage but 0 draws a deliberately incomplete picture, and finding one still selected after a restart would read as a broken scene.
 	this->quadRadiusScaleDoubleSpinBox->setValue(1.0); // Not persisted either, and for the same reason: anything but 1 is a deliberately wrong picture.
@@ -178,17 +187,17 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->maxTreeDepthSpinBox->setValue(settings_->value("gaussian_splats/max_tree_depth", 0).toInt());
 	this->frustumCullCheckBox->setChecked(settings_->value("gaussian_splats/frustum_cull", true).toBool()); // SESSION055 - see GaussianSplatRenderer::setFrustumCullEnabled(). SESSION063: also drives the split filter path.
 	this->filterDilationLatencyDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_dilation_latency", 0.06).toDouble()); // SESSION063 K3
-	this->filterMinRotRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_rot_rate", 45.0).toDouble());
+	this->filterMinRotRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_rot_rate", 10.0).toDouble()); // SESSION072
 	this->filterMaxRotRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_max_rot_rate", 40.0).toDouble()); // SESSION071
-	this->filterMinTransRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_trans_rate", 2.0).toDouble());
+	this->filterMinTransRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_trans_rate", 10.0).toDouble()); // SESSION072
 	this->energyMergeColourCheckBox->setChecked(settings_->value("gaussian_splats/energy_merge_colour", true).toBool()); // SESSION071
-	this->mergeSpreadWidenDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_spread_widen", 1.732).toDouble()); // SESSION071
+	this->mergeSpreadWidenDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_spread_widen", 3.0).toDouble()); // SESSION071
 	this->coarseFloorCheckBox->setChecked(settings_->value("gaussian_splats/coarse_floor", true).toBool()); // SESSION063 K4
-	this->coarsePixelScaleDoubleSpinBox->setValue(settings_->value("gaussian_splats/coarse_pixel_scale", 30.0).toDouble());
+	this->coarsePixelScaleDoubleSpinBox->setValue(settings_->value("gaussian_splats/coarse_pixel_scale", 25.0).toDouble()); // SESSION072
 	this->coarseDilationLatencyDoubleSpinBox->setValue(settings_->value("gaussian_splats/coarse_dilation_latency", 0.9).toDouble());
-	this->numDrawSlicesSpinBox->setValue(settings_->value("gaussian_splats/num_draw_slices", 1).toInt());
-	this->sliceGrowthDoubleSpinBox->setValue(settings_->value("gaussian_splats/slice_growth", 1.0).toDouble());
-	this->saturationGateCheckBox->setChecked(settings_->value("gaussian_splats/saturation_gate", false).toBool());
+	this->numDrawSlicesSpinBox->setValue(settings_->value("gaussian_splats/num_draw_slices", 6).toInt()); // SESSION072
+	this->sliceGrowthDoubleSpinBox->setValue(settings_->value("gaussian_splats/slice_growth", 1.3).toDouble()); // SESSION072
+	this->saturationGateCheckBox->setChecked(settings_->value("gaussian_splats/saturation_gate", true).toBool()); // SESSION072
 	this->saturationThresholdDoubleSpinBox->setValue(settings_->value("gaussian_splats/saturation_threshold", 0.96).toDouble());
 	// A threshold of 0 would mark every pixel as finished the moment the gate ran, so it cannot be a value anyone chose.
 	// It is what the bug described above wrote into existing settings stores before it was fixed; treat it as unset.
@@ -227,10 +236,10 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->rcasSharpnessDoubleSpinBox->setValue(0.6);
 	// SESSION069/070 - TAA on by default now too, same reasoning as the enhancers above.
 	this->taaEnabledCheckBox->setChecked(true);
-	// Off by default, matching upstream behaviour: splats don't write depth, so DoF blurs them as it always has.
-	// The two other modes both change how splats look under DoF/fog and should be an opt-in for new installs.
+	// SESSION072: weighted (index 2) by default - the owner's settled DoF mode, smooth by construction with no
+	// silhouette steps (see the combo box's own tooltip). Was off (0), matching upstream behaviour, before this.
 	{
-		const int stored = settings_->value("gaussian_splats/dof_depth_mode", 0).toInt();
+		const int stored = settings_->value("gaussian_splats/dof_depth_mode", 2).toInt();
 		this->dofDepthModeComboBox->setCurrentIndex((stored < 0) ? 0 : ((stored > 2) ? 2 : stored));
 	}
 	this->clipCheckBox->setChecked(false); // Deliberately not persisted: it removes splats from the picture, and finding it still on after a restart would read as the scene having lost geometry.
@@ -238,16 +247,16 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// looking into a capture, not a preference, and a session that silently started with half the cloud missing would read
 	// as a broken scene rather than as a setting left on.
 	this->distClampMinDoubleSpinBox->setValue(0.0);
-	this->distClampMaxDoubleSpinBox->setValue(1000.0);
+	this->distClampMaxDoubleSpinBox->setValue(10000.0); // SESSION072: was 1000.
 	this->distClampInvertCheckBox->setChecked(false);
 	// Merge tolerances are persisted - unlike the slice, leaving one set has no effect on what is drawn, only on what the
 	// report says, and a sweep is easier to carry across sessions than to retype.
-	this->mergeColourTolDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_colour_tol", 0.1).toDouble());
-	this->mergeAngleTolDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_angle_tol_deg", 26.0).toDouble());
+	this->mergeColourTolDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_colour_tol", 0.15).toDouble()); // SESSION072
+	this->mergeAngleTolDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_angle_tol_deg", 20.0).toDouble()); // SESSION072
 	// The reach the "Merge coplanar" button works to, persisted for the same reason: it changes nothing until the button
 	// is pressed, and a sweep across settings is easier to carry between sessions than to retype.
 	this->mergeAcrossDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_across_cm", 1.0).toDouble());
-	this->mergeThroughDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_through_cm", 5.0).toDouble());
+	this->mergeThroughDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_through_cm", 8.0).toDouble()); // SESSION072
 	this->mergeFlattenCheckBox->setChecked(settings_->value("gaussian_splats/merge_flatten", true).toBool());
 
 	this->settings = settings_; // Last, so that none of the above wrote anything - see the note at the top of this function.
@@ -389,4 +398,176 @@ void GaussianSplatSettingsWidget::setSplatList(const std::vector<std::pair<uint6
 			restore_idx = (int)i;
 	}
 	this->sceneSplatsComboBox->setCurrentIndex(restore_idx);
+}
+
+
+// SESSION072: "Reset to default" - every control back to its shipped default. Deliberately a standalone list rather
+// than routed through init()'s settings_->value(key, default) reads (contract §2: additive, not a rewrite of proven
+// init() code) - the literals below must be kept in sync with init()'s defaults by hand.
+//
+// Setting each control fires its own valueChanged/toggled signal -> settingsChanged(), which persists the new
+// (default) value to QSettings same as any other edit - so this is a real reset, not just a visual one; the next
+// session starts from defaults too, until the user changes something again.
+void GaussianSplatSettingsWidget::resetToDefaultsClicked()
+{
+	this->pixelScaleLimitDoubleSpinBox->setValue(2.0);
+	this->alphaGainDoubleSpinBox->setValue(1.0);
+	this->alphaGammaDoubleSpinBox->setValue(1.0);
+	this->alphaAdjustIgnoreCheckBox->setChecked(true);
+	this->maxSplatsBudgetSpinBox->setValue(10000000);
+	this->resortMoveThresholdDoubleSpinBox->setValue(0.1);
+	this->lodBaseDoubleSpinBox->setValue(1.5);
+	this->sizeClampMinDoubleSpinBox->setValue(0.0);
+	this->sizeClampMaxDoubleSpinBox->setValue(0.0);
+	this->sizeClampInvertCheckBox->setChecked(false);
+	this->ewaProjectionFixCheckBox->setChecked(true);
+	this->nearFadeWidthDoubleSpinBox->setValue(0.3);
+	this->alphaCutoffDoubleSpinBox->setValue(0.2);
+	this->layerCapSpinBox->setValue(0);
+	this->layerCapOpaqueCheckBox->setChecked(true);
+	this->layerCapOnCheckBox->setChecked(false);
+	this->coverageCapThresholdDoubleSpinBox->setValue(0.96);
+	this->coverageCapOnCheckBox->setChecked(false);
+	this->ablationStageComboBox->setCurrentIndex(0);
+	this->quadRadiusScaleDoubleSpinBox->setValue(1.0);
+	this->pointSizePxDoubleSpinBox->setValue(1.0);
+	this->areaScaleGammaDoubleSpinBox->setValue(1.0);
+	this->areaScaleRefPxDoubleSpinBox->setValue(20.0);
+	this->hideTestComboBox->setCurrentIndex(0);
+	this->drawSliceLimitSpinBox->setValue(0);
+	this->visibleSlicingCheckBox->setChecked(true);
+	this->showDebugCheckBox->setChecked(false);
+	this->debugModeComboBox->setCurrentIndex(0);
+	this->coverageReduceModeComboBox->setCurrentIndex(1);
+	this->overdrawRangeMinDoubleSpinBox->setValue(2.0);
+	this->overdrawRangeMaxDoubleSpinBox->setValue(100.0);
+	this->maxLayerDensityDoubleSpinBox->setValue(0.0);
+	this->maxTreeDepthSpinBox->setValue(0);
+	this->frustumCullCheckBox->setChecked(true);
+	this->filterDilationLatencyDoubleSpinBox->setValue(0.06);
+	this->filterMinRotRateDoubleSpinBox->setValue(10.0);
+	this->filterMaxRotRateDoubleSpinBox->setValue(40.0);
+	this->filterMinTransRateDoubleSpinBox->setValue(10.0);
+	this->energyMergeColourCheckBox->setChecked(true);
+	this->mergeSpreadWidenDoubleSpinBox->setValue(3.0);
+	this->coarseFloorCheckBox->setChecked(true);
+	this->coarsePixelScaleDoubleSpinBox->setValue(25.0);
+	this->coarseDilationLatencyDoubleSpinBox->setValue(0.9);
+	this->numDrawSlicesSpinBox->setValue(6);
+	this->sliceGrowthDoubleSpinBox->setValue(1.3);
+	this->saturationGateCheckBox->setChecked(true);
+	this->saturationThresholdDoubleSpinBox->setValue(0.96);
+	this->saturationMaskDownscaleSpinBox->setValue(4);
+	// Bypasses coverageShrinkModeChanged()'s signal-driven park/restore (which is a no-op when the box is already at
+	// index 2, leaving a stale value) - set the mode's remembered array and the box directly instead, so the result
+	// is deterministic regardless of what was selected before the reset.
+	this->coverage_shrink_value_for_mode[0] = 0.0;
+	this->coverage_shrink_value_for_mode[1] = 0.02;
+	this->coverage_shrink_value_for_mode[2] = 0.1;
+	this->coverage_shrink_prev_mode = 2;
+	this->coverageShrinkModeComboBox->setCurrentIndex(2);
+	this->coverageShrinkStrengthDoubleSpinBox->setPrefix("loss ");
+	this->coverageShrinkStrengthDoubleSpinBox->setDecimals(3);
+	this->coverageShrinkStrengthDoubleSpinBox->setSingleStep(0.005);
+	this->coverageShrinkStrengthDoubleSpinBox->setValue(0.1);
+	this->accumBuffer8BitCheckBox->setChecked(false);
+	this->accumBufferScaleDoubleSpinBox->setValue(0.5);
+	this->accumUpsampleBilinearCheckBox->setChecked(true);
+	this->areaSliceModeComboBox->setCurrentIndex(0);
+	this->areaSlicePxDoubleSpinBox->setValue(256.0);
+	this->deconvEnabledCheckBox->setChecked(true);
+	this->deconvGainDoubleSpinBox->setValue(3.0);
+	this->rcasEnabledCheckBox->setChecked(true);
+	this->rcasSharpnessDoubleSpinBox->setValue(0.6);
+	this->taaEnabledCheckBox->setChecked(true);
+	this->dofDepthModeComboBox->setCurrentIndex(2); // weighted
+	this->clipCheckBox->setChecked(false);
+	this->distClampMinDoubleSpinBox->setValue(0.0);
+	this->distClampMaxDoubleSpinBox->setValue(10000.0);
+	this->distClampInvertCheckBox->setChecked(false);
+	this->mergeColourTolDoubleSpinBox->setValue(0.15);
+	this->mergeAngleTolDoubleSpinBox->setValue(20.0);
+	this->mergeAcrossDoubleSpinBox->setValue(1.0);
+	this->mergeThroughDoubleSpinBox->setValue(8.0);
+	this->mergeFlattenCheckBox->setChecked(true);
+}
+
+
+QVariantMap GaussianSplatSettingsWidget::captureAllValues() const
+{
+	QVariantMap values;
+	for(QDoubleSpinBox* w : this->findChildren<QDoubleSpinBox*>())
+		values[w->objectName()] = w->value();
+	for(QSpinBox* w : this->findChildren<QSpinBox*>())
+		values[w->objectName()] = w->value();
+	for(QCheckBox* w : this->findChildren<QCheckBox*>())
+	{
+		if(w == this->hideSplatCheckBox) // Per-selected-object state, not a panel setting - see .h.
+			continue;
+		values[w->objectName()] = w->isChecked();
+	}
+	for(QComboBox* w : this->findChildren<QComboBox*>())
+	{
+		if(w == this->sceneSplatsComboBox || w == this->presetComboBox) // Scene object list / the preset picker itself, not a panel setting.
+			continue;
+		values[w->objectName()] = w->currentIndex();
+	}
+	return values;
+}
+
+
+// SESSION072: preset dropdown - all 5 slots start identical to the shipped defaults (nothing saved into them yet).
+// Resets to defaults first, then overlays whatever this slot has saved (if anything) - so a control added after a
+// preset was last saved still lands on its default rather than being left at whatever the panel happened to show.
+void GaussianSplatSettingsWidget::presetSelected(int index)
+{
+	if(index < 0)
+		return;
+
+	resetToDefaultsClicked();
+
+	if(!this->settings)
+		return;
+
+	const QString group = QString("gaussian_splats/presets/Preset%1").arg(index + 1);
+	this->settings->beginGroup(group);
+	const QStringList keys = this->settings->childKeys();
+	for(const QString& key : keys)
+	{
+		QWidget* w = this->findChild<QWidget*>(key);
+		if(!w)
+			continue;
+		const QVariant val = this->settings->value(key);
+		if(QDoubleSpinBox* dsb = qobject_cast<QDoubleSpinBox*>(w))
+			dsb->setValue(val.toDouble());
+		else if(QSpinBox* sb = qobject_cast<QSpinBox*>(w))
+			sb->setValue(val.toInt());
+		else if(QCheckBox* cb = qobject_cast<QCheckBox*>(w))
+			cb->setChecked(val.toBool());
+		else if(QComboBox* cmb = qobject_cast<QComboBox*>(w))
+			cmb->setCurrentIndex(val.toInt());
+	}
+	this->settings->endGroup();
+}
+
+
+// SESSION072: "Save" button - writes every control's current value into the selected preset slot, persisted via
+// QSettings like the rest of the panel's state (so presets survive an app restart too, not just this session -
+// piggy-backing on existing persistence rather than adding a separate store). Doesn't touch any other slot.
+void GaussianSplatSettingsWidget::savePresetClicked()
+{
+	if(!this->settings)
+		return;
+
+	const int index = this->presetComboBox->currentIndex();
+	if(index < 0)
+		return;
+
+	const QString group = QString("gaussian_splats/presets/Preset%1").arg(index + 1);
+	this->settings->beginGroup(group);
+	this->settings->remove(""); // Clear anything saved previously, so a control that no longer exists can't linger as a stale key.
+	const QVariantMap values = captureAllValues();
+	for(auto it = values.constBegin(); it != values.constEnd(); ++it)
+		this->settings->setValue(it.key(), it.value());
+	this->settings->endGroup();
 }
