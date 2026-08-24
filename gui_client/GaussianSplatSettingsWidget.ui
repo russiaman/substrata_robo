@@ -1770,7 +1770,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
       <string>Distance slice min/max (m)</string>
      </property>
      <property name="toolTip">
-      <string>Slices the cloud open by distance from the camera, so you can look inside it a shell at a time. Shows only splats whose distance from the camera lies inside [min, max] metres; tick Invert to hide that shell instead and see through it. The distance is measured from the camera position, so the slice is a spherical shell and turning on the spot does not change what survives. Default (0, 1000) shows everything. Applies live, in the vertex shader - no re-traversal, and free when left wide open.</string>
+      <string>Slices the cloud open by distance from the camera, so you can look inside it a shell at a time. Shows only splats whose distance from the camera lies inside [min, max] metres; tick Invert to hide that shell instead and see through it. The distance is measured from the camera position, so the slice is a spherical shell and turning on the spot does not change what survives. Requires the checkbox to its left to be ticked - unchecked, these fields have no effect. SESSION072: when enabled, applies both at LoD-traversal time (whole out-of-range subtrees pruned before the CPU pipeline spends anything on them) and in the vertex shader (the final per-splat cut). Applies live either way, no restart needed.</string>
      </property>
     </widget>
    </item>
@@ -1789,6 +1789,16 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
       <property name="bottomMargin">
        <number>0</number>
       </property>
+      <item>
+       <widget class="QCheckBox" name="distClampEnabledCheckBox">
+        <property name="text">
+         <string></string>
+        </property>
+        <property name="toolTip">
+         <string>Enable/disable the distance-slice clamping functionality (min/max/Invert below). Unchecked (default): fully inert - no effect on what is drawn, in the shader or the traversal. SESSION072: checked also prunes whole out-of-range subtrees at LoD-traversal time (not just discarding per-splat in the shader afterwards), so isolating a shell no longer pays the full CPU/GPU cost of everything outside it.</string>
+        </property>
+       </widget>
+      </item>
       <item>
        <widget class="QDoubleSpinBox" name="distClampMinDoubleSpinBox">
         <property name="decimals">

@@ -4200,6 +4200,7 @@ void MainWindow::gaussianSplatSettingsChanged()
 	const bool splat_clip = ui->gaussianSplatSettingsWidget->clipCheckBox->isChecked() && !show_coverage_map;
 	opengl_engine->getSplatRenderer().setHideOverdrawEnabled(splat_clip && splat_debug_measure == 1);
 	opengl_engine->getSplatRenderer().setHideAlphaEnabled(splat_clip && splat_debug_measure == 2);
+	opengl_engine->getSplatRenderer().setDistClampEnabled(ui->gaussianSplatSettingsWidget->distClampEnabledCheckBox->isChecked()); // SESSION072
 	opengl_engine->getSplatRenderer().setDistClampMin((float)ui->gaussianSplatSettingsWidget->distClampMinDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setDistClampMax((float)ui->gaussianSplatSettingsWidget->distClampMaxDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setDistClampInvert(ui->gaussianSplatSettingsWidget->distClampInvertCheckBox->isChecked());

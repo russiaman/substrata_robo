@@ -100,6 +100,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->rcasSharpnessDoubleSpinBox,       SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->taaEnabledCheckBox,               SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION069
 	connect(this->dofDepthModeComboBox,             SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged()));
+	connect(this->distClampEnabledCheckBox,         SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION072
 	connect(this->distClampMinDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->distClampMaxDoubleSpinBox,        SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->distClampInvertCheckBox,          SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
@@ -257,6 +258,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// The distance slice is deliberately not persisted, for the same reason as the overdraw view: it is a momentary way of
 	// looking into a capture, not a preference, and a session that silently started with half the cloud missing would read
 	// as a broken scene rather than as a setting left on.
+	this->distClampEnabledCheckBox->setChecked(false); // SESSION072: same reasoning as the fields below - not persisted, a session should never silently start with part of the cloud pruned.
 	this->distClampMinDoubleSpinBox->setValue(0.0);
 	this->distClampMaxDoubleSpinBox->setValue(10000.0); // SESSION072: was 1000.
 	this->distClampInvertCheckBox->setChecked(false);
@@ -496,6 +498,7 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->taaEnabledCheckBox->setChecked(true);
 	this->dofDepthModeComboBox->setCurrentIndex(2); // weighted
 	this->clipCheckBox->setChecked(false);
+	this->distClampEnabledCheckBox->setChecked(false);
 	this->distClampMinDoubleSpinBox->setValue(0.0);
 	this->distClampMaxDoubleSpinBox->setValue(10000.0);
 	this->distClampInvertCheckBox->setChecked(false);
