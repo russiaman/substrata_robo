@@ -125,6 +125,7 @@ private slots:;
 	void layerCapEstimateRequested(); // DIAGNOSTIC ONLY - see OpenGLEngine::estimateSplatLayerCapSaving().
 	void mergeCoplanarSplatsRequested();
 	void restoreUnmergedSplatsRequested();
+	void rebuildLodsRequested(); // SESSION073
 	void diagnosticsScrollChanged();
 	void sendChatMessageSlot();
 	void sendLightmapNeededFlagsSlot();

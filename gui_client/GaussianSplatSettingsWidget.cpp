@@ -24,6 +24,12 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 {
 	setupUi(this);
 
+	// SESSION073: accumUpsampleModeComboBox replaces the old bilinear-upsample checkbox with a 2-item dropdown (room to
+	// grow past two without another UI rework) - per-item tooltips aren't settable from the .ui file, so set here. Order
+	// matches the .ui item order (index 0 = nearest, 1 = bilinear).
+	this->accumUpsampleModeComboBox->setItemData(0, tr("Nearest: reads the downscaled accumulation buffer back up to the frame with no interpolation, i.e. visibly blocky. Kept as a diagnostic - seeing the blocks is how one confirms the buffer really is smaller, and it is the honest baseline the bilinear cost is compared against."), Qt::ToolTipRole);
+	this->accumUpsampleModeComboBox->setItemData(1, tr("Bilinear: what makes the downscale usable. A splat is a Gaussian, so its screen footprint is band-limited by construction, and a smooth reconstruction of it loses far less than the same downscale would on ordinary geometry."), Qt::ToolTipRole);
+
 	// Per-mode starting values for the shared shrink box - see coverageShrinkModeChanged(). Mode 0 starts off; mode 1
 	// starts at the setting measured to be worth having, which init() then selects - see there.
 	coverage_shrink_value_for_mode[0] = 0.0;
@@ -91,7 +97,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->hideTestComboBox,                 SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged()));
 	connect(this->accumBuffer8BitCheckBox,          SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->accumBufferScaleDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION067
-	connect(this->accumUpsampleBilinearCheckBox,    SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
+	connect(this->accumUpsampleModeComboBox,        SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged())); // SESSION073: was accumUpsampleBilinearCheckBox.
 	connect(this->areaSliceModeComboBox,            SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged())); // SESSION067 DIAGNOSTIC
 	connect(this->areaSlicePxDoubleSpinBox,         SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->deconvEnabledCheckBox,            SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION068
@@ -111,6 +117,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->mergeFlattenCheckBox,             SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
 	connect(this->mergeCoplanarPushButton,          SIGNAL(clicked()), this, SIGNAL(mergeCoplanarRequestedSignal()));
 	connect(this->restoreUnmergedPushButton,        SIGNAL(clicked()), this, SIGNAL(restoreUnmergedRequestedSignal()));
+	connect(this->rebuildLodsPushButton,            SIGNAL(clicked()), this, SIGNAL(rebuildLodsRequestedSignal())); // SESSION073
 
 	// SESSION072: "Settings presets" row.
 	connect(this->resetToDefaultPushButton,         SIGNAL(clicked()), this, SLOT(resetToDefaultsClicked()));
@@ -236,7 +243,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// deconvolution + RCAS + TAA all on, at the gain/sharpness values the owner converged on across session069/070. The
 	// bilinear switch rides along with it.
 	this->accumBufferScaleDoubleSpinBox->setValue(0.5);
-	this->accumUpsampleBilinearCheckBox->setChecked(true);
+	this->accumUpsampleModeComboBox->setCurrentIndex(1); // Bilinear - see the combobox's item tooltips.
 	// Likewise not persisted - a slice left on would silently make the next session's frame a fraction of the cloud.
 	this->areaSliceModeComboBox->setCurrentIndex(0);
 	this->areaSlicePxDoubleSpinBox->setValue(256.0);
@@ -488,7 +495,7 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->coverageShrinkStrengthDoubleSpinBox->setValue(0.1);
 	this->accumBuffer8BitCheckBox->setChecked(false);
 	this->accumBufferScaleDoubleSpinBox->setValue(0.5);
-	this->accumUpsampleBilinearCheckBox->setChecked(true);
+	this->accumUpsampleModeComboBox->setCurrentIndex(1); // Bilinear - see the combobox's item tooltips.
 	this->areaSliceModeComboBox->setCurrentIndex(0);
 	this->areaSlicePxDoubleSpinBox->setValue(256.0);
 	this->deconvEnabledCheckBox->setChecked(true);

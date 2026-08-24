@@ -33,27 +33,55 @@
       <string>LoD base</string>
      </property>
      <property name="toolTip">
-      <string>Voxel-grid growth factor between tree levels, used when a splat object's LoD tree is built (requires reloading/re-adding the splat object to take effect - doesn't affect already-built trees).</string>
+      <string>Voxel-grid growth factor between tree levels, used when a splat object's LoD tree is built. A tree already built keeps the lod_base it was built with even after this changes - press Rebuild to re-build every loaded splat object's tree at the current value instead of reloading/re-adding them.</string>
      </property>
     </widget>
    </item>
    <item row="1" column="1">
-    <widget class="QDoubleSpinBox" name="lodBaseDoubleSpinBox">
-     <property name="toolTip">
-      <string>Voxel-grid growth factor between tree levels, used when a splat object's LoD tree is built (requires reloading/re-adding the splat object to take effect - doesn't affect already-built trees).</string>
-     </property>
-     <property name="decimals">
-      <number>2</number>
-     </property>
-     <property name="minimum">
-      <double>1.01000000000000001</double>
-     </property>
-     <property name="maximum">
-      <double>4.000000000000000</double>
-     </property>
-     <property name="singleStep">
-      <double>0.10000000000000001</double>
-     </property>
+    <widget class="QWidget" name="lodBaseWidget" native="true">
+     <layout class="QHBoxLayout" name="lodBaseHorizontalLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QDoubleSpinBox" name="lodBaseDoubleSpinBox">
+        <property name="toolTip">
+         <string>Voxel-grid growth factor between tree levels, used when a splat object's LoD tree is built. A tree already built keeps the lod_base it was built with even after this changes - press Rebuild to re-build every loaded splat object's tree at the current value instead of reloading/re-adding them.</string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>1.01000000000000001</double>
+        </property>
+        <property name="maximum">
+         <double>4.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.10000000000000001</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="rebuildLodsPushButton">
+        <property name="text">
+         <string>Rebuild</string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION073: re-builds every registered splat object's LoD tree in place at the LoD base above, without reloading/re-adding the object or restarting the client. Synchronous - seconds of work on a multi-million-splat scene, same cost class as "Merge coplanar" below. Does not touch or undo a coplanar merge; only the tree.</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
    <item row="2" column="0">
@@ -1564,21 +1592,34 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
     </widget>
    </item>
    <item row="25" column="0" colspan="2">
-    <widget class="QCheckBox" name="accumBuffer8BitCheckBox">
+    <widget class="QLabel" name="bufferTricksSectionLabel">
      <property name="text">
-      <string>8-bit accumulation buffer</string>
+      <string>Buffer tricks</string>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">font-weight: bold;</string>
      </property>
      <property name="toolTip">
-      <string>Blends the splats into an RGBA8 buffer instead of the default RGBA16F, halving the bytes each fragment writes. The splat pass is mostly bound by blend bandwidth, so this is worth about a third of it. The cost is precision: hundreds of blends accumulate per pixel and the resolve then divides the accumulated colour by the accumulated coverage, so quantisation is amplified where coverage is low - cloud silhouettes and thin sparse regions, not the dense areas. It also weakens the saturation gate, whose saving is the blending it avoids. Rebuilds the accumulation framebuffer when toggled.</string>
+      <string>SESSION073: grouped the accumulation-buffer knobs (previously split across two rows) with the area-slice diagnostic that shares the same buffer - all of it is about what goes into, and how it comes back out of, the splat pass's own accumulation buffer.</string>
      </property>
     </widget>
    </item>
    <item row="26" column="0" colspan="2">
-    <layout class="QHBoxLayout" name="accumBufferScaleLayout">
+    <layout class="QHBoxLayout" name="bufferTricksHorizontalLayout">
+     <item>
+      <widget class="QCheckBox" name="accumBuffer8BitCheckBox">
+       <property name="text">
+        <string>8 bit</string>
+       </property>
+       <property name="toolTip">
+        <string>Blends the splats into an RGBA8 buffer instead of the default RGBA16F, halving the bytes each fragment writes. The splat pass is mostly bound by blend bandwidth, so this is worth about a third of it. The cost is precision: hundreds of blends accumulate per pixel and the resolve then divides the accumulated colour by the accumulated coverage, so quantisation is amplified where coverage is low - cloud silhouettes and thin sparse regions, not the dense areas. It also weakens the saturation gate, whose saving is the blending it avoids. Rebuilds the accumulation framebuffer when toggled.</string>
+       </property>
+      </widget>
+     </item>
      <item>
       <widget class="QDoubleSpinBox" name="accumBufferScaleDoubleSpinBox">
        <property name="prefix">
-        <string>buffer scale </string>
+        <string>scale </string>
        </property>
        <property name="decimals">
         <number>2</number>
@@ -1598,6 +1639,23 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
        <property name="toolTip">
         <string>Renders the splats into an accumulation buffer this fraction of the frame's size, then scales the result back up in the resolve. The splat pass is bound by blend bandwidth, which scales with pixels: on the interior scene, blending alone is about 9 ms of a 17 ms frame, so 0.5 (a quarter of the pixels) takes it to roughly 9 ms total. The LoD selection deliberately does not follow this - the same splats are drawn, just into a smaller buffer - so the ~6.3 ms of per-splat vertex and instance work is untouched and is the floor of this knob whatever the scale. Returns bend before that floor: at pixel scale limit 2 the LoD brings splats to about 2 px, so at half scale they land on the vertex shader's half-pixel low-pass floor and area falls by about 3.3x rather than 4x. 1 = off, and every path then behaves exactly as it did without this setting. Rebuilds the accumulation framebuffer when changed.</string>
        </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="accumUpsampleModeComboBox">
+       <property name="toolTip">
+        <string>SESSION073: how the resolve reads a downscaled accumulation buffer back up to the frame - see each item's own tooltip. Ignored at scale 1, where the buffer is indexed one-to-one.</string>
+       </property>
+       <item>
+        <property name="text">
+         <string>nearest</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>bilinear</string>
+        </property>
+       </item>
       </widget>
      </item>
      <item>
@@ -1647,19 +1705,6 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
        </property>
        <property name="toolTip">
         <string>Area of one splat, in frame pixels, that divides "large" from "small" for the slice beside this. Read it off the Frustum report's "Fill by splat size" histogram, whose buckets are in the same unit. 256 px (a radius of about 9 px) is where the measured split puts 13% of the splats and 85% of the fill on the large side.</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QCheckBox" name="accumUpsampleBilinearCheckBox">
-       <property name="text">
-        <string>bilinear upsample</string>
-       </property>
-       <property name="checked">
-        <bool>true</bool>
-       </property>
-       <property name="toolTip">
-        <string>How the resolve reads a downscaled accumulation buffer back up to the frame. Bilinear is what makes the downscale usable: a splat is a Gaussian, so its screen footprint is band-limited by construction, and a smooth reconstruction of it loses far less than the same downscale would on ordinary geometry. Unchecking gives nearest, i.e. visibly blocky - kept as a diagnostic, since seeing the blocks is how one confirms the buffer really is smaller, and it is the honest baseline the bilinear cost is compared against. Ignored at buffer scale 1, where the buffer is indexed one-to-one.</string>
        </property>
       </widget>
      </item>

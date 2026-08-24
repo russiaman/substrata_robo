@@ -547,6 +547,7 @@ void MainWindow::initialiseUI()
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(layerCapEstimateRequestedSignal()), this, SLOT(layerCapEstimateRequested())); // DIAGNOSTIC ONLY - see MainWindow::saturationSnapshotsRequested().
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(mergeCoplanarRequestedSignal()), this, SLOT(mergeCoplanarSplatsRequested()));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(restoreUnmergedRequestedSignal()), this, SLOT(restoreUnmergedSplatsRequested()));
+	connect(ui->gaussianSplatSettingsWidget, SIGNAL(rebuildLodsRequestedSignal()), this, SLOT(rebuildLodsRequested())); // SESSION073
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(splatSelectedSignal(quint64)), this, SLOT(gaussianSplatSettingsSplatSelected(quint64)));
 	connect(ui->gaussianSplatSettingsWidget, SIGNAL(splatHideToggledSignal(quint64, bool)), this, SLOT(gaussianSplatSettingsHideToggled(quint64, bool))); // SESSION059
 	// NOTE: gaussianSplatSettingsChanged() isn't called here to apply the just-loaded values immediately - opengl_engine
@@ -4182,7 +4183,7 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setAccumBuffer8Bit(ui->gaussianSplatSettingsWidget->accumBuffer8BitCheckBox->isChecked());
 	// SESSION067 - see GaussianSplatRenderer::getAccumBufferScale(). 1 leaves every path exactly as it was without it.
 	opengl_engine->getSplatRenderer().setAccumBufferScale((float)ui->gaussianSplatSettingsWidget->accumBufferScaleDoubleSpinBox->value());
-	opengl_engine->getSplatRenderer().setAccumUpsampleBilinear(ui->gaussianSplatSettingsWidget->accumUpsampleBilinearCheckBox->isChecked());
+	opengl_engine->getSplatRenderer().setAccumUpsampleBilinear(ui->gaussianSplatSettingsWidget->accumUpsampleModeComboBox->currentIndex() == 1); // SESSION073: index 1 = bilinear - see the combobox's item tooltips.
 	// SESSION067 DIAGNOSTIC - the projected-area slice, see GaussianSplatRenderer::getAreaSliceMode(). Index 0 = off.
 	opengl_engine->getSplatRenderer().setAreaSliceMode(ui->gaussianSplatSettingsWidget->areaSliceModeComboBox->currentIndex());
 	opengl_engine->getSplatRenderer().setAreaSlicePx((float)ui->gaussianSplatSettingsWidget->areaSlicePxDoubleSpinBox->value());
@@ -4328,6 +4329,17 @@ void MainWindow::restoreUnmergedSplatsRequested()
 	const std::string summary = opengl_engine->getSplatRenderer().restoreUnmergedSplats();
 	conPrint("\n" + summary);
 	ui->gaussianSplatSettingsWidget->mergeCoplanarResultLabel->setText("restored");
+}
+
+
+// SESSION073: "Rebuild" button beside LoD base - see GaussianSplatRenderer::rebuildAllLodTrees(). Lets lod_base be
+// iterated on live, since a tree already built otherwise keeps whatever lod_base it was built with (see
+// GUIClient::gaussian_splat_lod_base's comment) even after the panel's spinbox changes - previously the only way to try
+// a new value was to reload/re-add every splat object, i.e. restart the client.
+void MainWindow::rebuildLodsRequested()
+{
+	const std::string summary = opengl_engine->getSplatRenderer().rebuildAllLodTrees((float)ui->gaussianSplatSettingsWidget->lodBaseDoubleSpinBox->value());
+	conPrint("\n" + summary);
 }
 
 

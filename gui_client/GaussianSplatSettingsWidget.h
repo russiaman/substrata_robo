@@ -60,6 +60,7 @@ signals:;
 	void frustumReportRequestedSignal(); // Emitted by the "Frustum report" button - see GaussianSplatRenderer::getFrustumStructureReport().
 	void mergeCoplanarRequestedSignal(); // Emitted by the "Merge coplanar" button - see GaussianSplatRenderer::applyCoplanarMerge().
 	void restoreUnmergedRequestedSignal(); // Emitted by the "Restore unmerged" button - see GaussianSplatRenderer::restoreUnmergedSplats().
+	void rebuildLodsRequestedSignal(); // SESSION073: emitted by the "Rebuild" button beside LoD base - see GaussianSplatRenderer::rebuildAllLodTrees().
 	void saturationSnapshotsRequestedSignal(); // DIAGNOSTIC ONLY - emitted by the "Saturation snapshots" button, see OpenGLEngine::requestSplatSaturationSnapshots().
 	void layerCapEstimateRequestedSignal(); // DIAGNOSTIC ONLY - emitted by the "Estimate" button, see OpenGLEngine::estimateSplatLayerCapSaving().
 
