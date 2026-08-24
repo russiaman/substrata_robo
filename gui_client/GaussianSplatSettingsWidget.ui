@@ -683,10 +683,10 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
       <item>
        <widget class="QDoubleSpinBox" name="filterDilationLatencyDoubleSpinBox">
         <property name="prefix">
-         <string>latency </string>
+         <string>lat </string>
         </property>
         <property name="toolTip">
-         <string>SESSION063 K3: split-filter dilation window (seconds). The filter keeps nodes this much "ahead" of the camera's motion so the frustum edge doesn't trail during the filter's latency. Bigger = the edge holds under fast rotation/translation but more off-screen nodes are kept. The old cull path used 0.3. SESSION072: default raised 0.06->0.17 - the ~13ms figure elsewhere is just the filter task's own compute; the actual kick-to-drain round trip measured during a fast flick (millions of survivors to issue/draw) was 136-166ms. Applies live.</string>
+         <string>latency: SESSION063 K3: split-filter dilation window (seconds). The filter keeps nodes this much "ahead" of the camera's motion so the frustum edge doesn't trail during the filter's latency. Bigger = the edge holds under fast rotation/translation but more off-screen nodes are kept. The old cull path used 0.3. SESSION072: default raised 0.06->0.17 - the ~13ms figure elsewhere is just the filter task's own compute; the actual kick-to-drain round trip measured during a fast flick (millions of survivors to issue/draw) was 136-166ms. Applies live.</string>
         </property>
         <property name="decimals">
          <number>3</number>
@@ -733,10 +733,10 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
       <item>
        <widget class="QDoubleSpinBox" name="filterMaxRotRateDoubleSpinBox">
         <property name="prefix">
-         <string>rot cap </string>
+         <string>cap </string>
         </property>
         <property name="toolTip">
-         <string>Units: deg/s. REQUIRED: must be greater than "rot" (the min rate floor) - if not, the directional (anisotropic) padding can never exceed the floor's own isotropic padding, so max(floor, directional) always picks the floor and the directional term becomes dead weight - no crash, just quietly back to old-style uniform padding on every plane.
+         <string>rotation cap: Units: deg/s. REQUIRED: must be greater than "rot" (the min rate floor) - if not, the directional (anisotropic) padding can never exceed the floor's own isotropic padding, so max(floor, directional) always picks the floor and the directional term becomes dead weight - no crash, just quietly back to old-style uniform padding on every plane.
 
 SESSION071/072: cap on the angular rate the split-filter dilation uses for its directional (anisotropic) term - see "rot"'s own tooltip for the floor it's capped against. Lowering this bounds dilation cost during a violent flick at the price of edge holes. Default (100000) is effectively uncapped. Applies live.</string>
         </property>

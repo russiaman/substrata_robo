@@ -4216,11 +4216,19 @@ void MainWindow::countSplatsInFrustumRequested()
 {
 	const GaussianSplatRenderer::FrustumCounts counts = opengl_engine->getSplatRenderer().countSplatsInFrustum();
 	const double pct = counts.total > 0 ? (100.0 * (double)counts.in_frustum / (double)counts.total) : 0.0;
-	// SESSION066: report the raw LoD draw list (counts.drawn = num_instances_to_draw, pre-slice + dilation band) and the
-	// really-drawn count (counts.visible = that draw list filtered to the frustum + size/distance slices) - visible is the
-	// one that drops as the pixel_scale limit or the distance slice tighten, i.e. what actually reaches the screen.
-	const std::string msg = toString(counts.in_frustum) + " / " + toString(counts.total) + " in frustum (" + doubleToStringNDecimalPlaces(pct, 1) + "%), " +
-		toString(counts.drawn) + " drawn (LoD), " + toString(counts.visible) + " visible";
+	// SESSION072: counts.in_frustum is a brute-force reference bound over 'total' (every LoD tree node at every level,
+	// not what the traversal actually walks - see session054 §2A), so it's folded into the 'Total' figure as a percentage
+	// rather than given its own arrow-stage. The arrow chain itself is the real, causally-decreasing pipeline: frontier
+	// (U(P), traversal's whole-world selection, pre-filter) -> counts.drawn relabelled "in frustum" (S(P,R), that
+	// selection after the frustum-cull + dilation filter) -> visible (that draw list after the frustum + size/distance
+	// slices are simulated on the CPU, mirroring the vertex shader - what actually reaches the screen this frame).
+	// SESSION072: explicit line break rather than relying on QLabel word-wrap width, which didn't track countInFrustumResultLabel's
+	// maximumSize predictably (widening the cap 470px->830px only shifted the wrap point 38->48 chars) - likely something else
+	// in the layout/DPI scaling governs the rendered width. This split happens to land at ~65-67 chars per line either way.
+	const std::string msg = "Total LoDs nodes:" + toString(counts.total) + " (in frustum " + doubleToStringNDecimalPlaces(pct, 1) + "%) -> " +
+		"frontier:" + toString(counts.frontier) + " ->\n" +
+		"in frustum:" + toString(counts.drawn) + " -> " +
+		"visible " + toString(counts.visible) + " (simulated GPU-filters)";
 	ui->gaussianSplatSettingsWidget->countInFrustumResultLabel->setText(QtUtils::toQString(msg));
 	conPrint("Count in frustum: " + msg);
 }
