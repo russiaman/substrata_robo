@@ -2384,6 +2384,58 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
     </widget>
    </item>
    <item row="45" column="0" colspan="2">
+    <layout class="QHBoxLayout" name="satPrefilterHorizontalLayout">
+     <item>
+      <widget class="QLabel" name="satPrefilterSectionLabel">
+       <property name="text">
+        <string>Sat pre-filter</string>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">font-weight: bold;</string>
+       </property>
+       <property name="toolTip">
+        <string>SESSION074: pre-GPU saturation cull - see snapshots/2026-08-24-session074-cpu-saturation-prefilter-plan.md. Estimates, from the coarse LoD floor, which directions from the camera are already opaque before the fine draw list is built, so an occluded fine node can be skipped before it ever costs a vertex-shader instance - not just its blend cost, unlike the existing saturation gate below. Off by default; only active when Coarse floor (above) is also enabled, since the estimate is built from it.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="filterFrustumPlanesCheckBox">
+       <property name="text">
+        <string>frustum planes</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+       <property name="toolTip">
+        <string>SESSION074: whether the per-orientation filter rejects nodes outside the view frustum. On = the normal pipeline. Off keeps the whole split-filter machinery running (U(P) is still built and streamed, the saturation pre-filter still tests every node) but stops culling by view - so frustum culling and saturation culling can be measured independently on one scene: turn this off to see what the saturation pre-filter gives on its own, leave it on with the pre-filter off to see what frustum culling gives on its own. Not the same as the Frustum cull checkbox above, which takes the whole split architecture down with it and reverts to the old whole-traversal path. The coarse floor drops out of the draw list while this is off, which is correct: it exists only to plug frustum-edge gaps, and there is no frustum edge.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="satPrefilterModeComboBox">
+       <property name="toolTip">
+        <string>off: stage fully disabled, zero cost. count: Stage A - builds the estimate and tests every fine node, but never actually drops anything; use with the Frustum debug log (filter checkbox below) to see the [gsr-sat] trace. drop: Stage B - actually excludes flagged nodes from the draw list.</string>
+       </property>
+       <item>
+        <property name="text">
+         <string>off</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>count</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>drop</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item row="46" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>

@@ -4145,6 +4145,9 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setCoarsePixelScale((float)ui->gaussianSplatSettingsWidget->coarsePixelScaleDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setFilterCoarseDilationLatency((float)ui->gaussianSplatSettingsWidget->coarseDilationLatencyDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setCoarseLayerDebug(ui->gaussianSplatSettingsWidget->coarseLayerDebugCheckBox->isChecked()); // SESSION063 K4 debug
+	// SESSION074: index matches GaussianSplatSatPrefilterMode's numeric values directly (off=0/count=1/drop=2) - see the combobox's item order in the .ui and the enum's own comment.
+	opengl_engine->getSplatRenderer().setSatPrefilterMode((GaussianSplatSatPrefilterMode)ui->gaussianSplatSettingsWidget->satPrefilterModeComboBox->currentIndex());
+	opengl_engine->getSplatRenderer().setFilterFrustumPlanesEnabled(ui->gaussianSplatSettingsWidget->filterFrustumPlanesCheckBox->isChecked()); // SESSION074: lets frustum culling and the saturation pre-filter be measured independently - see getFilterFrustumPlanesEnabled().
 	// SESSION072: live console log toggles - see GaussianSplatRenderer::getFilterDebugLog()'s comment. Off by default: measured to cost real frame time while firing every frame during motion.
 	opengl_engine->getSplatRenderer().setFilterDebugLog(ui->gaussianSplatSettingsWidget->filterLogCheckBox->isChecked());
 	opengl_engine->getSplatRenderer().setKickDebugLog(ui->gaussianSplatSettingsWidget->kickLogCheckBox->isChecked());

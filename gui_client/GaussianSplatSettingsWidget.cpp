@@ -118,6 +118,8 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->mergeCoplanarPushButton,          SIGNAL(clicked()), this, SIGNAL(mergeCoplanarRequestedSignal()));
 	connect(this->restoreUnmergedPushButton,        SIGNAL(clicked()), this, SIGNAL(restoreUnmergedRequestedSignal()));
 	connect(this->rebuildLodsPushButton,            SIGNAL(clicked()), this, SIGNAL(rebuildLodsRequestedSignal())); // SESSION073
+	connect(this->satPrefilterModeComboBox,         SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged())); // SESSION074
+	connect(this->filterFrustumPlanesCheckBox,      SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION074
 
 	// SESSION072: "Settings presets" row.
 	connect(this->resetToDefaultPushButton,         SIGNAL(clicked()), this, SLOT(resetToDefaultsClicked()));
@@ -194,6 +196,10 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->filterLogCheckBox->setChecked(false);
 	this->kickLogCheckBox->setChecked(false);
 	this->profLogCheckBox->setChecked(false);
+	// SESSION074: not persisted, same reasoning as the log checkboxes just above - a session should always start with
+	// the stage off, not silently resume mid-measurement from a previous session's state.
+	this->satPrefilterModeComboBox->setCurrentIndex(0); // off.
+	this->filterFrustumPlanesCheckBox->setChecked(true); // SESSION074: on = unchanged pipeline. Not persisted, same reasoning - a session must not silently start with view culling disabled.
 	this->debugModeComboBox->setCurrentIndex(0); // Overdraw. Not persisted either, for the same reason - it only says which measure the view above shows.
 	// Not persisted, like the other A/B switches: both reduce modes have to start a session in the same place or one
 	// session's numbers cannot be set beside another's. Min rather than the original mean: mean answers a splat that
@@ -460,6 +466,8 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->filterLogCheckBox->setChecked(false);
 	this->kickLogCheckBox->setChecked(false);
 	this->profLogCheckBox->setChecked(false);
+	this->satPrefilterModeComboBox->setCurrentIndex(0); // off. SESSION074 - see load()'s comment.
+	this->filterFrustumPlanesCheckBox->setChecked(true); // SESSION074 - see load()'s comment.
 	this->debugModeComboBox->setCurrentIndex(0);
 	this->coverageReduceModeComboBox->setCurrentIndex(1);
 	this->overdrawRangeMinDoubleSpinBox->setValue(2.0);
