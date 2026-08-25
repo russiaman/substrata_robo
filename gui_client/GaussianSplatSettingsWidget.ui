@@ -555,16 +555,59 @@
     </widget>
    </item>
    <item row="12" column="1">
-    <widget class="QCheckBox" name="saturationFilterCheckBox">
-     <property name="text">
-      <string></string>
-     </property>
-     <property name="toolTip">
-      <string>See this row's own tooltip.</string>
-     </property>
-     <property name="checked">
-      <bool>false</bool>
-     </property>
+    <widget class="QWidget" name="saturationFilterWidget" native="true">
+     <layout class="QHBoxLayout" name="saturationFilterHorizontalLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QCheckBox" name="saturationFilterCheckBox">
+        <property name="text">
+         <string></string>
+        </property>
+        <property name="toolTip">
+         <string>See this row's own tooltip.</string>
+        </property>
+        <property name="checked">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="coarsePixelScaleDoubleSpinBox">
+        <property name="prefix">
+         <string>px </string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION063 K4: pixel scale threshold for the coarse floor cut. The first node on each branch whose projected size falls to this many pixels is taken as the coarse patch (bigger = coarser, fewer, cheaper). SESSION076: also sets the saturation grid's resolution (moved here from Frustum settings2 since both consumers share this one value). Applies live.</string>
+        </property>
+        <property name="decimals">
+         <number>1</number>
+        </property>
+        <property name="minimum">
+         <double>2.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>500.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>5.000000000000000</double>
+        </property>
+        <property name="value">
+         <double>25.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
    <item row="13" column="0">
@@ -741,35 +784,10 @@ SESSION071/072: cap on the angular rate the split-filter dilation uses for its d
          <string>coarse</string>
         </property>
         <property name="toolTip">
-         <string>SESSION063 K4: the traversal also captures a low-detail cut (first node per branch at the coarse pixel scale below), globally depth-sorted with the fine set. Confined to the dilation band beyond the frustum edge, its big cheap splats plug motion-revealed gaps/edges - dilated wider than the fine set (coarse dil latency below), which lets the fine set run at a tight, cheap dilation without holes. On by default. SESSION075: controls only whether this layer is drawn - Saturation filter (above) captures the same underlying data on its own whenever it's on, whether or not this is.</string>
+         <string>SESSION063 K4: the traversal also captures a low-detail cut (first node per branch at the coarse pixel scale), globally depth-sorted with the fine set. Confined to the dilation band beyond the frustum edge, its big cheap splats plug motion-revealed gaps/edges - dilated wider than the fine set (coarse dil latency below), which lets the fine set run at a tight, cheap dilation without holes. On by default. SESSION075: controls only whether this layer is drawn - Saturation filter (above) captures the same underlying data on its own whenever it's on, whether or not this is. SESSION076: the pixel scale threshold ("px") now lives on the Saturation filter row above, since it also sets that stage's grid resolution.</string>
         </property>
         <property name="checked">
          <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QDoubleSpinBox" name="coarsePixelScaleDoubleSpinBox">
-        <property name="prefix">
-         <string>px </string>
-        </property>
-        <property name="toolTip">
-         <string>SESSION063 K4: pixel scale threshold for the coarse floor cut. The first node on each branch whose projected size falls to this many pixels is taken as the coarse patch (bigger = coarser, fewer, cheaper). Applies live.</string>
-        </property>
-        <property name="decimals">
-         <number>1</number>
-        </property>
-        <property name="minimum">
-         <double>2.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>500.000000000000000</double>
-        </property>
-        <property name="singleStep">
-         <double>5.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>25.000000000000000</double>
         </property>
        </widget>
       </item>
