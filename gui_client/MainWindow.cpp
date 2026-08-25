@@ -4135,8 +4135,16 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setOverdrawRangeMax((float)ui->gaussianSplatSettingsWidget->overdrawRangeMaxDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setMaxLayerDensity((float)ui->gaussianSplatSettingsWidget->maxLayerDensityDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setMaxTreeDepth(ui->gaussianSplatSettingsWidget->maxTreeDepthSpinBox->value());
-	opengl_engine->getSplatRenderer().setFrustumCullEnabled(ui->gaussianSplatSettingsWidget->frustumCullCheckBox->isChecked()); // SESSION055 - see getFrustumCullEnabled().
-	opengl_engine->getSplatRenderer().setSplitFilterEnabled(ui->gaussianSplatSettingsWidget->frustumCullCheckBox->isChecked()); // SESSION063: split filter path is tied to the frustum-cull toggle - see getSplitFilterEnabled().
+	// SESSION075: "cull" and "Split pipeline" are now two independent checkboxes (previously one checkbox drove both
+	// flags identically - see getFrustumCullEnabled()/getSplitFilterEnabled()'s own comments, now superseded). "cull"
+	// drives whichever cull mechanism is actually live for the current pipeline: the traversal-level cull (SESSION055)
+	// while Split pipeline is off, the filter-stage frustum test (SESSION074, ex-getFilterFrustumPlanesEnabled()) while
+	// it's on - so unchecking Split pipeline alone now reproduces the pre-SESSION063 pipeline exactly, cull included,
+	// instead of always landing on cull_active = X && !X = false regardless of either checkbox's state.
+	const bool cull_checked = ui->gaussianSplatSettingsWidget->cullCheckBox->isChecked();
+	opengl_engine->getSplatRenderer().setFrustumCullEnabled(cull_checked); // SESSION055 - only takes effect while Split pipeline is off.
+	opengl_engine->getSplatRenderer().setFilterFrustumPlanesEnabled(cull_checked); // SESSION074 - only takes effect while Split pipeline is on.
+	opengl_engine->getSplatRenderer().setSplitFilterEnabled(ui->gaussianSplatSettingsWidget->splitPipelineCheckBox->isChecked()); // SESSION063
 	opengl_engine->getSplatRenderer().setFilterDilationLatency((float)ui->gaussianSplatSettingsWidget->filterDilationLatencyDoubleSpinBox->value()); // SESSION063 K3
 	opengl_engine->getSplatRenderer().setFilterMinRotRateDegPerS((float)ui->gaussianSplatSettingsWidget->filterMinRotRateDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setFilterMaxRotRateDegPerS((float)ui->gaussianSplatSettingsWidget->filterMaxRotRateDoubleSpinBox->value()); // SESSION071
@@ -4145,9 +4153,11 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setCoarsePixelScale((float)ui->gaussianSplatSettingsWidget->coarsePixelScaleDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setFilterCoarseDilationLatency((float)ui->gaussianSplatSettingsWidget->coarseDilationLatencyDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setCoarseLayerDebug(ui->gaussianSplatSettingsWidget->coarseLayerDebugCheckBox->isChecked()); // SESSION063 K4 debug
-	// SESSION074: index matches GaussianSplatSatPrefilterMode's numeric values directly (off=0/count=1/drop=2) - see the combobox's item order in the .ui and the enum's own comment.
-	opengl_engine->getSplatRenderer().setSatPrefilterMode((GaussianSplatSatPrefilterMode)ui->gaussianSplatSettingsWidget->satPrefilterModeComboBox->currentIndex());
-	opengl_engine->getSplatRenderer().setFilterFrustumPlanesEnabled(ui->gaussianSplatSettingsWidget->filterFrustumPlanesCheckBox->isChecked()); // SESSION074: lets frustum culling and the saturation pre-filter be measured independently - see getFilterFrustumPlanesEnabled().
+	// SESSION075: dropdown (off/count/drop) replaced by a plain on/off checkbox - "count" (Stage A ceiling measurement)
+	// and the "aggressive" ceiling diagnostic are no longer exposed in the UI; setSatPrefilterMode() itself still
+	// accepts Count if ever needed again from code. Checked -> Drop, unchecked -> Off.
+	opengl_engine->getSplatRenderer().setSatPrefilterMode(ui->gaussianSplatSettingsWidget->saturationFilterCheckBox->isChecked() ?
+		GaussianSplatSatPrefilterMode_Drop : GaussianSplatSatPrefilterMode_Off);
 	// SESSION072: live console log toggles - see GaussianSplatRenderer::getFilterDebugLog()'s comment. Off by default: measured to cost real frame time while firing every frame during motion.
 	opengl_engine->getSplatRenderer().setFilterDebugLog(ui->gaussianSplatSettingsWidget->filterLogCheckBox->isChecked());
 	opengl_engine->getSplatRenderer().setKickDebugLog(ui->gaussianSplatSettingsWidget->kickLogCheckBox->isChecked());

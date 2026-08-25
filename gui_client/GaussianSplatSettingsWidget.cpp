@@ -59,7 +59,9 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->overdrawRangeMaxDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->maxLayerDensityDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->maxTreeDepthSpinBox,              SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
-	connect(this->frustumCullCheckBox,              SIGNAL(toggled(bool)),        this, SLOT(settingsChanged()));
+	connect(this->splitPipelineCheckBox,            SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was frustumCullCheckBox, split from "cull" below.
+	connect(this->saturationFilterCheckBox,         SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was the Sat pre-filter row's combo box.
+	connect(this->cullCheckBox,                     SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was filterFrustumPlanesCheckBox, relocated+relabelled.
 	connect(this->filterDilationLatencyDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
 	connect(this->filterMinRotRateDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
 	connect(this->filterMaxRotRateDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION071
@@ -118,8 +120,6 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->mergeCoplanarPushButton,          SIGNAL(clicked()), this, SIGNAL(mergeCoplanarRequestedSignal()));
 	connect(this->restoreUnmergedPushButton,        SIGNAL(clicked()), this, SIGNAL(restoreUnmergedRequestedSignal()));
 	connect(this->rebuildLodsPushButton,            SIGNAL(clicked()), this, SIGNAL(rebuildLodsRequestedSignal())); // SESSION073
-	connect(this->satPrefilterModeComboBox,         SIGNAL(currentIndexChanged(int)), this, SLOT(settingsChanged())); // SESSION074
-	connect(this->filterFrustumPlanesCheckBox,      SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION074
 
 	// SESSION072: "Settings presets" row.
 	connect(this->resetToDefaultPushButton,         SIGNAL(clicked()), this, SLOT(resetToDefaultsClicked()));
@@ -196,10 +196,9 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->filterLogCheckBox->setChecked(false);
 	this->kickLogCheckBox->setChecked(false);
 	this->profLogCheckBox->setChecked(false);
-	// SESSION074: not persisted, same reasoning as the log checkboxes just above - a session should always start with
-	// the stage off, not silently resume mid-measurement from a previous session's state.
-	this->satPrefilterModeComboBox->setCurrentIndex(0); // off.
-	this->filterFrustumPlanesCheckBox->setChecked(true); // SESSION074: on = unchanged pipeline. Not persisted, same reasoning - a session must not silently start with view culling disabled.
+	// SESSION074/075: not persisted, same reasoning as the log checkboxes just above - a session should always start
+	// with the stage off, not silently resume mid-measurement from a previous session's state.
+	this->saturationFilterCheckBox->setChecked(false); // off.
 	this->debugModeComboBox->setCurrentIndex(0); // Overdraw. Not persisted either, for the same reason - it only says which measure the view above shows.
 	// Not persisted, like the other A/B switches: both reduce modes have to start a session in the same place or one
 	// session's numbers cannot be set beside another's. Min rather than the original mean: mean answers a splat that
@@ -210,7 +209,11 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->overdrawRangeMaxDoubleSpinBox->setValue(settings_->value("gaussian_splats/overdraw_range_max", 100.0).toDouble());
 	this->maxLayerDensityDoubleSpinBox->setValue(settings_->value("gaussian_splats/max_layer_density", 0.0).toDouble());
 	this->maxTreeDepthSpinBox->setValue(settings_->value("gaussian_splats/max_tree_depth", 0).toInt());
-	this->frustumCullCheckBox->setChecked(settings_->value("gaussian_splats/frustum_cull", true).toBool()); // SESSION055 - see GaussianSplatRenderer::setFrustumCullEnabled(). SESSION063: also drives the split filter path.
+	// SESSION075: previously one checkbox drove both flags identically (see MainWindow.cpp's session055/063 comments,
+	// now superseded) - split into two independent settings. The old "frustum_cull" key is kept for the "cull"
+	// checkbox, the setting it's the closer continuation of; "split_pipeline" is new, with its own default (true).
+	this->cullCheckBox->setChecked(settings_->value("gaussian_splats/frustum_cull", true).toBool());
+	this->splitPipelineCheckBox->setChecked(settings_->value("gaussian_splats/split_pipeline", true).toBool());
 	this->filterDilationLatencyDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_dilation_latency", 0.17).toDouble()); // SESSION063 K3, SESSION072: matches measured kick-to-drain round trip.
 	this->filterMinRotRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_rot_rate", 10.0).toDouble()); // SESSION072
 	this->filterMaxRotRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_max_rot_rate", 40.0).toDouble()); // SESSION071
@@ -334,7 +337,8 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/overdraw_range_max", this->overdrawRangeMaxDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/max_layer_density", this->maxLayerDensityDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/max_tree_depth", this->maxTreeDepthSpinBox->value());
-		settings->setValue("gaussian_splats/frustum_cull", this->frustumCullCheckBox->isChecked());
+		settings->setValue("gaussian_splats/frustum_cull", this->cullCheckBox->isChecked()); // SESSION075: was frustumCullCheckBox.
+		settings->setValue("gaussian_splats/split_pipeline", this->splitPipelineCheckBox->isChecked()); // SESSION075
 		settings->setValue("gaussian_splats/filter_dilation_latency", this->filterDilationLatencyDoubleSpinBox->value()); // SESSION063 K3
 		settings->setValue("gaussian_splats/filter_min_rot_rate", this->filterMinRotRateDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/filter_max_rot_rate", this->filterMaxRotRateDoubleSpinBox->value()); // SESSION071
@@ -466,15 +470,15 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->filterLogCheckBox->setChecked(false);
 	this->kickLogCheckBox->setChecked(false);
 	this->profLogCheckBox->setChecked(false);
-	this->satPrefilterModeComboBox->setCurrentIndex(0); // off. SESSION074 - see load()'s comment.
-	this->filterFrustumPlanesCheckBox->setChecked(true); // SESSION074 - see load()'s comment.
+	this->saturationFilterCheckBox->setChecked(false); // off. SESSION074/075 - see load()'s comment.
 	this->debugModeComboBox->setCurrentIndex(0);
 	this->coverageReduceModeComboBox->setCurrentIndex(1);
 	this->overdrawRangeMinDoubleSpinBox->setValue(2.0);
 	this->overdrawRangeMaxDoubleSpinBox->setValue(100.0);
 	this->maxLayerDensityDoubleSpinBox->setValue(0.0);
 	this->maxTreeDepthSpinBox->setValue(0);
-	this->frustumCullCheckBox->setChecked(true);
+	this->cullCheckBox->setChecked(true); // SESSION075: was frustumCullCheckBox.
+	this->splitPipelineCheckBox->setChecked(true); // SESSION075
 	this->filterDilationLatencyDoubleSpinBox->setValue(0.17);
 	this->filterMinRotRateDoubleSpinBox->setValue(10.0);
 	this->filterMaxRotRateDoubleSpinBox->setValue(40.0);
