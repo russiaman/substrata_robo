@@ -63,6 +63,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->saturationFilterCheckBox,         SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was the Sat pre-filter row's combo box.
 	connect(this->satGridSubdivDoubleSpinBox,       SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION076 CALIBRATION
 	connect(this->satDiagCheckBox,                  SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION076 DIAGNOSTIC
+	connect(this->satGridRampCheckBox,              SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION077 DIAGNOSTIC
 	connect(this->cullCheckBox,                     SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was filterFrustumPlanesCheckBox, relocated+relabelled.
 	connect(this->filterDilationLatencyDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
 	connect(this->filterMinRotRateDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
@@ -202,6 +203,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// with the stage off, not silently resume mid-measurement from a previous session's state.
 	this->saturationFilterCheckBox->setChecked(false); // off.
 	this->satDiagCheckBox->setChecked(false); // off. SESSION076 - measurement mode, deliberately not persisted (same reason as the row's own checkbox above).
+	this->satGridRampCheckBox->setChecked(false); // off. SESSION077 - same reason.
 	this->satGridSubdivDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_grid_subdiv", 3.0).toDouble()); // SESSION076 CALIBRATION: persisted, unlike the toggles above - losing a half-found working point on every restart would make the search useless.
 	this->debugModeComboBox->setCurrentIndex(0); // Overdraw. Not persisted either, for the same reason - it only says which measure the view above shows.
 	// Not persisted, like the other A/B switches: both reduce modes have to start a session in the same place or one
@@ -477,6 +479,7 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->profLogCheckBox->setChecked(false);
 	this->saturationFilterCheckBox->setChecked(false); // off. SESSION074/075 - see load()'s comment.
 	this->satDiagCheckBox->setChecked(false); // off. SESSION076 - see load()'s comment.
+	this->satGridRampCheckBox->setChecked(false); // off. SESSION077 - see load()'s comment.
 	this->satGridSubdivDoubleSpinBox->setValue(3.0); // SESSION076 CALIBRATION
 	this->debugModeComboBox->setCurrentIndex(0);
 	this->coverageReduceModeComboBox->setCurrentIndex(1);
