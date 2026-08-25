@@ -4158,6 +4158,7 @@ void MainWindow::gaussianSplatSettingsChanged()
 	// accepts Count if ever needed again from code. Checked -> Drop, unchecked -> Off.
 	opengl_engine->getSplatRenderer().setSatPrefilterMode(ui->gaussianSplatSettingsWidget->saturationFilterCheckBox->isChecked() ?
 		GaussianSplatSatPrefilterMode_Drop : GaussianSplatSatPrefilterMode_Off);
+	opengl_engine->getSplatRenderer().setSatDiagLog(ui->gaussianSplatSettingsWidget->satDiagCheckBox->isChecked()); // SESSION076 DIAGNOSTIC
 	// SESSION072: live console log toggles - see GaussianSplatRenderer::getFilterDebugLog()'s comment. Off by default: measured to cost real frame time while firing every frame during motion.
 	opengl_engine->getSplatRenderer().setFilterDebugLog(ui->gaussianSplatSettingsWidget->filterLogCheckBox->isChecked());
 	opengl_engine->getSplatRenderer().setKickDebugLog(ui->gaussianSplatSettingsWidget->kickLogCheckBox->isChecked());

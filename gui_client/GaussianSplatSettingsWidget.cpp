@@ -61,6 +61,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->maxTreeDepthSpinBox,              SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->splitPipelineCheckBox,            SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was frustumCullCheckBox, split from "cull" below.
 	connect(this->saturationFilterCheckBox,         SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was the Sat pre-filter row's combo box.
+	connect(this->satDiagCheckBox,                  SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION076 DIAGNOSTIC
 	connect(this->cullCheckBox,                     SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was filterFrustumPlanesCheckBox, relocated+relabelled.
 	connect(this->filterDilationLatencyDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
 	connect(this->filterMinRotRateDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
@@ -199,6 +200,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// SESSION074/075: not persisted, same reasoning as the log checkboxes just above - a session should always start
 	// with the stage off, not silently resume mid-measurement from a previous session's state.
 	this->saturationFilterCheckBox->setChecked(false); // off.
+	this->satDiagCheckBox->setChecked(false); // off. SESSION076 - measurement mode, deliberately not persisted (same reason as the row's own checkbox above).
 	this->debugModeComboBox->setCurrentIndex(0); // Overdraw. Not persisted either, for the same reason - it only says which measure the view above shows.
 	// Not persisted, like the other A/B switches: both reduce modes have to start a session in the same place or one
 	// session's numbers cannot be set beside another's. Min rather than the original mean: mean answers a splat that
@@ -471,6 +473,7 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->kickLogCheckBox->setChecked(false);
 	this->profLogCheckBox->setChecked(false);
 	this->saturationFilterCheckBox->setChecked(false); // off. SESSION074/075 - see load()'s comment.
+	this->satDiagCheckBox->setChecked(false); // off. SESSION076 - see load()'s comment.
 	this->debugModeComboBox->setCurrentIndex(0);
 	this->coverageReduceModeComboBox->setCurrentIndex(1);
 	this->overdrawRangeMinDoubleSpinBox->setValue(2.0);

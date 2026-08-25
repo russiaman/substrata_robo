@@ -644,6 +644,19 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QCheckBox" name="satDiagCheckBox">
+        <property name="text">
+         <string>diag</string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION076 DIAGNOSTIC. Prints an extra [gsr-sat-diag] line breaking down what the coarse capture is actually buying this stage: cA/cB splits the captured nodes into the genuinely low-detail cut (captured for being at or below "px") and the near-field nodes captured only because their branch hit a leaf while still coarser than that - the latter are duplicates of nodes already in the fine frontier, present only because the drawn coarse patch needs a complete cover, which this grid does not. writers is how many captured nodes the grid actually accepted (a node contributes only if its footprint fully covers at least one tile), against pred=, the same count derived analytically - they must agree. Needs the filter log on, and Saturation filter on. Own checkbox rather than more fields on [gsr-sat] because the counting perturbs the very loops being timed. Not saved between sessions.</string>
+        </property>
+        <property name="checked">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
