@@ -670,31 +670,6 @@
        </widget>
       </item>
       <item>
-       <widget class="QDoubleSpinBox" name="satCoverageSigmasDoubleSpinBox">
-        <property name="prefix">
-         <string>cov </string>
-        </property>
-        <property name="toolTip">
-         <string>SESSION076 CALIBRATION, temporary. How far out, in the node's own sigmas, an occluder may CLAIM a tile as fully behind it - separate from how far its weighting extends (fixed at the 3-sigma draw cutoff). A tile is written only if it lies fully inside this disc, so "this tile's whole cone is blocked" is something the node established rather than an average over a cone it only partly fills. Too high and shadows grow wider than the geometry casting them (objects vanish with nothing in front of them); too low and no node can blanket a tile, so mid-field geometry stops occluding at all. To be frozen as a code constant once the working point is found, and this control removed.</string>
-        </property>
-        <property name="decimals">
-         <number>2</number>
-        </property>
-        <property name="minimum">
-         <double>0.250000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>3.000000000000000</double>
-        </property>
-        <property name="singleStep">
-         <double>0.250000000000000</double>
-        </property>
-        <property name="value">
-         <double>1.000000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item>
        <widget class="QCheckBox" name="satDiagCheckBox">
         <property name="text">
          <string>diag</string>
