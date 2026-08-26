@@ -650,7 +650,7 @@
          <string>sub </string>
         </property>
         <property name="toolTip">
-         <string>SESSION076 CALIBRATION, temporary. Divides the saturation grid's tile angular size, so grid resolution scales with it. Silhouette accuracy is bounded by tile size: at 1 a tile spans the whole "px" value (30 px at the default), which cannot separate a 30-50 px feature - a chair back protruding above a table - from the geometry beside it in the same tile, so the nearer one saturates the tile and takes the other with it. Higher = finer silhouettes, more tiles, more grid build cost (off the critical path since the saturation pass was split out of the traversal). To be frozen as a code constant once the working point is found, and this control removed.</string>
+         <string>SESSION076 CALIBRATION. Divides the saturation grid's tile angular size, so grid resolution scales with it. Silhouette accuracy is bounded by tile size: at 1 a tile spans the whole "px" value (30 px at the default), which cannot separate a 30-50 px feature - a chair back protruding above a table - from the geometry beside it in the same tile, so the nearer one saturates the tile and takes the other with it. Higher = finer silhouettes, more tiles, more grid build cost (off the critical path since the saturation pass was split out of the traversal). SESSION078: default is 0.3, the owner's own aggressive pick after visually verifying the octahedral tile-angle fix (GaussianSplatSaturationGrid.cpp) on this session's problem scene. Coarser than this does show small artifacts on close inspection - there's headroom left for further tuning - but the owner chose to stop here rather than keep dotuning. Pair with "at" 0.99, not 0.96 - the lower threshold visibly strengthens this setting's artifacts.</string>
         </property>
         <property name="decimals">
          <number>2</number>
@@ -665,7 +665,7 @@
          <double>0.500000000000000</double>
         </property>
         <property name="value">
-         <double>3.000000000000000</double>
+         <double>0.300000000000000</double>
         </property>
        </widget>
       </item>

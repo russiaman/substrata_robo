@@ -204,7 +204,12 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->saturationFilterCheckBox->setChecked(false); // off.
 	this->satDiagCheckBox->setChecked(false); // off. SESSION076 - measurement mode, deliberately not persisted (same reason as the row's own checkbox above).
 	this->satGridRampCheckBox->setChecked(false); // off. SESSION077 - same reason.
-	this->satGridSubdivDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_grid_subdiv", 3.0).toDouble()); // SESSION076 CALIBRATION: persisted, unlike the toggles above - losing a half-found working point on every restart would make the search useless.
+	this->satGridSubdivDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_grid_subdiv", 0.3).toDouble()); // SESSION076 CALIBRATION, SESSION078: persisted, unlike the toggles above - losing a half-found working point on every restart would make the search useless.
+	// SESSION078: 0.3 is the owner's own aggressive pick after visually verifying the fix in GaussianSplatSaturationGrid.cpp
+	// (the octahedral local-tile-angle correction, see that file) on the session's problem scene (chair back, glasses on
+	// table). A coarser grid than this does show small artifacts under close visual inspection - there is more headroom
+	// here for someone willing to keep tuning - but the owner judged it a good stopping point and chose not to spend more
+	// time on it. Paired with saturation_threshold's 0.99 default below - 0.96 visibly strengthens this grid's artifacts.
 	this->debugModeComboBox->setCurrentIndex(0); // Overdraw. Not persisted either, for the same reason - it only says which measure the view above shows.
 	// Not persisted, like the other A/B switches: both reduce modes have to start a session in the same place or one
 	// session's numbers cannot be set beside another's. Min rather than the original mean: mean answers a splat that
@@ -232,11 +237,11 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->numDrawSlicesSpinBox->setValue(settings_->value("gaussian_splats/num_draw_slices", 6).toInt()); // SESSION072
 	this->sliceGrowthDoubleSpinBox->setValue(settings_->value("gaussian_splats/slice_growth", 1.3).toDouble()); // SESSION072
 	this->saturationGateCheckBox->setChecked(settings_->value("gaussian_splats/saturation_gate", true).toBool()); // SESSION072
-	this->saturationThresholdDoubleSpinBox->setValue(settings_->value("gaussian_splats/saturation_threshold", 0.96).toDouble());
+	this->saturationThresholdDoubleSpinBox->setValue(settings_->value("gaussian_splats/saturation_threshold", 0.99).toDouble()); // SESSION078: raised from 0.96 - see sat_grid_subdiv's comment above, paired with its 0.3 default.
 	// A threshold of 0 would mark every pixel as finished the moment the gate ran, so it cannot be a value anyone chose.
 	// It is what the bug described above wrote into existing settings stores before it was fixed; treat it as unset.
 	if(this->saturationThresholdDoubleSpinBox->value() <= 0.0)
-		this->saturationThresholdDoubleSpinBox->setValue(0.96);
+		this->saturationThresholdDoubleSpinBox->setValue(0.99);
 	this->saturationMaskDownscaleSpinBox->setValue(settings_->value("gaussian_splats/saturation_mask_downscale", 4).toInt());
 	// Not persisted, deliberately: a fixed starting point is what makes one session's measurements comparable with the
 	// next one's. The value is the box's mode 0 entry only for the moment it takes the line below to switch modes, which
@@ -480,7 +485,7 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->saturationFilterCheckBox->setChecked(false); // off. SESSION074/075 - see load()'s comment.
 	this->satDiagCheckBox->setChecked(false); // off. SESSION076 - see load()'s comment.
 	this->satGridRampCheckBox->setChecked(false); // off. SESSION077 - see load()'s comment.
-	this->satGridSubdivDoubleSpinBox->setValue(3.0); // SESSION076 CALIBRATION
+	this->satGridSubdivDoubleSpinBox->setValue(0.3); // SESSION076 CALIBRATION, SESSION078: see load()'s comment.
 	this->debugModeComboBox->setCurrentIndex(0);
 	this->coverageReduceModeComboBox->setCurrentIndex(1);
 	this->overdrawRangeMinDoubleSpinBox->setValue(2.0);
@@ -501,7 +506,7 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->numDrawSlicesSpinBox->setValue(6);
 	this->sliceGrowthDoubleSpinBox->setValue(1.3);
 	this->saturationGateCheckBox->setChecked(true);
-	this->saturationThresholdDoubleSpinBox->setValue(0.96);
+	this->saturationThresholdDoubleSpinBox->setValue(0.99); // SESSION078: see load()'s comment.
 	this->saturationMaskDownscaleSpinBox->setValue(4);
 	// Bypasses coverageShrinkModeChanged()'s signal-driven park/restore (which is a no-op when the box is already at
 	// index 2, leaving a stale value) - set the mode's remembered array and the box directly instead, so the result
