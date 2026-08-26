@@ -30,6 +30,13 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	this->accumUpsampleModeComboBox->setItemData(0, tr("Nearest: reads the downscaled accumulation buffer back up to the frame with no interpolation, i.e. visibly blocky. Kept as a diagnostic - seeing the blocks is how one confirms the buffer really is smaller, and it is the honest baseline the bilinear cost is compared against."), Qt::ToolTipRole);
 	this->accumUpsampleModeComboBox->setItemData(1, tr("Bilinear: what makes the downscale usable. A splat is a Gaussian, so its screen footprint is band-limited by construction, and a smooth reconstruction of it loses far less than the same downscale would on ordinary geometry."), Qt::ToolTipRole);
 
+	// SESSION078: "Saturation mask"/"Saturation ramp" - the sat_depth debug overlay (session076 §9), moved into this
+	// dropdown from its own standalone "diag"/"ramp" checkboxes so it activates the same way every other debug view
+	// here does: "Show debug" on, this entry selected. Per-item tooltips again set here rather than in the .ui - see
+	// the comment above. Indices 4 and 5 match the .ui's item order, after the four existing entries.
+	this->debugModeComboBox->setItemData(4, tr("What this scene's saturation-cull mechanism (the \"Saturation filter\" row above) thinks is already fully opaque. Draws a giant sphere around the anchor point, in Bondi Blue wherever the mechanism has decided nothing further behind that direction needs drawing - the same test the prune itself makes, so this is its actual verdict, not a re-derivation. Compare against what the scene plainly looks like: an opaque wall or ceiling should come out solidly coloured, and a gap should sit exactly at the edge of open space, not inside solid geometry (which would mean things are being wrongly culled) or well past it (which would mean the cull isn't doing much). Works even with \"Saturation filter\" itself off, to see the mask over the untouched scene rather than one it has already edited."), Qt::ToolTipRole);
+	this->debugModeComboBox->setItemData(5, tr("The same overlay as \"Saturation mask\", but showing HOW saturated each direction is rather than just the yes/no verdict - a blue -> green -> red ramp over how much occluding material has piled up behind each point on the sphere, using the \"Show overdraw\" row's min/max range below. Useful when the mask above looks wrong: a flat ceiling coming out half coloured and half not looks the same in the binary view whether the cull is working correctly at a sharp edge or the underlying accumulation is broken, and this ramp tells the two apart by showing the actual quantity behind the verdict."), Qt::ToolTipRole);
+
 	// Per-mode starting values for the shared shrink box - see coverageShrinkModeChanged(). Mode 0 starts off; mode 1
 	// starts at the setting measured to be worth having, which init() then selects - see there.
 	coverage_shrink_value_for_mode[0] = 0.0;
@@ -62,8 +69,8 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->splitPipelineCheckBox,            SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was frustumCullCheckBox, split from "cull" below.
 	connect(this->saturationFilterCheckBox,         SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was the Sat pre-filter row's combo box.
 	connect(this->satGridSubdivDoubleSpinBox,       SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION076 CALIBRATION
+	connect(this->satRegionRadiusDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION078
 	connect(this->satDiagCheckBox,                  SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION076 DIAGNOSTIC
-	connect(this->satGridRampCheckBox,              SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION077 DIAGNOSTIC
 	connect(this->cullCheckBox,                     SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was filterFrustumPlanesCheckBox, relocated+relabelled.
 	connect(this->filterDilationLatencyDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
 	connect(this->filterMinRotRateDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
@@ -203,13 +210,13 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// with the stage off, not silently resume mid-measurement from a previous session's state.
 	this->saturationFilterCheckBox->setChecked(false); // off.
 	this->satDiagCheckBox->setChecked(false); // off. SESSION076 - measurement mode, deliberately not persisted (same reason as the row's own checkbox above).
-	this->satGridRampCheckBox->setChecked(false); // off. SESSION077 - same reason.
 	this->satGridSubdivDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_grid_subdiv", 0.3).toDouble()); // SESSION076 CALIBRATION, SESSION078: persisted, unlike the toggles above - losing a half-found working point on every restart would make the search useless.
 	// SESSION078: 0.3 is the owner's own aggressive pick after visually verifying the fix in GaussianSplatSaturationGrid.cpp
 	// (the octahedral local-tile-angle correction, see that file) on the session's problem scene (chair back, glasses on
 	// table). A coarser grid than this does show small artifacts under close visual inspection - there is more headroom
 	// here for someone willing to keep tuning - but the owner judged it a good stopping point and chose not to spend more
 	// time on it. Paired with saturation_threshold's 0.99 default below - 0.96 visibly strengthens this grid's artifacts.
+	this->satRegionRadiusDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_region_radius", 0.0).toDouble()); // SESSION078: persisted like sub - 0 is the point-anchored baseline, non-zero is the region assertion.
 	this->debugModeComboBox->setCurrentIndex(0); // Overdraw. Not persisted either, for the same reason - it only says which measure the view above shows.
 	// Not persisted, like the other A/B switches: both reduce modes have to start a session in the same place or one
 	// session's numbers cannot be set beside another's. Min rather than the original mean: mean answers a splat that
@@ -359,6 +366,7 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/coarse_floor", this->coarseFloorCheckBox->isChecked()); // SESSION063 K4
 		settings->setValue("gaussian_splats/coarse_pixel_scale", this->coarsePixelScaleDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/sat_grid_subdiv", this->satGridSubdivDoubleSpinBox->value()); // SESSION076 CALIBRATION
+		settings->setValue("gaussian_splats/sat_region_radius", this->satRegionRadiusDoubleSpinBox->value()); // SESSION078
 		settings->setValue("gaussian_splats/coarse_dilation_latency", this->coarseDilationLatencyDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/num_draw_slices", this->numDrawSlicesSpinBox->value());
 		settings->setValue("gaussian_splats/slice_growth", this->sliceGrowthDoubleSpinBox->value());
@@ -484,8 +492,8 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->profLogCheckBox->setChecked(false);
 	this->saturationFilterCheckBox->setChecked(false); // off. SESSION074/075 - see load()'s comment.
 	this->satDiagCheckBox->setChecked(false); // off. SESSION076 - see load()'s comment.
-	this->satGridRampCheckBox->setChecked(false); // off. SESSION077 - see load()'s comment.
 	this->satGridSubdivDoubleSpinBox->setValue(0.3); // SESSION076 CALIBRATION, SESSION078: see load()'s comment.
+	this->satRegionRadiusDoubleSpinBox->setValue(0.0); // SESSION078: 0 = point-anchored, the pre-region behaviour.
 	this->debugModeComboBox->setCurrentIndex(0);
 	this->coverageReduceModeComboBox->setCurrentIndex(1);
 	this->overdrawRangeMinDoubleSpinBox->setValue(2.0);

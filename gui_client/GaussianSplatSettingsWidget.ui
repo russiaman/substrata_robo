@@ -670,25 +670,37 @@
        </widget>
       </item>
       <item>
+       <widget class="QDoubleSpinBox" name="satRegionRadiusDoubleSpinBox">
+        <property name="prefix">
+         <string>R </string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION078 REGION PRUNING. Radius, in world units, of the ball of camera positions the saturation barrier is made valid for. 0 = the old behaviour: the barrier describes the single point it was built from, so it goes stale the instant the camera moves, showing as shadow-shaped holes. Owner-measured working range: 0.01-0.03, with no visible artifacts in motion above ~0.03 - much smaller than a naive "full latency window x typical speed" estimate (which would suggest ~0.6), because what actually needs covering is the INCREMENT between one traversal's anchor and the next re-kick's, not the whole gap from a standing start - re-kicks fire far more often than once per latency window during continuous motion. Strictly weakens the cull: both sides widen their conservatism, so it can only ever drop fewer nodes than 0 does - watch dropped= in [gsr-sat] for what it costs. The penalty is R/d in angle, so it is nearly free far away and expensive up close, which is the useful shape here (this stage drops distant geometry; the occluders doing the work are near).</string>
+        </property>
+        <property name="decimals">
+         <number>3</number>
+        </property>
+        <property name="minimum">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>10.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.010000000000000</double>
+        </property>
+        <property name="value">
+         <double>0.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QCheckBox" name="satDiagCheckBox">
         <property name="text">
          <string>diag</string>
         </property>
         <property name="toolTip">
-         <string>SESSION076 DIAGNOSTIC. Prints an extra [gsr-sat-diag] line breaking down what the coarse capture is actually buying this stage: cA/cB splits the captured nodes into the genuinely low-detail cut (captured for being at or below "px") and the near-field nodes captured only because their branch hit a leaf while still coarser than that - the latter are duplicates of nodes already in the fine frontier, present only because the drawn coarse patch needs a complete cover, which this grid does not. writers is how many captured nodes the grid actually accepted (a node contributes only if its footprint fully covers at least one tile), against pred=, the same count derived analytically - they must agree. Needs the filter log on, and Saturation filter on. Own checkbox rather than more fields on [gsr-sat] because the counting perturbs the very loops being timed. Not saved between sessions.</string>
-        </property>
-        <property name="checked">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="satGridRampCheckBox">
-        <property name="text">
-         <string>ramp</string>
-        </property>
-        <property name="toolTip">
-         <string>SESSION077 DIAGNOSTIC. Switches the "diag" saturation-grid overlay from its binary view (one flat colour on tiles the prune treats as saturated - the verdict itself) to a blue -&gt; green -&gt; red ramp over each tile's UNBOUNDED accumulated occluder weight (sum of every touching node's contribution - not the [0,1] transmittance the prune thresholds, which visually clamps toward one colour regardless of how much geometry actually piled up), using the same ramp AND the same range controls as the overdraw view below ("Show overdraw" row's min/max). Their usual 2-100 defaults are layer-count/summed-alpha units from that view and will likely read as solid blue here - re-enter a range matched to this scene's tile occupancy (start around min 0, max 5-10 and adjust by eye). The binary view cannot tell a correctly saturated tile from a broken accumulation - a flat ceiling coming out half tinted and half clear looks the same either way - so this shows the RANGE of how much is contributing, to be checked against what the scene plainly looks like. Needs "diag" on. Presentation only: changes nothing the traversal or the prune computes. Not saved between sessions.</string>
+         <string>SESSION076/078 DIAGNOSTIC. Prints an extra [gsr-sat-diag] console line breaking down what the coarse capture is actually buying this stage: cA/cB splits the captured nodes into the genuinely low-detail cut (captured for being at or below "px") and the near-field nodes captured only because their branch hit a leaf while still coarser than that - the latter are duplicates of nodes already in the fine frontier, present only because the drawn coarse patch needs a complete cover, which this grid does not. writers is how many captured nodes the grid actually accepted (a node contributes only if its footprint fully covers at least one tile), against pred=, the same count derived analytically - they must agree. Needs the filter log on, and Saturation filter on. Pure console counting - unrelated to the "Saturation mask"/"Saturation ramp" visual overlay in the Diagnostics section's debug mode dropdown, which has its own gate (Show debug + that dropdown). Own checkbox rather than more fields on [gsr-sat] because the counting perturbs the very loops being timed. Not saved between sessions.</string>
         </property>
         <property name="checked">
          <bool>false</bool>
@@ -2118,6 +2130,16 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
         <item>
          <property name="text">
           <string>Coverage L3</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Saturation mask</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Saturation ramp</string>
          </property>
         </item>
        </widget>
