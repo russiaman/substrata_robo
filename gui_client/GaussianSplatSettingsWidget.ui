@@ -558,7 +558,7 @@
      </layout>
     </widget>
    </item>
-   <item row="12" column="0">
+   <item row="13" column="0">
     <widget class="QLabel" name="splitPipelineLabel">
      <property name="text">
       <string>Split pipeline</string>
@@ -568,7 +568,7 @@
      </property>
     </widget>
    </item>
-   <item row="12" column="1">
+   <item row="13" column="1">
     <widget class="QCheckBox" name="splitPipelineCheckBox">
      <property name="text">
       <string></string>
@@ -581,7 +581,7 @@
      </property>
     </widget>
    </item>
-   <item row="13" column="0">
+   <item row="14" column="0">
     <widget class="QLabel" name="saturationFilterLabel">
      <property name="text">
       <string>Saturation filter</string>
@@ -591,7 +591,7 @@
      </property>
     </widget>
    </item>
-   <item row="13" column="1">
+   <item row="14" column="1">
     <widget class="QWidget" name="saturationFilterWidget" native="true">
      <layout class="QHBoxLayout" name="saturationFilterHorizontalLayout">
       <property name="leftMargin">
@@ -710,7 +710,7 @@
      </layout>
     </widget>
    </item>
-   <item row="14" column="0">
+   <item row="15" column="0">
     <widget class="QLabel" name="frustumSettings1Label">
      <property name="text">
       <string>Frustum settings1</string>
@@ -720,7 +720,7 @@
      </property>
     </widget>
    </item>
-   <item row="14" column="1">
+   <item row="15" column="1">
     <widget class="QWidget" name="frustumSettings1Widget" native="true">
      <layout class="QHBoxLayout" name="frustumSettings1HorizontalLayout">
       <property name="leftMargin">
@@ -853,7 +853,7 @@ SESSION071/072: cap on the angular rate the split-filter dilation uses for its d
      </layout>
     </widget>
    </item>
-   <item row="15" column="0">
+   <item row="16" column="0">
     <widget class="QLabel" name="frustumSettings2Label">
      <property name="text">
       <string>Frustum settings2</string>
@@ -863,7 +863,7 @@ SESSION071/072: cap on the angular rate the split-filter dilation uses for its d
      </property>
     </widget>
    </item>
-   <item row="15" column="1">
+   <item row="16" column="1">
     <widget class="QWidget" name="frustumSettings2Widget" native="true">
      <layout class="QHBoxLayout" name="frustumSettings2HorizontalLayout">
       <property name="leftMargin">
@@ -937,7 +937,7 @@ SESSION063 K4: dilation window (seconds) for the coarse floor - how far ahead of
      </layout>
     </widget>
    </item>
-   <item row="16" column="0" colspan="2">
+   <item row="17" column="0" colspan="2">
     <widget class="QFrame" name="gpuSideSeparatorLine">
      <property name="frameShape">
       <enum>QFrame::HLine</enum>
@@ -947,7 +947,7 @@ SESSION063 K4: dilation window (seconds) for the coarse floor - how far ahead of
      </property>
     </widget>
    </item>
-   <item row="17" column="0" colspan="2">
+   <item row="18" column="0" colspan="2">
     <widget class="QLabel" name="gpuSideSectionLabel">
      <property name="text">
       <string>GPU side</string>
@@ -960,7 +960,7 @@ SESSION063 K4: dilation window (seconds) for the coarse floor - how far ahead of
      </property>
     </widget>
    </item>
-   <item row="18" column="0">
+   <item row="19" column="0">
     <widget class="QLabel" name="dofDepthModeLabel">
      <property name="text">
       <string>DoF mode</string>
@@ -970,7 +970,7 @@ SESSION063 K4: dilation window (seconds) for the coarse floor - how far ahead of
      </property>
     </widget>
    </item>
-   <item row="18" column="1">
+   <item row="19" column="1">
     <widget class="QComboBox" name="dofDepthModeComboBox">
      <property name="toolTip">
       <string>off: upstream behaviour, splats do not write depth at all - DoF blurs them regardless of focus distance. Kept for A/B comparison.
@@ -999,17 +999,17 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </item>
     </widget>
    </item>
-   <item row="19" column="0">
+   <item row="12" column="0">
     <widget class="QLabel" name="alphaAdjustLabel">
      <property name="text">
       <string>Alpha adjustments</string>
      </property>
      <property name="toolTip">
-      <string>Rescales every splat's own opacity before anything else looks at it: alpha' = gain * alpha^gamma, clamped to 1. Applied at the earliest point that can still be live - in the vertex shader, before the quad is sized - so it moves the drawn area as well as the pixel's colour, and everything downstream (the saturation gate, the overdraw views, the frustum report) sees the adjusted value. Both at 1 is the cloud as captured. Note it does not reach the LoD tree, which was built from the stored alpha; rebuild the tree to fold a setting in permanently.</string>
+      <string>Rescales every splat's own opacity before anything else looks at it: alpha' = gain * alpha^gamma, clamped to 1. Applied at the earliest point that can still be live - in the vertex shader, before the quad is sized - so it moves the drawn area as well as the pixel's colour, and everything downstream (the saturation gate, the overdraw views, the frustum report) sees the adjusted value. SESSION078: also reaches the CPU "Saturation filter" prefilter below - with "ignore" off, raising alpha in a translucent region genuinely raises how much of it that prefilter can prune, since it now sees the same opacity the renderer draws. Both at 1 is the cloud as captured. Note it does not reach the LoD tree, which was built from the stored alpha; rebuild the tree to fold a setting in permanently. Moved here from the GPU section (SESSION078) - conceptually a CPU-visible knob now, not purely a draw-time one.</string>
      </property>
     </widget>
    </item>
-   <item row="19" column="1">
+   <item row="12" column="1">
     <widget class="QWidget" name="alphaAdjustWidget" native="true">
      <layout class="QHBoxLayout" name="alphaAdjustHorizontalLayout">
       <property name="leftMargin">
@@ -1090,7 +1090,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </layout>
     </widget>
    </item>
-   <item row="20" column="0">
+   <item row="21" column="0">
     <widget class="QLabel" name="alphaCutoffLabel">
      <property name="text">
       <string>Alpha cutoff</string>
@@ -1100,7 +1100,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </property>
     </widget>
    </item>
-   <item row="20" column="1">
+   <item row="21" column="1">
     <widget class="QDoubleSpinBox" name="alphaCutoffDoubleSpinBox">
      <property name="toolTip">
       <string>Per-splat quad radius is cut to exactly where its alpha decays to this value, instead of a fixed 3-sigma bound - 1/255 = 0.0039 matches the fragment shader's own discard and is lossless; the shipped default (0.0201) trims low-opacity splats' quads for less overdraw, at the cost of their faintest edge. Applies live.</string>
@@ -1122,7 +1122,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </property>
     </widget>
    </item>
-   <item row="21" column="0">
+   <item row="22" column="0">
     <widget class="QCheckBox" name="ewaProjectionFixCheckBox">
      <property name="text">
       <string>Fix EWA projection</string>
@@ -1132,7 +1132,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </property>
     </widget>
    </item>
-   <item row="21" column="1">
+   <item row="22" column="1">
     <widget class="QWidget" name="ewaProjectionFixWidget" native="true">
      <layout class="QHBoxLayout" name="ewaProjectionFixHorizontalLayout">
       <property name="leftMargin">
@@ -1175,7 +1175,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </layout>
     </widget>
    </item>
-   <item row="22" column="0">
+   <item row="23" column="0">
     <widget class="QLabel" name="numDrawSlicesLabel">
      <property name="text">
       <string>Draw slices</string>
@@ -1185,7 +1185,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </property>
     </widget>
    </item>
-   <item row="22" column="1">
+   <item row="23" column="1">
     <widget class="QWidget" name="drawSlicesWidget" native="true">
      <layout class="QHBoxLayout" name="drawSlicesHorizontalLayout">
       <property name="leftMargin">
@@ -1265,7 +1265,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </layout>
     </widget>
    </item>
-   <item row="23" column="0">
+   <item row="24" column="0">
     <widget class="QLabel" name="sliceGrowthLabel">
      <property name="text">
       <string>Slice growth</string>
@@ -1275,7 +1275,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </property>
     </widget>
    </item>
-   <item row="23" column="1">
+   <item row="24" column="1">
     <widget class="QDoubleSpinBox" name="sliceGrowthDoubleSpinBox">
      <property name="toolTip">
       <string>How much bigger each draw slice is than the one before it. 1 = all slices the same size; below 1 = a coarse first slice and a finely sliced tail. Decides where the saturation test gets to look. Nothing is saturated over roughly the first fifth of a depth-sorted cloud (it takes about 63 layers at the measured mean alpha), so a boundary inside that region costs a full-screen pass and skips nothing, while every check past it catches a new batch of finished pixels. Changes nothing on its own, like the slice count itself. Applies live, immediately.</string>
@@ -1297,7 +1297,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </property>
     </widget>
    </item>
-   <item row="24" column="0">
+   <item row="25" column="0">
     <widget class="QCheckBox" name="saturationGateCheckBox">
      <property name="text">
       <string>Saturation gate</string>
@@ -1310,7 +1310,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </property>
     </widget>
    </item>
-   <item row="24" column="1">
+   <item row="25" column="1">
     <widget class="QWidget" name="saturationWidget" native="true">
      <layout class="QHBoxLayout" name="saturationHorizontalLayout">
       <property name="leftMargin">
@@ -1421,7 +1421,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="25" column="0">
+   <item row="26" column="0">
     <widget class="QLabel" name="layerCapLabel">
      <property name="text">
       <string>Layer cap</string>
@@ -1431,7 +1431,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="25" column="1">
+   <item row="26" column="1">
     <widget class="QWidget" name="layerCapWidget" native="true">
      <layout class="QHBoxLayout" name="layerCapHorizontalLayout">
       <property name="leftMargin">
@@ -1515,7 +1515,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="26" column="1">
+   <item row="27" column="1">
     <widget class="QLabel" name="layerCapEstimateResultLabel">
      <property name="text">
       <string></string>
@@ -1525,7 +1525,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="27" column="0">
+   <item row="28" column="0">
     <widget class="QLabel" name="coverageCapLabel">
      <property name="text">
       <string>Alpha saturation cap</string>
@@ -1535,7 +1535,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="27" column="1">
+   <item row="28" column="1">
     <widget class="QWidget" name="coverageCapWidget" native="true">
      <layout class="QHBoxLayout" name="coverageCapHorizontalLayout">
       <property name="leftMargin">
@@ -1585,7 +1585,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="28" column="0">
+   <item row="29" column="0">
     <widget class="QLabel" name="ablationStageLabel">
      <property name="text">
       <string>Ablation stage</string>
@@ -1595,7 +1595,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="28" column="1">
+   <item row="29" column="1">
     <widget class="QComboBox" name="ablationStageComboBox">
      <property name="toolTip">
       <string>Off is the real pass. The stages below it are deliberately wrong pictures - each one is missing everything above it - so nothing here is meant to be left on. Stage 5 is there because going straight from points to full quads moves the vertex maths and the fill at the same time: it runs all of the projection maths and still draws a one-pixel quad, so 5 minus 4 is the vertex work alone and 6 minus 5 is the fill alone.</string>
@@ -1647,7 +1647,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </item>
     </widget>
    </item>
-   <item row="29" column="0">
+   <item row="30" column="0">
     <widget class="QLabel" name="quadRadiusScaleLabel">
      <property name="text">
       <string>Quad radius scale</string>
@@ -1657,7 +1657,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="29" column="1">
+   <item row="30" column="1">
     <widget class="QWidget" name="quadRadiusScaleWidget" native="true">
      <layout class="QHBoxLayout" name="quadRadiusScaleHorizontalLayout">
       <property name="leftMargin">
@@ -1778,7 +1778,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="30" column="0" colspan="2">
+   <item row="31" column="0" colspan="2">
     <widget class="QLabel" name="bufferTricksSectionLabel">
      <property name="text">
       <string>Buffer tricks</string>
@@ -1791,7 +1791,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="31" column="0" colspan="2">
+   <item row="32" column="0" colspan="2">
     <layout class="QHBoxLayout" name="bufferTricksHorizontalLayout">
      <item>
       <widget class="QCheckBox" name="accumBuffer8BitCheckBox">
@@ -1897,7 +1897,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </item>
     </layout>
    </item>
-   <item row="32" column="0" colspan="2">
+   <item row="33" column="0" colspan="2">
     <widget class="QFrame" name="diagnosticsSeparatorLine">
      <property name="frameShape">
       <enum>QFrame::HLine</enum>
@@ -1907,7 +1907,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="33" column="0" colspan="2">
+   <item row="34" column="0" colspan="2">
     <widget class="QLabel" name="diagnosticsSectionLabel">
      <property name="text">
       <string>Diagnostics</string>
@@ -1920,7 +1920,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="34" column="0">
+   <item row="35" column="0">
     <widget class="QLabel" name="sizeClampLabel">
      <property name="text">
       <string>Size clamp min/max (m)</string>
@@ -1930,7 +1930,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="34" column="1">
+   <item row="35" column="1">
     <widget class="QWidget" name="sizeClampWidget" native="true">
      <layout class="QHBoxLayout" name="sizeClampHorizontalLayout">
       <property name="leftMargin">
@@ -1996,7 +1996,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="35" column="0">
+   <item row="36" column="0">
     <widget class="QLabel" name="distClampLabel">
      <property name="text">
       <string>Distance slice min/max (m)</string>
@@ -2006,7 +2006,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="35" column="1">
+   <item row="36" column="1">
     <widget class="QWidget" name="distClampWidget" native="true">
      <layout class="QHBoxLayout" name="distClampHorizontalLayout">
       <property name="leftMargin">
@@ -2082,7 +2082,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="36" column="0">
+   <item row="37" column="0">
     <widget class="QCheckBox" name="showDebugCheckBox">
      <property name="text">
       <string>Show debug</string>
@@ -2092,7 +2092,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="36" column="1">
+   <item row="37" column="1">
     <widget class="QWidget" name="debugModeWidget" native="true">
      <layout class="QHBoxLayout" name="debugModeHorizontalLayout">
       <property name="leftMargin">
@@ -2157,7 +2157,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="37" column="0">
+   <item row="38" column="0">
     <widget class="QLabel" name="overdrawRangeLabel">
      <property name="text">
       <string>Overdraw range (layers)</string>
@@ -2167,7 +2167,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="37" column="1">
+   <item row="38" column="1">
     <widget class="QWidget" name="overdrawRangeWidget" native="true">
      <layout class="QHBoxLayout" name="overdrawRangeHorizontalLayout">
       <property name="leftMargin">
@@ -2229,7 +2229,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="38" column="0" colspan="2">
+   <item row="39" column="0" colspan="2">
     <layout class="QHBoxLayout" name="diagnosticButtonsHorizontalLayout">
      <item>
       <widget class="QPushButton" name="countInFrustumPushButton">
@@ -2263,7 +2263,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </item>
     </layout>
    </item>
-   <item row="39" column="0" colspan="2">
+   <item row="40" column="0" colspan="2">
     <layout class="QHBoxLayout" name="diagnosticResultsHorizontalLayout">
      <item>
       <widget class="QLabel" name="countInFrustumResultLabel">
@@ -2288,7 +2288,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </item>
     </layout>
    </item>
-   <item row="40" column="0" colspan="2">
+   <item row="41" column="0" colspan="2">
     <widget class="QFrame" name="postProcessingSeparatorLine">
      <property name="frameShape">
       <enum>QFrame::HLine</enum>
@@ -2298,7 +2298,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="41" column="0" colspan="2">
+   <item row="42" column="0" colspan="2">
     <widget class="QLabel" name="postProcessingLabel">
      <property name="text">
       <string>Post processing</string>
@@ -2308,7 +2308,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="42" column="0" colspan="2">
+   <item row="43" column="0" colspan="2">
     <layout class="QHBoxLayout" name="deconvLayout">
      <item>
       <widget class="QCheckBox" name="deconvEnabledCheckBox">
@@ -2347,7 +2347,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </item>
     </layout>
    </item>
-   <item row="43" column="0" colspan="2">
+   <item row="44" column="0" colspan="2">
     <layout class="QHBoxLayout" name="rcasLayout">
      <item>
       <widget class="QCheckBox" name="rcasEnabledCheckBox">
@@ -2386,7 +2386,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </item>
     </layout>
    </item>
-   <item row="44" column="0" colspan="2">
+   <item row="45" column="0" colspan="2">
     <widget class="QCheckBox" name="taaEnabledCheckBox">
      <property name="text">
       <string>temporal accumulation (TAA)</string>
@@ -2396,7 +2396,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="45" column="0" colspan="2">
+   <item row="46" column="0" colspan="2">
     <widget class="QLabel" name="settingsPresetsSectionLabel">
      <property name="text">
       <string>Settings presets</string>
@@ -2409,7 +2409,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="46" column="0" colspan="2">
+   <item row="47" column="0" colspan="2">
     <widget class="QWidget" name="settingsPresetsWidget" native="true">
      <layout class="QHBoxLayout" name="settingsPresetsHorizontalLayout">
       <property name="leftMargin">
@@ -2479,7 +2479,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="47" column="0" colspan="2">
+   <item row="48" column="0" colspan="2">
     <widget class="QLabel" name="consoleLogsSectionLabel">
      <property name="text">
       <string>Console logs</string>
@@ -2492,7 +2492,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="48" column="0" colspan="2">
+   <item row="49" column="0" colspan="2">
     <widget class="QWidget" name="consoleLogsWidget" native="true">
      <layout class="QHBoxLayout" name="consoleLogsHorizontalLayout">
       <property name="leftMargin">
@@ -2540,7 +2540,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="49" column="0" colspan="2">
+   <item row="50" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
