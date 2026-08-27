@@ -68,6 +68,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->maxTreeDepthSpinBox,              SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->splitPipelineCheckBox,            SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was frustumCullCheckBox, split from "cull" below.
 	connect(this->saturationFilterCheckBox,         SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was the Sat pre-filter row's combo box.
+	connect(this->satPrefilterThresholdDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION079
 	connect(this->satGridSubdivDoubleSpinBox,       SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION076 CALIBRATION
 	connect(this->satRegionRadiusDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION078
 	connect(this->satDiagCheckBox,                  SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION076 DIAGNOSTIC
@@ -209,6 +210,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// SESSION074/075: not persisted, same reasoning as the log checkboxes just above - a session should always start
 	// with the stage off, not silently resume mid-measurement from a previous session's state.
 	this->saturationFilterCheckBox->setChecked(false); // off.
+	this->satPrefilterThresholdDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_prefilter_threshold", 0.98).toDouble()); // SESSION079: this stage's own threshold, persisted independently of the gate's below.
 	this->satDiagCheckBox->setChecked(false); // off. SESSION076 - measurement mode, deliberately not persisted (same reason as the row's own checkbox above).
 	this->satGridSubdivDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_grid_subdiv", 0.3).toDouble()); // SESSION076 CALIBRATION, SESSION078: persisted, unlike the toggles above - losing a half-found working point on every restart would make the search useless.
 	// SESSION078: 0.3 is the owner's own aggressive pick after visually verifying the fix in GaussianSplatSaturationGrid.cpp
@@ -367,6 +369,7 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/coarse_pixel_scale", this->coarsePixelScaleDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/sat_grid_subdiv", this->satGridSubdivDoubleSpinBox->value()); // SESSION076 CALIBRATION
 		settings->setValue("gaussian_splats/sat_region_radius", this->satRegionRadiusDoubleSpinBox->value()); // SESSION078
+		settings->setValue("gaussian_splats/sat_prefilter_threshold", this->satPrefilterThresholdDoubleSpinBox->value()); // SESSION079
 		settings->setValue("gaussian_splats/coarse_dilation_latency", this->coarseDilationLatencyDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/num_draw_slices", this->numDrawSlicesSpinBox->value());
 		settings->setValue("gaussian_splats/slice_growth", this->sliceGrowthDoubleSpinBox->value());
@@ -491,6 +494,7 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->kickLogCheckBox->setChecked(false);
 	this->profLogCheckBox->setChecked(false);
 	this->saturationFilterCheckBox->setChecked(false); // off. SESSION074/075 - see load()'s comment.
+	this->satPrefilterThresholdDoubleSpinBox->setValue(0.98); // SESSION079 - see load()'s comment.
 	this->satDiagCheckBox->setChecked(false); // off. SESSION076 - see load()'s comment.
 	this->satGridSubdivDoubleSpinBox->setValue(0.3); // SESSION076 CALIBRATION, SESSION078: see load()'s comment.
 	this->satRegionRadiusDoubleSpinBox->setValue(0.0); // SESSION078: 0 = point-anchored, the pre-region behaviour.

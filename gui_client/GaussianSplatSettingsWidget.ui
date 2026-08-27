@@ -620,6 +620,31 @@
        </widget>
       </item>
       <item>
+       <widget class="QDoubleSpinBox" name="satPrefilterThresholdDoubleSpinBox">
+        <property name="prefix">
+         <string>thr </string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION079. This stage's OWN saturation threshold - independent of the "Saturation gate" row's threshold below, which this used to reuse. Coverage a direction must reach, from the coarse floor's accumulated alpha, before this CPU pre-GPU cull considers it occluded and starts dropping fine geometry behind it. Split out into its own control because the two mechanisms are genuinely independent (this one is a once-per-traversal CPU decision from the coarse floor; the gate below is a per-frame GPU test) and the owner expects the gate may eventually be dropped, at which point this one needs to keep standing on its own. Default 0.98.</string>
+        </property>
+        <property name="decimals">
+         <number>4</number>
+        </property>
+        <property name="minimum">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>0.999900000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.010000000000000</double>
+        </property>
+        <property name="value">
+         <double>0.980000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QDoubleSpinBox" name="coarsePixelScaleDoubleSpinBox">
         <property name="prefix">
          <string>px </string>

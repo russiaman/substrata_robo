@@ -4170,6 +4170,7 @@ void MainWindow::gaussianSplatSettingsChanged()
 	// accepts Count if ever needed again from code. Checked -> Drop, unchecked -> Off.
 	opengl_engine->getSplatRenderer().setSatPrefilterMode(ui->gaussianSplatSettingsWidget->saturationFilterCheckBox->isChecked() ?
 		GaussianSplatSatPrefilterMode_Drop : GaussianSplatSatPrefilterMode_Off);
+	opengl_engine->getSplatRenderer().setSatPrefilterThreshold((float)ui->gaussianSplatSettingsWidget->satPrefilterThresholdDoubleSpinBox->value()); // SESSION079: this stage's own threshold, independent of the gate's below.
 	opengl_engine->getSplatRenderer().setSatDiagLog(ui->gaussianSplatSettingsWidget->satDiagCheckBox->isChecked()); // SESSION076 DIAGNOSTIC - console [gsr-sat-diag] counting only, see getSatDiagLog()'s comment. The overlay itself is set above, from "Show debug" + the mode dropdown.
 	opengl_engine->getSplatRenderer().setSatGridSubdiv((float)ui->gaussianSplatSettingsWidget->satGridSubdivDoubleSpinBox->value()); // SESSION076 CALIBRATION
 	opengl_engine->getSplatRenderer().setSatRegionRadius((float)ui->gaussianSplatSettingsWidget->satRegionRadiusDoubleSpinBox->value()); // SESSION078
