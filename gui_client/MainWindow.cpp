@@ -1337,6 +1337,23 @@ void MainWindow::timerEvent(QTimerEvent* event)
 
 	updateDiagnostics();
 
+	// SESSION079: the adaptive pixel-scale readout. Deliberately not inside updateDiagnostics(), which only runs while
+	// the diagnostics dock is open - this sits next to the control it describes and has to be readable whenever that
+	// panel is. It is one formatted string per timer tick, against a controller that only takes a decision once a
+	// second, so there is nothing here worth gating.
+	if(ui->gaussianSplatSettingsWidget->isVisible() && opengl_engine.nonNull())
+	{
+		const GaussianSplatRenderer& splat_renderer = opengl_engine->getSplatRenderer();
+		if(splat_renderer.getAdaptivePixelScale())
+		{
+			const float ms = splat_renderer.getAdaptiveFrameMs();
+			ui->gaussianSplatSettingsWidget->adaptivePixelScaleValueLabel->setText(
+				QString("= %1  (%2 fps)").arg(splat_renderer.getAdaptivePixelScaleValue(), 0, 'f', 2).arg(ms > 0.f ? (1000.f / ms) : 0.f, 0, 'f', 0));
+		}
+		else
+			ui->gaussianSplatSettingsWidget->adaptivePixelScaleValueLabel->setText("-");
+	}
+
 	// The ImGUI info window has a 'show frame time graphs' checkbox as well.  If it has been changed, update the diagnostics widget checkbox, which is what
 	// actually creates and destroys the render stats widgets (in diagnosticsWidgetChanged()).
 	if(gui_client.imgui_drawing->show_frame_time_graphs != ui->diagnosticsWidget->showFrameTimeGraphsCheckBox->isChecked())
@@ -4102,7 +4119,14 @@ void MainWindow::diagnosticsWidgetChanged()
 // so a saved non-default value takes effect immediately rather than sitting unapplied until the user touches a control.
 void MainWindow::gaussianSplatSettingsChanged()
 {
-	opengl_engine->getSplatRenderer().setPixelScaleLimit((float)ui->gaussianSplatSettingsWidget->pixelScaleLimitDoubleSpinBox->value());
+	// SESSION079: the adaptive controller owns pixel_scale_limit while it is on, so the manual value is only pushed when
+	// it does not. Pushing both would have the spin box's stale number fight the controller every time any setting changed.
+	const bool adaptive_pixel_scale = ui->gaussianSplatSettingsWidget->adaptivePixelScaleCheckBox->isChecked();
+	opengl_engine->getSplatRenderer().setAdaptivePixelScale(adaptive_pixel_scale);
+	opengl_engine->getSplatRenderer().setAdaptiveTargetFPS((float)ui->gaussianSplatSettingsWidget->adaptiveTargetFPSDoubleSpinBox->value());
+	ui->gaussianSplatSettingsWidget->pixelScaleLimitDoubleSpinBox->setEnabled(!adaptive_pixel_scale);
+	if(!adaptive_pixel_scale)
+		opengl_engine->getSplatRenderer().setPixelScaleLimit((float)ui->gaussianSplatSettingsWidget->pixelScaleLimitDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setMaxSplatsBudget((size_t)ui->gaussianSplatSettingsWidget->maxSplatsBudgetSpinBox->value());
 	opengl_engine->getSplatRenderer().setResortMoveThresholdWS((float)ui->gaussianSplatSettingsWidget->resortMoveThresholdDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setSizeClampMin((float)ui->gaussianSplatSettingsWidget->sizeClampMinDoubleSpinBox->value());

@@ -44,6 +44,8 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	coverage_shrink_value_for_mode[2] = 0.1; // Mode 2's threshold is bounded, so the same number is far milder in it than in mode 1 - 0.1 is where it was measured to pay, at 16 ms against 22.2 with no shrink, with nothing visible given up.
 
 	connect(this->pixelScaleLimitDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
+	connect(this->adaptivePixelScaleCheckBox,       SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION079
+	connect(this->adaptiveTargetFPSDoubleSpinBox,   SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION079
 	connect(this->maxSplatsBudgetSpinBox,           SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->resortMoveThresholdDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->lodBaseDoubleSpinBox,             SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
@@ -172,6 +174,8 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// resort_move_threshold_ws) and buildGaussianSplatLodTree()'s default lod_base, so a settings store with no saved
 	// values yet reproduces the same behaviour as before this widget existed.
 	this->pixelScaleLimitDoubleSpinBox->setValue(settings_->value("gaussian_splats/pixel_scale_limit", 2.0).toDouble()); // SESSION072
+	this->adaptivePixelScaleCheckBox->setChecked(settings_->value("gaussian_splats/adaptive_pixel_scale", false).toBool()); // SESSION079
+	this->adaptiveTargetFPSDoubleSpinBox->setValue(settings_->value("gaussian_splats/adaptive_target_fps", 50.0).toDouble()); // SESSION079
 	this->alphaGainDoubleSpinBox->setValue(settings_->value("gaussian_splats/alpha_gain", 1.0).toDouble());   // 1 and 1 = the stored alpha untouched, see GaussianSplatRenderer::getAlphaGain().
 	this->alphaGammaDoubleSpinBox->setValue(settings_->value("gaussian_splats/alpha_gamma", 1.0).toDouble());
 	this->alphaAdjustIgnoreCheckBox->setChecked(true); // SESSION072 default on. Deliberately not persisted, same as the debug view below: it is an A/B switch, and a session starting with the saved gain/gamma silently bypassed would read as them not working.
@@ -234,9 +238,9 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// checkbox, the setting it's the closer continuation of; "split_pipeline" is new, with its own default (true).
 	this->cullCheckBox->setChecked(settings_->value("gaussian_splats/frustum_cull", true).toBool());
 	this->splitPipelineCheckBox->setChecked(settings_->value("gaussian_splats/split_pipeline", true).toBool());
-	this->filterDilationLatencyDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_dilation_latency", 0.17).toDouble()); // SESSION063 K3, SESSION072: matches measured kick-to-drain round trip.
-	this->filterMinRotRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_rot_rate", 10.0).toDouble()); // SESSION072
-	this->filterMaxRotRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_max_rot_rate", 40.0).toDouble()); // SESSION071
+	this->filterDilationLatencyDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_dilation_latency", 0.2).toDouble()); // SESSION063 K3, SESSION072: matches measured kick-to-drain round trip; SESSION079: 0.17->0.2, a list is on screen from its own kick until the NEXT drain, so the envelope is ~2x the 85ms round trip measured over the forest.
+	this->filterMinRotRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_rot_rate", 50.0).toDouble()); // SESSION072; SESSION079: 10->50, the band a STANDING camera carries, which is what a sharp turn tears through before the first rotating kick lands.
+	this->filterMaxRotRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_max_rot_rate", 200.0).toDouble()); // SESSION071; SESSION079: 40->200. At 40 the band pins to 8deg while the camera turns at 350, and over the forest the applied list went 31deg stale against a 16deg band - a visible hole along the frustum edge. The old default was confirmed on the interior, the one scene where this knob never binds.
 	this->filterMinTransRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_trans_rate", 10.0).toDouble()); // SESSION072
 	this->energyMergeColourCheckBox->setChecked(settings_->value("gaussian_splats/energy_merge_colour", true).toBool()); // SESSION071
 	this->mergeSpreadWidenDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_spread_widen", 3.0).toDouble()); // SESSION071
@@ -339,6 +343,8 @@ void GaussianSplatSettingsWidget::settingsChanged()
 	if(settings)
 	{
 		settings->setValue("gaussian_splats/pixel_scale_limit", this->pixelScaleLimitDoubleSpinBox->value());
+		settings->setValue("gaussian_splats/adaptive_pixel_scale", this->adaptivePixelScaleCheckBox->isChecked()); // SESSION079
+		settings->setValue("gaussian_splats/adaptive_target_fps", this->adaptiveTargetFPSDoubleSpinBox->value()); // SESSION079
 		settings->setValue("gaussian_splats/layer_cap", this->layerCapSpinBox->value());
 		settings->setValue("gaussian_splats/layer_cap_opaque", this->layerCapOpaqueCheckBox->isChecked());
 		settings->setValue("gaussian_splats/hide_test_centre", this->hideTestComboBox->currentIndex() == 1);
@@ -464,6 +470,8 @@ void GaussianSplatSettingsWidget::setSplatList(const std::vector<std::pair<uint6
 void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 {
 	this->pixelScaleLimitDoubleSpinBox->setValue(2.0);
+	this->adaptivePixelScaleCheckBox->setChecked(false); // SESSION079
+	this->adaptiveTargetFPSDoubleSpinBox->setValue(50.0); // SESSION079
 	this->alphaGainDoubleSpinBox->setValue(1.0);
 	this->alphaGammaDoubleSpinBox->setValue(1.0);
 	this->alphaAdjustIgnoreCheckBox->setChecked(true);
@@ -506,9 +514,9 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->maxTreeDepthSpinBox->setValue(0);
 	this->cullCheckBox->setChecked(true); // SESSION075: was frustumCullCheckBox.
 	this->splitPipelineCheckBox->setChecked(true); // SESSION075
-	this->filterDilationLatencyDoubleSpinBox->setValue(0.17);
-	this->filterMinRotRateDoubleSpinBox->setValue(10.0);
-	this->filterMaxRotRateDoubleSpinBox->setValue(40.0);
+	this->filterDilationLatencyDoubleSpinBox->setValue(0.2); // SESSION079
+	this->filterMinRotRateDoubleSpinBox->setValue(50.0); // SESSION079
+	this->filterMaxRotRateDoubleSpinBox->setValue(200.0); // SESSION079
 	this->filterMinTransRateDoubleSpinBox->setValue(10.0);
 	this->energyMergeColourCheckBox->setChecked(true);
 	this->mergeSpreadWidenDoubleSpinBox->setValue(3.0);

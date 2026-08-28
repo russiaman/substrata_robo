@@ -350,26 +350,99 @@
     </widget>
    </item>
    <item row="7" column="1">
-    <widget class="QDoubleSpinBox" name="pixelScaleLimitDoubleSpinBox">
-     <property name="toolTip">
-      <string>Traversal stops refining a node once its on-screen footprint is below this many pixels. Lower = more detail, more splats drawn. Applies live, on the next camera movement.</string>
+    <layout class="QHBoxLayout" name="pixelScaleLimitHorizontalLayout">
+     <property name="leftMargin">
+      <number>0</number>
      </property>
-     <property name="decimals">
-      <number>2</number>
+     <property name="topMargin">
+      <number>0</number>
      </property>
-     <property name="minimum">
-      <double>0.10000000000000001</double>
+     <property name="rightMargin">
+      <number>0</number>
      </property>
-     <property name="maximum">
-      <double>50.000000000000000</double>
+     <property name="bottomMargin">
+      <number>0</number>
      </property>
-     <property name="singleStep">
-      <double>0.10000000000000001</double>
-     </property>
-     <property name="value">
-      <double>2.000000000000000</double>
-     </property>
-    </widget>
+     <item>
+      <widget class="QDoubleSpinBox" name="pixelScaleLimitDoubleSpinBox">
+       <property name="toolTip">
+        <string>Traversal stops refining a node once its on-screen footprint is below this many pixels. Lower = more detail, more splats drawn. Applies live, on the next camera movement.</string>
+       </property>
+       <property name="decimals">
+        <number>2</number>
+       </property>
+       <property name="minimum">
+        <double>0.10000000000000001</double>
+       </property>
+       <property name="maximum">
+        <double>50.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.10000000000000001</double>
+       </property>
+       <property name="value">
+        <double>2.000000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="adaptivePixelScaleCheckBox">
+       <property name="text">
+        <string>adaptive</string>
+       </property>
+       <property name="toolTip">
+        <string>SESSION079. Hand the pixel scale limit to a controller that holds a frame-rate target instead of a fixed number, and disable the spin box. The right limit depends on the VIEW, not the scene: 2 against 4 is barely visible flying over open ground and clearly visible in a detailed interior, because what the limit costs is set by how much detail sits near the camera - so no single value is right for both. Clamped to 1..10. Note the limitation: with vsync on, frame time cannot report spare headroom, only its absence, so the controller finds the edge by stepping over it and settles into a shallow oscillation rather than converging.</string>
+       </property>
+       <property name="checked">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QDoubleSpinBox" name="adaptiveTargetFPSDoubleSpinBox">
+       <property name="prefix">
+        <string>target </string>
+       </property>
+       <property name="suffix">
+        <string> fps</string>
+       </property>
+       <property name="toolTip">
+        <string>SESSION079. Top of the band the adaptive controller works towards. At or above this rate it treats the spare capacity as real and edges back towards detail; below 0.8x of it (40fps at the default 50) it steps coarser; in between it holds. Not a promise - it can only trade LoD detail for speed within the 1..10 clamp, and where even the coarsest limit is not enough it sits at the clamp.</string>
+       </property>
+       <property name="decimals">
+        <number>0</number>
+       </property>
+       <property name="minimum">
+        <double>15.000000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>240.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>5.000000000000000</double>
+       </property>
+       <property name="value">
+        <double>50.000000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="adaptivePixelScaleValueLabel">
+       <property name="text">
+        <string>-</string>
+       </property>
+       <property name="minimumWidth">
+        <number>110</number>
+       </property>
+       <property name="toolTip">
+        <string>SESSION079. What the adaptive controller currently holds, and the mean frame time it is acting on. Updates once a second, which is also how often it takes a decision.</string>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #888;</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
    <item row="8" column="0">
     <widget class="QLabel" name="lodSettings1Label">
