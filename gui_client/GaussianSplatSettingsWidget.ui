@@ -773,7 +773,7 @@
          <string>R </string>
         </property>
         <property name="toolTip">
-         <string>SESSION078 REGION PRUNING. Radius, in world units, of the ball of camera positions the saturation barrier is made valid for. 0 = the old behaviour: the barrier describes the single point it was built from, so it goes stale the instant the camera moves, showing as shadow-shaped holes. Owner-measured working range: 0.01-0.03, with no visible artifacts in motion above ~0.03 - much smaller than a naive "full latency window x typical speed" estimate (which would suggest ~0.6), because what actually needs covering is the INCREMENT between one traversal's anchor and the next re-kick's, not the whole gap from a standing start - re-kicks fire far more often than once per latency window during continuous motion. Strictly weakens the cull: both sides widen their conservatism, so it can only ever drop fewer nodes than 0 does - watch dropped= in [gsr-sat] for what it costs. The penalty is R/d in angle, so it is nearly free far away and expensive up close, which is the useful shape here (this stage drops distant geometry; the occluders doing the work are near).</string>
+         <string>SESSION078 REGION PRUNING. Radius, in world units, of the ball of camera positions the saturation barrier is made valid for. 0 = the old behaviour: the barrier describes the single point it was built from, so it goes stale the instant the camera moves, showing as shadow-shaped holes. SESSION080: the "0.01-0.03 working range, no artifacts above ~0.03" figure once quoted here was measured under a since-reworked saturation pipeline and is NOT a current constraint - do not anchor decisions on it. This stage is under continued heavy rework; re-measure fresh each time R actually matters, do not carry forward an old number. Strictly weakens the cull: both sides widen their conservatism, so it can only ever drop fewer nodes than 0 does - watch dropped= in [gsr-sat] for what it costs. The penalty is R/d in angle, so it is nearly free far away and expensive up close, which is the useful shape here (this stage drops distant geometry; the occluders doing the work are near).</string>
         </property>
         <property name="decimals">
          <number>3</number>
@@ -786,6 +786,31 @@
         </property>
         <property name="singleStep">
          <double>0.010000000000000</double>
+        </property>
+        <property name="value">
+         <double>0.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="frontierReuseSplitDoubleSpinBox">
+        <property name="prefix">
+         <string>reuse </string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION080 STEP B. FRONTIER REUSE. Distance, in world units, beyond which a traversal stops re-walking the tree and copies the previous traversal's own selection for that region instead. 0 = off, the walk-everything behaviour, bit-for-bit. Session080's STEP A measured that 99.2-99.9% of one traversal's frontier is chosen again by the next one at a normal walking step (95.2% even on an 8.2m dash), so the walk beyond this distance is re-deriving a set it already had - this skips that, along with the sort and the SoA gather for the same nodes. It cannot show a hole: a traversal runs cull-off, so a frontier from ANY camera position is a complete cut of the tree. What it costs is order - the inherited part keeps the front-to-back sort it had at the previous anchor, i.e. one traversal stale, which is the same staleness everything on screen already carries. Start near the frontier's d25 (see d25= in [gsr-traversal], ~26m on the interior) and watch reuse_n= for how much it inherits, expand_ms/sort_ms/soa_ms for what that saves, and delta_ws for the secondary win: a shorter traversal means less camera movement per kick, which is what actually drives sort staleness. Too small a value inherits the near field, where the eye resolves order - that is where artifacts would show first.</string>
+        </property>
+        <property name="decimals">
+         <number>1</number>
+        </property>
+        <property name="minimum">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>1000.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>5.000000000000000</double>
         </property>
         <property name="value">
          <double>0.000000000000000</double>
