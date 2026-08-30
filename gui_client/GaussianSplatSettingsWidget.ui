@@ -837,6 +837,32 @@
        </widget>
       </item>
       <item>
+       <widget class="QCheckBox" name="drawUnprunedFrontierCheckBox">
+        <property name="text">
+         <string>draw unpruned</string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION081. Whether a traversal's UNPRUNED frontier is drawn while its saturation prune is still being computed.&#10;&#10;On (the session076 behaviour, and the default): a new viewpoint reaches the screen at traversal latency (~170ms) instead of traversal + saturation (~570ms), and the prune arrives afterwards as a refinement. The cost is that the ~13.2M-node unpruned set is what gets DRAWN for the saturation phase's whole duration - and a moving camera re-kicks faster than that phase completes, so much of any walk is spent drawing the unpruned figure rather than the pruned ~2.8M. That is the periodic load spike.&#10;&#10;Off: the previous PRUNED frontier keeps drawing until this traversal's own pruned result lands. Draw load stays flat at the pruned figure; the picture's LoD selection is one traversal older while it waits.&#10;&#10;What makes turning this off safe is "R" (sat_region_radius), and only it: holding the previous prune while the camera moves is exactly the stale-prune hole this split was built to avoid, UNLESS the barrier is valid over a ball of radius R around its anchor. The honest limit is that R only buys R metres of travel - move further than that before the new prune lands and holes are possible again. Flip it while walking: it changes only which result is drawn, never what a traversal produces, so no reload and no cache drop.</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="satBypassGridCheckBox">
+        <property name="text">
+         <string>bypass grid (test)</string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION081 DIAGNOSTIC, TEMPORARY - not a real feature, will be removed. Skips the whole grid computation (gather + build + closing + erosion, pipeline stage 3) and instead marks EVERY direction saturated at one flat distance, taken from the "Distance slice max" spinbox above (reused, not a new value) - so the barrier build costs essentially nothing. Everything else keeps running exactly as normal: the R-ball re-kick cadence, the apply/test stage, the async frustum filter, "draw unpruned". Purpose: isolate whether THAT machinery (not the grid computation itself) is what is causing holes/slow updates, by removing stage 3's own cost and correctness from the picture entirely. With this on, "sat_tiles=100%" in [gsr-sat-build] is expected and means nothing was actually computed - watch [gsr-sat-apply]'s anchor_dist/DISCARDED behaviour instead, that is what this switch is for.</string>
+        </property>
+        <property name="checked">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QCheckBox" name="satDiagCheckBox">
         <property name="text">
          <string>diag</string>

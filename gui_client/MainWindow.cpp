@@ -4199,9 +4199,11 @@ void MainWindow::gaussianSplatSettingsChanged()
 		GaussianSplatSatPrefilterMode_Drop : GaussianSplatSatPrefilterMode_Off);
 	opengl_engine->getSplatRenderer().setSatPrefilterThreshold((float)ui->gaussianSplatSettingsWidget->satPrefilterThresholdDoubleSpinBox->value()); // SESSION079: this stage's own threshold, independent of the gate's below.
 	opengl_engine->getSplatRenderer().setSatDiagLog(ui->gaussianSplatSettingsWidget->satDiagCheckBox->isChecked()); // SESSION076 DIAGNOSTIC - console [gsr-sat-diag] counting only, see getSatDiagLog()'s comment. The overlay itself is set above, from "Show debug" + the mode dropdown.
+	opengl_engine->getSplatRenderer().setSatDebugBypassGrid(ui->gaussianSplatSettingsWidget->satBypassGridCheckBox->isChecked()); // SESSION081 DIAGNOSTIC, TEMPORARY - see getSatDebugBypassGrid().
 	opengl_engine->getSplatRenderer().setSatGridSubdiv((float)ui->gaussianSplatSettingsWidget->satGridSubdivDoubleSpinBox->value()); // SESSION076 CALIBRATION
 	opengl_engine->getSplatRenderer().setSatRegionRadius((float)ui->gaussianSplatSettingsWidget->satRegionRadiusDoubleSpinBox->value()); // SESSION078
 	opengl_engine->getSplatRenderer().setSatRegionClosingTiles(ui->gaussianSplatSettingsWidget->satRegionClosingTilesSpinBox->value()); // SESSION081
+	opengl_engine->getSplatRenderer().setDrawUnprunedFrontier(ui->gaussianSplatSettingsWidget->drawUnprunedFrontierCheckBox->isChecked()); // SESSION081
 	opengl_engine->getSplatRenderer().setFrontierReuseSplitDist((float)ui->gaussianSplatSettingsWidget->frontierReuseSplitDoubleSpinBox->value()); // SESSION080 STEP B
 	// SESSION072: live console log toggles - see GaussianSplatRenderer::getFilterDebugLog()'s comment. Off by default: measured to cost real frame time while firing every frame during motion.
 	opengl_engine->getSplatRenderer().setFilterDebugLog(ui->gaussianSplatSettingsWidget->filterLogCheckBox->isChecked());
