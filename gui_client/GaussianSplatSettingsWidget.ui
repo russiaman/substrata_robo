@@ -818,6 +818,25 @@
        </widget>
       </item>
       <item>
+       <widget class="QSpinBox" name="satRegionClosingTilesSpinBox">
+        <property name="prefix">
+         <string>close </string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION081 HOLE CLOSING. Radius, in GRID TILES (not world units, unlike "R" above), of a morphological closing pass that runs immediately before the region erosion "R" drives. Fixes an interaction found session081: the erosion is a pure max-window over the finished mask, so a single tile that missed the saturation threshold by noise - not a real silhouette - spreads its "unusable" verdict across the erosion's whole window. Measured on the owner's interior at R=0.9: this alone erased 62.0% of an otherwise 65.1%-saturated mask, collapsing dropped= from an 86.6% (R=0) baseline down to 7.9%. A hole narrower than 2x this value (in tiles) gets filled solid before erosion sees it; a real doorway or silhouette, wider than that, passes through unaffected. 0 = off, bit-for-bit the pre-session081 behaviour. Only has any effect when "R" is above 0. Watch cl= on [gsr-sat] for tiles actually filled, and dropped= for what it recovers.</string>
+        </property>
+        <property name="minimum">
+         <number>0</number>
+        </property>
+        <property name="maximum">
+         <number>8</number>
+        </property>
+        <property name="value">
+         <number>0</number>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QCheckBox" name="satDiagCheckBox">
         <property name="text">
          <string>diag</string>
@@ -2233,7 +2252,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
       <item>
        <widget class="QComboBox" name="debugModeComboBox">
         <property name="toolTip">
-         <string>Which measure the debug ramp and Clip work on. See the tooltip on "Show debug" for what each one answers.&#10;&#10;The "Coverage Ln" entries are a different kind of view: instead of a ramp over what the splats produced, they draw the coverage pyramid the shrink reads, in grey - black is nothing covered, white is finished. Level 0 is one texel per "mask 1/n" pixels; each level up is twice as coarse, and the coarse levels are the ones a big splat's quad actually samples. Flipping the reduce mode beside Draw slices between mean and min while watching one of these is what shows the difference the switch makes. Needs the saturation gate on, since its mark pass is what builds the pyramid; Clip and the range boxes do nothing in these modes.</string>
+         <string>Which measure the debug ramp and Clip work on. See the tooltip on "Show debug" for what each one answers.&#10;&#10;The "Coverage Ln" entries are a different kind of view: instead of a ramp over what the splats produced, they draw the coverage pyramid the shrink reads, in grey - black is nothing covered, white is finished. Level 0 is one texel per "mask 1/n" pixels; each level up is twice as coarse, and the coarse levels are the ones a big splat's quad actually samples. Flipping the reduce mode beside Draw slices between mean and min while watching one of these is what shows the difference the switch makes. Needs the saturation gate on, since its mark pass is what builds the pyramid; Clip and the range boxes do nothing in these modes.&#10;&#10;SESSION081: "Saturation mask_fix" is a THIRD binary view of the sat_depth grid, alongside "Saturation mask" (blue) - same overlay mechanism, different data. "Saturation mask" shows the RAW pre-erosion accumulator - what the build pass alone decided, before "close" or "R" ever touch it. "Saturation mask_fix" (amber) shows the FINAL sat_depth - after the closing pass fills pinholes and the region erosion runs. Switch between the two at the same camera position to see exactly which tiles closing/erosion added or removed.</string>
         </property>
         <item>
          <property name="text">
@@ -2263,6 +2282,11 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
         <item>
          <property name="text">
           <string>Saturation ramp</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Saturation mask_fix</string>
          </property>
         </item>
        </widget>

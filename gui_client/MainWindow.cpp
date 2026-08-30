@@ -4147,6 +4147,8 @@ void MainWindow::gaussianSplatSettingsChanged()
 	// is what builds the pyramid this one needs.
 	// Entries 4 and 5 (SESSION078) are a third, unrelated kind of view again - the saturation-grid debug overlay
 	// (session076 §9), a separate giant-sphere draw call rather than a per-splat colour ramp. See show_sat_overlay below.
+	// Entry 6 (SESSION081) is a fourth member of that same family - appended at the end of the combo box rather than
+	// inserted after 4/5, so entries 4 and 5's indices never shift.
 	const int splat_debug_index = ui->gaussianSplatSettingsWidget->debugModeComboBox->currentIndex();
 	const bool splat_debug_on = ui->gaussianSplatSettingsWidget->showDebugCheckBox->isChecked();
 	// Two levels rather than every one of them: a fine level to see the shape of the coverage and a coarse one to see
@@ -4160,10 +4162,11 @@ void MainWindow::gaussianSplatSettingsChanged()
 	// rather than a per-splat colour ramp. They used to be gated by their own "diag"/"ramp" checkboxes, independent of
 	// this dropdown entirely; folded in here so the overlay is just two more entries in the one mode selector the other
 	// debug views already share, on/off with the same "Show debug" checkbox.
-	const int sat_overlay_mask_index = 4, sat_overlay_ramp_index = 5;
-	const bool show_sat_overlay = splat_debug_on && (splat_debug_index == sat_overlay_mask_index || splat_debug_index == sat_overlay_ramp_index);
+	const int sat_overlay_mask_index = 4, sat_overlay_ramp_index = 5, sat_overlay_maskfix_index = 6; // SESSION081: maskfix appended, see the comment above.
+	const bool show_sat_overlay = splat_debug_on && (splat_debug_index == sat_overlay_mask_index || splat_debug_index == sat_overlay_ramp_index || splat_debug_index == sat_overlay_maskfix_index);
 	opengl_engine->getSplatRenderer().setSatDebugOverlayMode(!show_sat_overlay ? GaussianSplatSatDebugOverlayMode_Off :
-		(splat_debug_index == sat_overlay_mask_index ? GaussianSplatSatDebugOverlayMode_Mask : GaussianSplatSatDebugOverlayMode_Ramp));
+		(splat_debug_index == sat_overlay_mask_index ? GaussianSplatSatDebugOverlayMode_Mask :
+		(splat_debug_index == sat_overlay_ramp_index ? GaussianSplatSatDebugOverlayMode_Ramp : GaussianSplatSatDebugOverlayMode_MaskFix)));
 
 	const int splat_debug_measure = (splat_debug_index == 1) ? 2 : 1;
 	opengl_engine->getSplatRenderer().setShowOverdrawMode((splat_debug_on && !show_coverage_map && !show_sat_overlay) ? splat_debug_measure : 0);
@@ -4198,6 +4201,7 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setSatDiagLog(ui->gaussianSplatSettingsWidget->satDiagCheckBox->isChecked()); // SESSION076 DIAGNOSTIC - console [gsr-sat-diag] counting only, see getSatDiagLog()'s comment. The overlay itself is set above, from "Show debug" + the mode dropdown.
 	opengl_engine->getSplatRenderer().setSatGridSubdiv((float)ui->gaussianSplatSettingsWidget->satGridSubdivDoubleSpinBox->value()); // SESSION076 CALIBRATION
 	opengl_engine->getSplatRenderer().setSatRegionRadius((float)ui->gaussianSplatSettingsWidget->satRegionRadiusDoubleSpinBox->value()); // SESSION078
+	opengl_engine->getSplatRenderer().setSatRegionClosingTiles(ui->gaussianSplatSettingsWidget->satRegionClosingTilesSpinBox->value()); // SESSION081
 	opengl_engine->getSplatRenderer().setFrontierReuseSplitDist((float)ui->gaussianSplatSettingsWidget->frontierReuseSplitDoubleSpinBox->value()); // SESSION080 STEP B
 	// SESSION072: live console log toggles - see GaussianSplatRenderer::getFilterDebugLog()'s comment. Off by default: measured to cost real frame time while firing every frame during motion.
 	opengl_engine->getSplatRenderer().setFilterDebugLog(ui->gaussianSplatSettingsWidget->filterLogCheckBox->isChecked());

@@ -73,6 +73,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->satPrefilterThresholdDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION079
 	connect(this->satGridSubdivDoubleSpinBox,       SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION076 CALIBRATION
 	connect(this->satRegionRadiusDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION078
+	connect(this->satRegionClosingTilesSpinBox,     SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged())); // SESSION081
 	connect(this->frontierReuseSplitDoubleSpinBox,  SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION080 STEP B
 	connect(this->satDiagCheckBox,                  SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION076 DIAGNOSTIC
 	connect(this->cullCheckBox,                     SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was filterFrustumPlanesCheckBox, relocated+relabelled.
@@ -224,6 +225,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// here for someone willing to keep tuning - but the owner judged it a good stopping point and chose not to spend more
 	// time on it. Paired with saturation_threshold's 0.99 default below - 0.96 visibly strengthens this grid's artifacts.
 	this->satRegionRadiusDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_region_radius", 0.0).toDouble()); // SESSION078: persisted like sub - 0 is the point-anchored baseline, non-zero is the region assertion.
+	this->satRegionClosingTilesSpinBox->setValue(settings_->value("gaussian_splats/sat_region_closing_tiles", 0).toInt()); // SESSION081: persisted like R - 0 is the pre-closing baseline.
 	this->frontierReuseSplitDoubleSpinBox->setValue(settings_->value("gaussian_splats/frontier_reuse_split_dist", 0.0).toDouble()); // SESSION080 STEP B: persisted like R - 0 is the walk-everything baseline.
 	this->debugModeComboBox->setCurrentIndex(0); // Overdraw. Not persisted either, for the same reason - it only says which measure the view above shows.
 	// Not persisted, like the other A/B switches: both reduce modes have to start a session in the same place or one
@@ -377,6 +379,7 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/coarse_pixel_scale", this->coarsePixelScaleDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/sat_grid_subdiv", this->satGridSubdivDoubleSpinBox->value()); // SESSION076 CALIBRATION
 		settings->setValue("gaussian_splats/sat_region_radius", this->satRegionRadiusDoubleSpinBox->value()); // SESSION078
+		settings->setValue("gaussian_splats/sat_region_closing_tiles", this->satRegionClosingTilesSpinBox->value()); // SESSION081
 		settings->setValue("gaussian_splats/frontier_reuse_split_dist", this->frontierReuseSplitDoubleSpinBox->value()); // SESSION080 STEP B
 		settings->setValue("gaussian_splats/sat_prefilter_threshold", this->satPrefilterThresholdDoubleSpinBox->value()); // SESSION079
 		settings->setValue("gaussian_splats/coarse_dilation_latency", this->coarseDilationLatencyDoubleSpinBox->value());
@@ -509,6 +512,7 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->satDiagCheckBox->setChecked(false); // off. SESSION076 - see load()'s comment.
 	this->satGridSubdivDoubleSpinBox->setValue(0.3); // SESSION076 CALIBRATION, SESSION078: see load()'s comment.
 	this->satRegionRadiusDoubleSpinBox->setValue(0.0); // SESSION078: 0 = point-anchored, the pre-region behaviour.
+	this->satRegionClosingTilesSpinBox->setValue(0); // SESSION081: 0 = off, the pre-closing behaviour.
 	this->frontierReuseSplitDoubleSpinBox->setValue(0.0); // SESSION080 STEP B: 0 = walk the whole tree, the pre-reuse behaviour.
 	this->debugModeComboBox->setCurrentIndex(0);
 	this->coverageReduceModeComboBox->setCurrentIndex(1);
