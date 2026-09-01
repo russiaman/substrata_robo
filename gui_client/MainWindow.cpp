@@ -4200,6 +4200,13 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setSatPrefilterThreshold((float)ui->gaussianSplatSettingsWidget->satPrefilterThresholdDoubleSpinBox->value()); // SESSION079: this stage's own threshold, independent of the gate's below.
 	opengl_engine->getSplatRenderer().setSatDiagLog(ui->gaussianSplatSettingsWidget->satDiagCheckBox->isChecked()); // SESSION076 DIAGNOSTIC - console [gsr-sat-diag] counting only, see getSatDiagLog()'s comment. The overlay itself is set above, from "Show debug" + the mode dropdown.
 	opengl_engine->getSplatRenderer().setSatDebugBypassGrid(ui->gaussianSplatSettingsWidget->satBypassGridCheckBox->isChecked()); // SESSION081 DIAGNOSTIC, TEMPORARY - see getSatDebugBypassGrid().
+	// SESSION082, TEMPORARY - see getSatOccluderSource(). Combo index order matches the enum's declaration order.
+	{
+		const int occ_src_index = ui->gaussianSplatSettingsWidget->satOccluderSourceComboBox->currentIndex();
+		opengl_engine->getSplatRenderer().setSatOccluderSource(
+			occ_src_index == 1 ? GaussianSplatOccluderSource_CoarseFloor :
+			(occ_src_index == 2 ? GaussianSplatOccluderSource_TreeWalk : GaussianSplatOccluderSource_Fine));
+	}
 	opengl_engine->getSplatRenderer().setSatGridSubdiv((float)ui->gaussianSplatSettingsWidget->satGridSubdivDoubleSpinBox->value()); // SESSION076 CALIBRATION
 	opengl_engine->getSplatRenderer().setSatRegionRadius((float)ui->gaussianSplatSettingsWidget->satRegionRadiusDoubleSpinBox->value()); // SESSION078
 	opengl_engine->getSplatRenderer().setSatRegionClosingTiles(ui->gaussianSplatSettingsWidget->satRegionClosingTilesSpinBox->value()); // SESSION081
