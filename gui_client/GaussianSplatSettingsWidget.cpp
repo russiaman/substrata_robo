@@ -73,6 +73,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->satPrefilterThresholdDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION079
 	connect(this->satGridSubdivDoubleSpinBox,       SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION076 CALIBRATION
 	connect(this->satRegionRadiusDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION078
+	connect(this->satBiasCeilingDoubleSpinBox,      SIGNAL(valueChanged(double)),  this, SLOT(settingsChanged())); // SESSION085 ETAP 3 LoD bias.
 	connect(this->satMinRatioDoubleSpinBox,         SIGNAL(valueChanged(double)),  this, SLOT(settingsChanged())); // SESSION085 depth margin.
 	connect(this->satRegionClosingTilesSpinBox,     SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged())); // SESSION081
 	connect(this->drawUnprunedFrontierCheckBox,     SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION081
@@ -229,6 +230,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->satRegionRadiusDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_region_radius", 0.0).toDouble()); // SESSION078: persisted like sub - 0 is the point-anchored baseline, non-zero is the region assertion.
 	this->satRegionClosingTilesSpinBox->setValue(settings_->value("gaussian_splats/sat_region_closing_tiles", 0).toInt()); // SESSION081: persisted like R - 0 is the pre-closing baseline.
 	this->satMinRatioDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_min_ratio", 1.0).toDouble()); // SESSION085: persisted like R/close - 1 is the no-margin baseline.
+	this->satBiasCeilingDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_bias_ceiling", 1.0).toDouble()); // SESSION085 ETAP 3: 1 = bias off.
 	this->drawUnprunedFrontierCheckBox->setChecked(settings_->value("gaussian_splats/draw_unpruned_frontier", true).toBool()); // SESSION081: persisted, defaulting to the session076 publish-early behaviour.
 	this->frontierReuseSplitDoubleSpinBox->setValue(settings_->value("gaussian_splats/frontier_reuse_split_dist", 0.0).toDouble()); // SESSION080 STEP B: persisted like R - 0 is the walk-everything baseline.
 	this->debugModeComboBox->setCurrentIndex(0); // Overdraw. Not persisted either, for the same reason - it only says which measure the view above shows.
@@ -385,6 +387,7 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/sat_region_radius", this->satRegionRadiusDoubleSpinBox->value()); // SESSION078
 		settings->setValue("gaussian_splats/sat_region_closing_tiles", this->satRegionClosingTilesSpinBox->value()); // SESSION081
 		settings->setValue("gaussian_splats/sat_min_ratio", this->satMinRatioDoubleSpinBox->value()); // SESSION085
+		settings->setValue("gaussian_splats/sat_bias_ceiling", this->satBiasCeilingDoubleSpinBox->value()); // SESSION085 ETAP 3
 		settings->setValue("gaussian_splats/draw_unpruned_frontier", this->drawUnprunedFrontierCheckBox->isChecked()); // SESSION081
 		settings->setValue("gaussian_splats/frontier_reuse_split_dist", this->frontierReuseSplitDoubleSpinBox->value()); // SESSION080 STEP B
 		settings->setValue("gaussian_splats/sat_prefilter_threshold", this->satPrefilterThresholdDoubleSpinBox->value()); // SESSION079
@@ -520,6 +523,7 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->satRegionRadiusDoubleSpinBox->setValue(0.0); // SESSION078: 0 = point-anchored, the pre-region behaviour.
 	this->satRegionClosingTilesSpinBox->setValue(0); // SESSION081: 0 = off, the pre-closing behaviour.
 	this->satMinRatioDoubleSpinBox->setValue(1.0); // SESSION085: 1 = off, no depth margin.
+	this->satBiasCeilingDoubleSpinBox->setValue(1.0); // SESSION085 ETAP 3: 1 = off, no LoD bias.
 	this->drawUnprunedFrontierCheckBox->setChecked(true); // SESSION081: on = the session076 publish-early behaviour.
 	this->frontierReuseSplitDoubleSpinBox->setValue(0.0); // SESSION080 STEP B: 0 = walk the whole tree, the pre-reuse behaviour.
 	this->debugModeComboBox->setCurrentIndex(0);

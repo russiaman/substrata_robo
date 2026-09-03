@@ -878,6 +878,31 @@
        </widget>
       </item>
       <item>
+       <widget class="QDoubleSpinBox" name="satBiasCeilingDoubleSpinBox">
+        <property name="prefix">
+         <string>bias </string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION085 ETAP 3 - THE LoD BIAS. The real point of the progressive-saturation work. 1 = off, bit-for-bit the previous behaviour.&#10;&#10;Instead of DROPPING a node that sits behind saturated geometry, the traversal stops walking there and draws the node's own merged stand-in - so what is given up is the subtree, not the geometry. A wrong prune is a hole; a wrong bias is slightly coarser geometry in a region that was mostly occluded anyway.&#10;&#10;This IS the operative knob, not a backstop - the per-node curve saturates fast (~89% of the way there by 3x the barrier depth), so most of what a node gets is decided by this ceiling, not by how deep it individually sits. feature_size roughly halves per tree level, so it reads as levels: 2 is about one level coarser, 4 two levels, 8 three. Measured (owner, session085): 32 read as visually acceptable with no holes, at the cost of a lag while a stopped camera's new barrier catches up (now fixed - a fresh barrier forces the affected traversal, same as a camera move would).&#10;&#10;DO NOT RUN THIS WITH THE PRUNE ON - they are alternatives, not layers. The prune UNDOES the bias: the bias stops the walk at an ancestor because it is deeply behind the barrier, then the apply stage tests that same ancestor against that same barrier and drops it. prune only = hole; bias only = no hole, coarser geometry; BOTH = hole. Measuring the bias with the prune on will show holes and look like the mechanism does not work.&#10;&#10;To judge it: turn the &quot;Saturation settings1&quot; checkbox OFF and set this above 1. The apply stage then does not run at all, which is also where the latency win is (that stage measured 87-560ms, ~30% of end-to-end).&#10;&#10;Watch [gsr-traversal] for sat_bias= (stops/tests - whether the mechanism is actually firing) and expand_ms (the walk got CHEAPER too: a stopped node's subtree is never visited), and the Count in frustum button for the LoD frontier size.</string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>128.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.250000000000000</double>
+        </property>
+        <property name="value">
+         <double>1.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QDoubleSpinBox" name="satMinRatioDoubleSpinBox">
         <property name="prefix">
          <string>minR </string>
