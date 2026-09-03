@@ -890,28 +890,6 @@
         </property>
        </widget>
       </item>
-      <item>
-       <widget class="QComboBox" name="satOccluderSourceComboBox">
-        <property name="toolTip">
-         <string>SESSION082, TEMPORARY - not a real feature, will be removed. Chooses which set of nodes the saturation barrier is BUILT from. Nothing else changes under any option: the render frontier, the traversal and the tested population are untouched, so the three are directly comparable. &quot;fine&quot; is the behaviour up to session082 - every node the traversal selected (~13.5M). &quot;coarse floor&quot; is the one-node-per-branch layer the gather normally discards as redundant (~2.8-3.6M, 4.8x smaller); measured to give a barrier no worse than fine, with gather busy time down 3.2x. &quot;tree walk&quot; runs a walk of its own inside the build, anchored at the build's own anchor, descending only while a node is wider than one grid tile - so the occluder count follows the GRID's resolution rather than the render's quality target. Measured 618k/843k nodes against the coarse floor's 2.80M/3.61M on two different scenes. It is the only option that does not need a frontier at all, which is what the Nanite-streaming direction will need. [gsr-sat-build] prints COARSE-OCCL or TREE-WALK (with visited=, walk_ms=, walk_sort_ms=) so a captured line says which one produced it. Watch occl=, sat_tiles%, gather_ms/grid_ms, and [gsr-sat-apply]'s dropped% - that last one is the real verdict. Not saved between sessions.</string>
-        </property>
-        <item>
-         <property name="text">
-          <string>fine</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>coarse floor</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>tree walk</string>
-         </property>
-        </item>
-       </widget>
-      </item>
      </layout>
     </widget>
    </item>
