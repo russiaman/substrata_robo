@@ -4202,6 +4202,7 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setSatGridSubdiv((float)ui->gaussianSplatSettingsWidget->satGridSubdivDoubleSpinBox->value()); // SESSION076 CALIBRATION
 	opengl_engine->getSplatRenderer().setSatRegionRadius((float)ui->gaussianSplatSettingsWidget->satRegionRadiusDoubleSpinBox->value()); // SESSION078
 	opengl_engine->getSplatRenderer().setSatRegionClosingTiles(ui->gaussianSplatSettingsWidget->satRegionClosingTilesSpinBox->value()); // SESSION081
+	opengl_engine->getSplatRenderer().setSatMinRatio((float)ui->gaussianSplatSettingsWidget->satMinRatioDoubleSpinBox->value()); // SESSION085 depth margin.
 	opengl_engine->getSplatRenderer().setDrawUnprunedFrontier(ui->gaussianSplatSettingsWidget->drawUnprunedFrontierCheckBox->isChecked()); // SESSION081
 	opengl_engine->getSplatRenderer().setFrontierReuseSplitDist((float)ui->gaussianSplatSettingsWidget->frontierReuseSplitDoubleSpinBox->value()); // SESSION080 STEP B
 	// SESSION072: live console log toggles - see GaussianSplatRenderer::getFilterDebugLog()'s comment. Off by default: measured to cost real frame time while firing every frame during motion.

@@ -878,6 +878,31 @@
        </widget>
       </item>
       <item>
+       <widget class="QDoubleSpinBox" name="satMinRatioDoubleSpinBox">
+        <property name="prefix">
+         <string>minR </string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION085, TEMPORARY - not a feature, will be removed. Built to test one hypothesis cheaply; it answered it, and the answer is that it cannot be the solution. Kept only so a later comparison can quote what a naive hard margin costs for the same visual outcome.&#10;&#10;A node is dropped only if it sits at least this many TIMES further than the barrier, not merely past it. 1 = off, the pre-session085 behaviour bit-for-bit.&#10;&#10;The hypothesis was that holes on a moving camera are the BOUNDARY population: the barrier is anchored, so moving the viewpoint perturbs the nodes nearest it and few others. Measured, walking until holes stopped being visible: interior minR 1-&gt;2 took dropped 77.1%-&gt;64.3% and the drawn pool 2.64M-&gt;4.10M (+55%), holes gone; forest minR 1-&gt;3 took dropped 19.4%-&gt;0.1%, holes gone.&#10;&#10;The hypothesis held and the knob still fails. The interior has a real working point. The forest does not - at the margin where its holes vanish the stage has simply STOPPED PRUNING (0.1% dropped), so &quot;no holes&quot; there is not a fix, it is the mechanism switched off, and there is nothing in between because in an open view almost every drop is a boundary drop. So this is a switch rather than a dial, and where it switches is decided by the content - per-scene tuning by definition, which this project does not do.&#10;&#10;Watch the denominators: 16.6% of the DROPS is +55% of the POOL, and the pool is what the GPU pays for. Applies live (the setter clears the apply throttle); [gsr-sat-apply] echoes the value as minR=.</string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>20.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.250000000000000</double>
+        </property>
+        <property name="value">
+         <double>1.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QCheckBox" name="drawUnprunedFrontierCheckBox">
         <property name="text">
          <string>unpruned</string>
