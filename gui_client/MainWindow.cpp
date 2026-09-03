@@ -4199,7 +4199,6 @@ void MainWindow::gaussianSplatSettingsChanged()
 		GaussianSplatSatPrefilterMode_Drop : GaussianSplatSatPrefilterMode_Off);
 	opengl_engine->getSplatRenderer().setSatPrefilterThreshold((float)ui->gaussianSplatSettingsWidget->satPrefilterThresholdDoubleSpinBox->value()); // SESSION079: this stage's own threshold, independent of the gate's below.
 	opengl_engine->getSplatRenderer().setSatDiagLog(ui->gaussianSplatSettingsWidget->satDiagCheckBox->isChecked()); // SESSION076 DIAGNOSTIC - console [gsr-sat-diag] counting only, see getSatDiagLog()'s comment. The overlay itself is set above, from "Show debug" + the mode dropdown.
-	opengl_engine->getSplatRenderer().setSatDebugBypassGrid(ui->gaussianSplatSettingsWidget->satBypassGridCheckBox->isChecked()); // SESSION081 DIAGNOSTIC, TEMPORARY - see getSatDebugBypassGrid().
 	// SESSION082, TEMPORARY - see getSatOccluderSource(). Combo index order matches the enum's declaration order.
 	{
 		const int occ_src_index = ui->gaussianSplatSettingsWidget->satOccluderSourceComboBox->currentIndex();
@@ -4286,18 +4285,25 @@ void MainWindow::countSplatsInFrustumRequested()
 	const GaussianSplatRenderer::FrustumCounts counts = opengl_engine->getSplatRenderer().countSplatsInFrustum();
 	const double pct = counts.total > 0 ? (100.0 * (double)counts.in_frustum / (double)counts.total) : 0.0;
 	// SESSION072: counts.in_frustum is a brute-force reference bound over 'total' (every LoD tree node at every level,
-	// not what the traversal actually walks - see session054 §2A), so it's folded into the 'Total' figure as a percentage
-	// rather than given its own arrow-stage. The arrow chain itself is the real, causally-decreasing pipeline: frontier
-	// (U(P), traversal's whole-world selection, pre-filter) -> counts.drawn relabelled "in frustum" (S(P,R), that
-	// selection after the frustum-cull + dilation filter) -> visible (that draw list after the frustum + size/distance
-	// slices are simulated on the CPU, mirroring the vertex shader - what actually reaches the screen this frame).
+	// not what the traversal actually walks - see session054 §2A), so it's folded into the 'raw' figure as a percentage
+	// rather than given its own arrow-stage. The arrow chain itself is the real, causally-decreasing pipeline.
+	//
+	// SESSION085: the chain now names one stage per real pipeline stage, saturation included - it previously went
+	// straight from the frontier to the post-frustum draw list, which hid the saturation prefilter entirely (and, worse,
+	// silently reported ITS output under the LoD stage's label, since the cached frontier is usually the pruned copy).
+	// See GaussianSplatRenderer::FrustumCounts for the stage-by-stage definitions:
+	//
+	//   raw -> LoD frontier -> saturation -> frustum -> final frame
+	//
 	// SESSION072: explicit line break rather than relying on QLabel word-wrap width, which didn't track countInFrustumResultLabel's
 	// maximumSize predictably (widening the cap 470px->830px only shifted the wrap point 38->48 chars) - likely something else
 	// in the layout/DPI scaling governs the rendered width. This split happens to land at ~65-67 chars per line either way.
-	const std::string msg = "Total LoDs nodes:" + toString(counts.total) + " (in frustum " + doubleToStringNDecimalPlaces(pct, 1) + "%) -> " +
-		"frontier:" + toString(counts.frontier) + " ->\n" +
-		"in frustum:" + toString(counts.drawn) + " -> " +
-		"visible " + toString(counts.visible) + " (simulated GPU-filters)";
+	// SESSION085: three lines now rather than two - the chain gained a stage and no longer fits in two at that width.
+	const std::string msg = "raw:" + toString(counts.total) + " (in frustum " + doubleToStringNDecimalPlaces(pct, 1) + "%) ->\n" +
+		"LoD frontier:" + toString(counts.frontier) + " -> " +
+		"saturation:" + toString(counts.after_sat) + " ->\n" +
+		"frustum:" + toString(counts.drawn) + " -> " +
+		"final frame:" + toString(counts.visible) + " (simulated GPU-filters)";
 	ui->gaussianSplatSettingsWidget->countInFrustumResultLabel->setText(QtUtils::toQString(msg));
 	conPrint("Count in frustum: " + msg);
 }

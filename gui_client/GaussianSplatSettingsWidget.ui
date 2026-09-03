@@ -657,7 +657,7 @@
    <item row="14" column="0">
     <widget class="QLabel" name="saturationFilterLabel">
      <property name="text">
-      <string>Saturation filter</string>
+      <string>Saturation settings1</string>
      </property>
      <property name="toolTip">
       <string>SESSION074 pre-GPU occlusion cull. Estimates, from the coarse LoD floor, which directions from the camera are already fully covered by opaque geometry, and drops fine nodes that lie behind that cover before they ever cost a GPU vertex - not just their blend cost, unlike the saturation gate (GPU side, below). SESSION075: independent of "coarse" (Frustum settings2, below) - traversal captures the coarse-floor data this stage needs whenever this is on, whether or not "coarse" is also on to actually draw that layer as an edge-filling patch. Off by default.</string>
@@ -793,6 +793,47 @@
        </widget>
       </item>
       <item>
+       <widget class="QCheckBox" name="satDiagCheckBox">
+        <property name="text">
+         <string>diag</string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION076/078 DIAGNOSTIC. Prints an extra [gsr-sat-diag] console line breaking down what the coarse capture is actually buying this stage: cA/cB splits the captured nodes into the genuinely low-detail cut (captured for being at or below "px") and the near-field nodes captured only because their branch hit a leaf while still coarser than that - the latter are duplicates of nodes already in the fine frontier, present only because the drawn coarse patch needs a complete cover, which this grid does not. writers is how many captured nodes the grid actually accepted (a node contributes only if its footprint fully covers at least one tile), against pred=, the same count derived analytically - they must agree. Needs the filter log on, and Saturation filter on. Pure console counting - unrelated to the "Saturation mask"/"Saturation ramp" visual overlay in the Diagnostics section's debug mode dropdown, which has its own gate (Show debug + that dropdown). Own checkbox rather than more fields on [gsr-sat] because the counting perturbs the very loops being timed. Not saved between sessions.</string>
+        </property>
+        <property name="checked">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="15" column="0">
+    <widget class="QLabel" name="saturationSettings2Label">
+     <property name="text">
+      <string>Saturation settings2</string>
+     </property>
+     <property name="toolTip">
+      <string>Second row of saturation-stage controls - split off from &quot;Saturation settings1&quot; above purely so one row does not run off the panel's width. Same stage, no grouping meaning beyond that; see each control's own tooltip.</string>
+     </property>
+    </widget>
+   </item>
+   <item row="15" column="1">
+    <widget class="QWidget" name="saturationSettings2Widget" native="true">
+     <layout class="QHBoxLayout" name="saturationSettings2HorizontalLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
        <widget class="QDoubleSpinBox" name="frontierReuseSplitDoubleSpinBox">
         <property name="prefix">
          <string>reuse </string>
@@ -839,7 +880,7 @@
       <item>
        <widget class="QCheckBox" name="drawUnprunedFrontierCheckBox">
         <property name="text">
-         <string>draw unpruned</string>
+         <string>unpruned</string>
         </property>
         <property name="toolTip">
          <string>SESSION081. Whether a traversal's UNPRUNED frontier is drawn while its saturation prune is still being computed.&#10;&#10;On (the session076 behaviour, and the default): a new viewpoint reaches the screen at traversal latency (~170ms) instead of traversal + saturation (~570ms), and the prune arrives afterwards as a refinement. The cost is that the ~13.2M-node unpruned set is what gets DRAWN for the saturation phase's whole duration - and a moving camera re-kicks faster than that phase completes, so much of any walk is spent drawing the unpruned figure rather than the pruned ~2.8M. That is the periodic load spike.&#10;&#10;Off: the previous PRUNED frontier keeps drawing until this traversal's own pruned result lands. Draw load stays flat at the pruned figure; the picture's LoD selection is one traversal older while it waits.&#10;&#10;What makes turning this off safe is "R" (sat_region_radius), and only it: holding the previous prune while the camera moves is exactly the stale-prune hole this split was built to avoid, UNLESS the barrier is valid over a ball of radius R around its anchor. The honest limit is that R only buys R metres of travel - move further than that before the new prune lands and holes are possible again. Flip it while walking: it changes only which result is drawn, never what a traversal produces, so no reload and no cache drop.</string>
@@ -850,57 +891,31 @@
        </widget>
       </item>
       <item>
-       <widget class="QCheckBox" name="satBypassGridCheckBox">
-        <property name="text">
-         <string>bypass grid (test)</string>
-        </property>
-        <property name="toolTip">
-         <string>SESSION081 DIAGNOSTIC, TEMPORARY - not a real feature, will be removed. Skips the whole grid computation (gather + build + closing + erosion, pipeline stage 3) and instead marks EVERY direction saturated at one flat distance, taken from the "Distance slice max" spinbox above (reused, not a new value) - so the barrier build costs essentially nothing. Everything else keeps running exactly as normal: the R-ball re-kick cadence, the apply/test stage, the async frustum filter, "draw unpruned". Purpose: isolate whether THAT machinery (not the grid computation itself) is what is causing holes/slow updates, by removing stage 3's own cost and correctness from the picture entirely. With this on, "sat_tiles=100%" in [gsr-sat-build] is expected and means nothing was actually computed - watch [gsr-sat-apply]'s anchor_dist/DISCARDED behaviour instead, that is what this switch is for.</string>
-        </property>
-        <property name="checked">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
        <widget class="QComboBox" name="satOccluderSourceComboBox">
         <property name="toolTip">
          <string>SESSION082, TEMPORARY - not a real feature, will be removed. Chooses which set of nodes the saturation barrier is BUILT from. Nothing else changes under any option: the render frontier, the traversal and the tested population are untouched, so the three are directly comparable. &quot;fine&quot; is the behaviour up to session082 - every node the traversal selected (~13.5M). &quot;coarse floor&quot; is the one-node-per-branch layer the gather normally discards as redundant (~2.8-3.6M, 4.8x smaller); measured to give a barrier no worse than fine, with gather busy time down 3.2x. &quot;tree walk&quot; runs a walk of its own inside the build, anchored at the build's own anchor, descending only while a node is wider than one grid tile - so the occluder count follows the GRID's resolution rather than the render's quality target. Measured 618k/843k nodes against the coarse floor's 2.80M/3.61M on two different scenes. It is the only option that does not need a frontier at all, which is what the Nanite-streaming direction will need. [gsr-sat-build] prints COARSE-OCCL or TREE-WALK (with visited=, walk_ms=, walk_sort_ms=) so a captured line says which one produced it. Watch occl=, sat_tiles%, gather_ms/grid_ms, and [gsr-sat-apply]'s dropped% - that last one is the real verdict. Not saved between sessions.</string>
         </property>
         <item>
          <property name="text">
-          <string>occluders: fine</string>
+          <string>fine</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>occluders: coarse floor</string>
+          <string>coarse floor</string>
          </property>
         </item>
         <item>
          <property name="text">
-          <string>occluders: tree walk</string>
+          <string>tree walk</string>
          </property>
         </item>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="satDiagCheckBox">
-        <property name="text">
-         <string>diag</string>
-        </property>
-        <property name="toolTip">
-         <string>SESSION076/078 DIAGNOSTIC. Prints an extra [gsr-sat-diag] console line breaking down what the coarse capture is actually buying this stage: cA/cB splits the captured nodes into the genuinely low-detail cut (captured for being at or below "px") and the near-field nodes captured only because their branch hit a leaf while still coarser than that - the latter are duplicates of nodes already in the fine frontier, present only because the drawn coarse patch needs a complete cover, which this grid does not. writers is how many captured nodes the grid actually accepted (a node contributes only if its footprint fully covers at least one tile), against pred=, the same count derived analytically - they must agree. Needs the filter log on, and Saturation filter on. Pure console counting - unrelated to the "Saturation mask"/"Saturation ramp" visual overlay in the Diagnostics section's debug mode dropdown, which has its own gate (Show debug + that dropdown). Own checkbox rather than more fields on [gsr-sat] because the counting perturbs the very loops being timed. Not saved between sessions.</string>
-        </property>
-        <property name="checked">
-         <bool>false</bool>
-        </property>
        </widget>
       </item>
      </layout>
     </widget>
    </item>
-   <item row="15" column="0">
+   <item row="16" column="0">
     <widget class="QLabel" name="frustumSettings1Label">
      <property name="text">
       <string>Frustum settings1</string>
@@ -910,7 +925,7 @@
      </property>
     </widget>
    </item>
-   <item row="15" column="1">
+   <item row="16" column="1">
     <widget class="QWidget" name="frustumSettings1Widget" native="true">
      <layout class="QHBoxLayout" name="frustumSettings1HorizontalLayout">
       <property name="leftMargin">
@@ -1043,7 +1058,7 @@ SESSION071/072: cap on the angular rate the split-filter dilation uses for its d
      </layout>
     </widget>
    </item>
-   <item row="16" column="0">
+   <item row="17" column="0">
     <widget class="QLabel" name="frustumSettings2Label">
      <property name="text">
       <string>Frustum settings2</string>
@@ -1053,7 +1068,7 @@ SESSION071/072: cap on the angular rate the split-filter dilation uses for its d
      </property>
     </widget>
    </item>
-   <item row="16" column="1">
+   <item row="17" column="1">
     <widget class="QWidget" name="frustumSettings2Widget" native="true">
      <layout class="QHBoxLayout" name="frustumSettings2HorizontalLayout">
       <property name="leftMargin">
@@ -1127,7 +1142,7 @@ SESSION063 K4: dilation window (seconds) for the coarse floor - how far ahead of
      </layout>
     </widget>
    </item>
-   <item row="17" column="0" colspan="2">
+   <item row="18" column="0" colspan="2">
     <widget class="QFrame" name="gpuSideSeparatorLine">
      <property name="frameShape">
       <enum>QFrame::HLine</enum>
@@ -1137,7 +1152,7 @@ SESSION063 K4: dilation window (seconds) for the coarse floor - how far ahead of
      </property>
     </widget>
    </item>
-   <item row="18" column="0" colspan="2">
+   <item row="19" column="0" colspan="2">
     <widget class="QLabel" name="gpuSideSectionLabel">
      <property name="text">
       <string>GPU side</string>
@@ -1150,7 +1165,7 @@ SESSION063 K4: dilation window (seconds) for the coarse floor - how far ahead of
      </property>
     </widget>
    </item>
-   <item row="19" column="0">
+   <item row="20" column="0">
     <widget class="QLabel" name="dofDepthModeLabel">
      <property name="text">
       <string>DoF mode</string>
@@ -1160,7 +1175,7 @@ SESSION063 K4: dilation window (seconds) for the coarse floor - how far ahead of
      </property>
     </widget>
    </item>
-   <item row="19" column="1">
+   <item row="20" column="1">
     <widget class="QComboBox" name="dofDepthModeComboBox">
      <property name="toolTip">
       <string>off: upstream behaviour, splats do not write depth at all - DoF blurs them regardless of focus distance. Kept for A/B comparison.
@@ -1280,7 +1295,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </layout>
     </widget>
    </item>
-   <item row="21" column="0">
+   <item row="22" column="0">
     <widget class="QLabel" name="alphaCutoffLabel">
      <property name="text">
       <string>Alpha cutoff</string>
@@ -1290,7 +1305,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </property>
     </widget>
    </item>
-   <item row="21" column="1">
+   <item row="22" column="1">
     <widget class="QDoubleSpinBox" name="alphaCutoffDoubleSpinBox">
      <property name="toolTip">
       <string>Per-splat quad radius is cut to exactly where its alpha decays to this value, instead of a fixed 3-sigma bound - 1/255 = 0.0039 matches the fragment shader's own discard and is lossless; the shipped default (0.0201) trims low-opacity splats' quads for less overdraw, at the cost of their faintest edge. Applies live.</string>
@@ -1312,7 +1327,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </property>
     </widget>
    </item>
-   <item row="22" column="0">
+   <item row="23" column="0">
     <widget class="QCheckBox" name="ewaProjectionFixCheckBox">
      <property name="text">
       <string>Fix EWA projection</string>
@@ -1322,7 +1337,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </property>
     </widget>
    </item>
-   <item row="22" column="1">
+   <item row="23" column="1">
     <widget class="QWidget" name="ewaProjectionFixWidget" native="true">
      <layout class="QHBoxLayout" name="ewaProjectionFixHorizontalLayout">
       <property name="leftMargin">
@@ -1365,7 +1380,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </layout>
     </widget>
    </item>
-   <item row="23" column="0">
+   <item row="24" column="0">
     <widget class="QLabel" name="numDrawSlicesLabel">
      <property name="text">
       <string>Draw slices</string>
@@ -1375,7 +1390,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </property>
     </widget>
    </item>
-   <item row="23" column="1">
+   <item row="24" column="1">
     <widget class="QWidget" name="drawSlicesWidget" native="true">
      <layout class="QHBoxLayout" name="drawSlicesHorizontalLayout">
       <property name="leftMargin">
@@ -1455,7 +1470,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </layout>
     </widget>
    </item>
-   <item row="24" column="0">
+   <item row="25" column="0">
     <widget class="QLabel" name="sliceGrowthLabel">
      <property name="text">
       <string>Slice growth</string>
@@ -1465,7 +1480,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </property>
     </widget>
    </item>
-   <item row="24" column="1">
+   <item row="25" column="1">
     <widget class="QDoubleSpinBox" name="sliceGrowthDoubleSpinBox">
      <property name="toolTip">
       <string>How much bigger each draw slice is than the one before it. 1 = all slices the same size; below 1 = a coarse first slice and a finely sliced tail. Decides where the saturation test gets to look. Nothing is saturated over roughly the first fifth of a depth-sorted cloud (it takes about 63 layers at the measured mean alpha), so a boundary inside that region costs a full-screen pass and skips nothing, while every check past it catches a new batch of finished pixels. Changes nothing on its own, like the slice count itself. Applies live, immediately.</string>
@@ -1487,7 +1502,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </property>
     </widget>
    </item>
-   <item row="25" column="0">
+   <item row="26" column="0">
     <widget class="QCheckBox" name="saturationGateCheckBox">
      <property name="text">
       <string>Saturation gate</string>
@@ -1500,7 +1515,7 @@ weighted: accumulate depth * alpha * transmittance into a second colour attachme
      </property>
     </widget>
    </item>
-   <item row="25" column="1">
+   <item row="26" column="1">
     <widget class="QWidget" name="saturationWidget" native="true">
      <layout class="QHBoxLayout" name="saturationHorizontalLayout">
       <property name="leftMargin">
@@ -1611,7 +1626,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="26" column="0">
+   <item row="27" column="0">
     <widget class="QLabel" name="layerCapLabel">
      <property name="text">
       <string>Layer cap</string>
@@ -1621,7 +1636,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="26" column="1">
+   <item row="27" column="1">
     <widget class="QWidget" name="layerCapWidget" native="true">
      <layout class="QHBoxLayout" name="layerCapHorizontalLayout">
       <property name="leftMargin">
@@ -1705,7 +1720,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="27" column="1">
+   <item row="28" column="1">
     <widget class="QLabel" name="layerCapEstimateResultLabel">
      <property name="text">
       <string></string>
@@ -1715,7 +1730,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="28" column="0">
+   <item row="29" column="0">
     <widget class="QLabel" name="coverageCapLabel">
      <property name="text">
       <string>Alpha saturation cap</string>
@@ -1725,7 +1740,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="28" column="1">
+   <item row="29" column="1">
     <widget class="QWidget" name="coverageCapWidget" native="true">
      <layout class="QHBoxLayout" name="coverageCapHorizontalLayout">
       <property name="leftMargin">
@@ -1775,7 +1790,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="29" column="0">
+   <item row="30" column="0">
     <widget class="QLabel" name="ablationStageLabel">
      <property name="text">
       <string>Ablation stage</string>
@@ -1785,7 +1800,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="29" column="1">
+   <item row="30" column="1">
     <widget class="QComboBox" name="ablationStageComboBox">
      <property name="toolTip">
       <string>Off is the real pass. The stages below it are deliberately wrong pictures - each one is missing everything above it - so nothing here is meant to be left on. Stage 5 is there because going straight from points to full quads moves the vertex maths and the fill at the same time: it runs all of the projection maths and still draws a one-pixel quad, so 5 minus 4 is the vertex work alone and 6 minus 5 is the fill alone.</string>
@@ -1837,7 +1852,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </item>
     </widget>
    </item>
-   <item row="30" column="0">
+   <item row="31" column="0">
     <widget class="QLabel" name="quadRadiusScaleLabel">
      <property name="text">
       <string>Quad radius scale</string>
@@ -1847,7 +1862,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="30" column="1">
+   <item row="31" column="1">
     <widget class="QWidget" name="quadRadiusScaleWidget" native="true">
      <layout class="QHBoxLayout" name="quadRadiusScaleHorizontalLayout">
       <property name="leftMargin">
@@ -1968,7 +1983,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="31" column="0" colspan="2">
+   <item row="32" column="0" colspan="2">
     <widget class="QLabel" name="bufferTricksSectionLabel">
      <property name="text">
       <string>Buffer tricks</string>
@@ -1981,7 +1996,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="32" column="0" colspan="2">
+   <item row="33" column="0" colspan="2">
     <layout class="QHBoxLayout" name="bufferTricksHorizontalLayout">
      <item>
       <widget class="QCheckBox" name="accumBuffer8BitCheckBox">
@@ -2087,7 +2102,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </item>
     </layout>
    </item>
-   <item row="33" column="0" colspan="2">
+   <item row="34" column="0" colspan="2">
     <widget class="QFrame" name="diagnosticsSeparatorLine">
      <property name="frameShape">
       <enum>QFrame::HLine</enum>
@@ -2097,7 +2112,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="34" column="0" colspan="2">
+   <item row="35" column="0" colspan="2">
     <widget class="QLabel" name="diagnosticsSectionLabel">
      <property name="text">
       <string>Diagnostics</string>
@@ -2110,7 +2125,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="35" column="0">
+   <item row="36" column="0">
     <widget class="QLabel" name="sizeClampLabel">
      <property name="text">
       <string>Size clamp min/max (m)</string>
@@ -2120,7 +2135,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="35" column="1">
+   <item row="36" column="1">
     <widget class="QWidget" name="sizeClampWidget" native="true">
      <layout class="QHBoxLayout" name="sizeClampHorizontalLayout">
       <property name="leftMargin">
@@ -2186,7 +2201,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="36" column="0">
+   <item row="37" column="0">
     <widget class="QLabel" name="distClampLabel">
      <property name="text">
       <string>Distance slice min/max (m)</string>
@@ -2196,7 +2211,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="36" column="1">
+   <item row="37" column="1">
     <widget class="QWidget" name="distClampWidget" native="true">
      <layout class="QHBoxLayout" name="distClampHorizontalLayout">
       <property name="leftMargin">
@@ -2272,7 +2287,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="37" column="0">
+   <item row="38" column="0">
     <widget class="QCheckBox" name="showDebugCheckBox">
      <property name="text">
       <string>Show debug</string>
@@ -2282,7 +2297,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="37" column="1">
+   <item row="38" column="1">
     <widget class="QWidget" name="debugModeWidget" native="true">
      <layout class="QHBoxLayout" name="debugModeHorizontalLayout">
       <property name="leftMargin">
@@ -2352,7 +2367,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="38" column="0">
+   <item row="39" column="0">
     <widget class="QLabel" name="overdrawRangeLabel">
      <property name="text">
       <string>Overdraw range (layers)</string>
@@ -2362,7 +2377,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="38" column="1">
+   <item row="39" column="1">
     <widget class="QWidget" name="overdrawRangeWidget" native="true">
      <layout class="QHBoxLayout" name="overdrawRangeHorizontalLayout">
       <property name="leftMargin">
@@ -2424,7 +2439,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="39" column="0" colspan="2">
+   <item row="40" column="0" colspan="2">
     <layout class="QHBoxLayout" name="diagnosticButtonsHorizontalLayout">
      <item>
       <widget class="QPushButton" name="countInFrustumPushButton">
@@ -2432,7 +2447,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
         <string>Count in frustum</string>
        </property>
        <property name="toolTip">
-        <string>One-off count (not live) of splats that are both in the camera's current view frustum and pass the size clamp above (respecting Invert). If the clamp is disabled (0/0), counts every in-frustum splat.</string>
+        <string>One-off snapshot (not live) of the whole selection pipeline as a chain, each stage being what the one before it was cut down to:&#10;&#10;raw - every node of every loaded LoD tree, leaves and merged internal nodes alike. The percentage beside it is how many of those are geometrically in the current frustum and pass the size/distance clamps - a brute-force ceiling over the whole tree, independent of LoD, not a stage.&#10;&#10;LoD frontier - U(P), the cut of the trees the traversal selected for this camera position, before any of it was pruned.&#10;&#10;saturation - that frontier after the pre-GPU occlusion cull ("Saturation settings1/2") dropped what it found already hidden behind opaque geometry. Equal to the stage above when the filter is off.&#10;&#10;frustum - the live draw list S(P,R) the async filter derived from it: in-frustum plus the dilation band that keeps the frustum edge fresh while the camera moves.&#10;&#10;final frame - that draw list with the frustum and the size/distance slices simulated on the CPU exactly as the vertex shader applies them, i.e. what actually reaches the screen this frame.</string>
        </property>
       </widget>
      </item>
@@ -2458,7 +2473,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </item>
     </layout>
    </item>
-   <item row="40" column="0" colspan="2">
+   <item row="41" column="0" colspan="2">
     <layout class="QHBoxLayout" name="diagnosticResultsHorizontalLayout">
      <item>
       <widget class="QLabel" name="countInFrustumResultLabel">
@@ -2483,7 +2498,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </item>
     </layout>
    </item>
-   <item row="41" column="0" colspan="2">
+   <item row="42" column="0" colspan="2">
     <widget class="QFrame" name="postProcessingSeparatorLine">
      <property name="frameShape">
       <enum>QFrame::HLine</enum>
@@ -2493,7 +2508,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="42" column="0" colspan="2">
+   <item row="43" column="0" colspan="2">
     <widget class="QLabel" name="postProcessingLabel">
      <property name="text">
       <string>Post processing</string>
@@ -2503,7 +2518,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="43" column="0" colspan="2">
+   <item row="44" column="0" colspan="2">
     <layout class="QHBoxLayout" name="deconvLayout">
      <item>
       <widget class="QCheckBox" name="deconvEnabledCheckBox">
@@ -2542,7 +2557,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </item>
     </layout>
    </item>
-   <item row="44" column="0" colspan="2">
+   <item row="45" column="0" colspan="2">
     <layout class="QHBoxLayout" name="rcasLayout">
      <item>
       <widget class="QCheckBox" name="rcasEnabledCheckBox">
@@ -2581,7 +2596,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </item>
     </layout>
    </item>
-   <item row="45" column="0" colspan="2">
+   <item row="46" column="0" colspan="2">
     <widget class="QCheckBox" name="taaEnabledCheckBox">
      <property name="text">
       <string>temporal accumulation (TAA)</string>
@@ -2591,7 +2606,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="46" column="0" colspan="2">
+   <item row="47" column="0" colspan="2">
     <widget class="QLabel" name="settingsPresetsSectionLabel">
      <property name="text">
       <string>Settings presets</string>
@@ -2604,7 +2619,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="47" column="0" colspan="2">
+   <item row="48" column="0" colspan="2">
     <widget class="QWidget" name="settingsPresetsWidget" native="true">
      <layout class="QHBoxLayout" name="settingsPresetsHorizontalLayout">
       <property name="leftMargin">
@@ -2674,7 +2689,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="48" column="0" colspan="2">
+   <item row="49" column="0" colspan="2">
     <widget class="QLabel" name="consoleLogsSectionLabel">
      <property name="text">
       <string>Console logs</string>
@@ -2687,7 +2702,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </property>
     </widget>
    </item>
-   <item row="49" column="0" colspan="2">
+   <item row="50" column="0" colspan="2">
     <widget class="QWidget" name="consoleLogsWidget" native="true">
      <layout class="QHBoxLayout" name="consoleLogsHorizontalLayout">
       <property name="leftMargin">
@@ -2735,7 +2750,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
      </layout>
     </widget>
    </item>
-   <item row="50" column="0" colspan="2">
+   <item row="51" column="0" colspan="2">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
