@@ -680,19 +680,6 @@
        <number>0</number>
       </property>
       <item>
-       <widget class="QCheckBox" name="saturationFilterCheckBox">
-        <property name="text">
-         <string></string>
-        </property>
-        <property name="toolTip">
-         <string>See this row's own tooltip.</string>
-        </property>
-        <property name="checked">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
        <widget class="QDoubleSpinBox" name="satPrefilterThresholdDoubleSpinBox">
         <property name="prefix">
          <string>thr </string>
@@ -899,44 +886,6 @@
         </property>
         <property name="value">
          <double>1.000000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QDoubleSpinBox" name="satMinRatioDoubleSpinBox">
-        <property name="prefix">
-         <string>minR </string>
-        </property>
-        <property name="toolTip">
-         <string>SESSION085, TEMPORARY - not a feature, will be removed. Built to test one hypothesis cheaply; it answered it, and the answer is that it cannot be the solution. Kept only so a later comparison can quote what a naive hard margin costs for the same visual outcome.&#10;&#10;A node is dropped only if it sits at least this many TIMES further than the barrier, not merely past it. 1 = off, the pre-session085 behaviour bit-for-bit.&#10;&#10;The hypothesis was that holes on a moving camera are the BOUNDARY population: the barrier is anchored, so moving the viewpoint perturbs the nodes nearest it and few others. Measured, walking until holes stopped being visible: interior minR 1-&gt;2 took dropped 77.1%-&gt;64.3% and the drawn pool 2.64M-&gt;4.10M (+55%), holes gone; forest minR 1-&gt;3 took dropped 19.4%-&gt;0.1%, holes gone.&#10;&#10;The hypothesis held and the knob still fails. The interior has a real working point. The forest does not - at the margin where its holes vanish the stage has simply STOPPED PRUNING (0.1% dropped), so &quot;no holes&quot; there is not a fix, it is the mechanism switched off, and there is nothing in between because in an open view almost every drop is a boundary drop. So this is a switch rather than a dial, and where it switches is decided by the content - per-scene tuning by definition, which this project does not do.&#10;&#10;Watch the denominators: 16.6% of the DROPS is +55% of the POOL, and the pool is what the GPU pays for. Applies live (the setter clears the apply throttle); [gsr-sat-apply] echoes the value as minR=.</string>
-        </property>
-        <property name="decimals">
-         <number>2</number>
-        </property>
-        <property name="minimum">
-         <double>1.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>20.000000000000000</double>
-        </property>
-        <property name="singleStep">
-         <double>0.250000000000000</double>
-        </property>
-        <property name="value">
-         <double>1.000000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="drawUnprunedFrontierCheckBox">
-        <property name="text">
-         <string>unpruned</string>
-        </property>
-        <property name="toolTip">
-         <string>SESSION081. Whether a traversal's UNPRUNED frontier is drawn while its saturation prune is still being computed.&#10;&#10;On (the session076 behaviour, and the default): a new viewpoint reaches the screen at traversal latency (~170ms) instead of traversal + saturation (~570ms), and the prune arrives afterwards as a refinement. The cost is that the ~13.2M-node unpruned set is what gets DRAWN for the saturation phase's whole duration - and a moving camera re-kicks faster than that phase completes, so much of any walk is spent drawing the unpruned figure rather than the pruned ~2.8M. That is the periodic load spike.&#10;&#10;Off: the previous PRUNED frontier keeps drawing until this traversal's own pruned result lands. Draw load stays flat at the pruned figure; the picture's LoD selection is one traversal older while it waits.&#10;&#10;What makes turning this off safe is "R" (sat_region_radius), and only it: holding the previous prune while the camera moves is exactly the stale-prune hole this split was built to avoid, UNLESS the barrier is valid over a ball of radius R around its anchor. The honest limit is that R only buys R metres of travel - move further than that before the new prune lands and holes are possible again. Flip it while walking: it changes only which result is drawn, never what a traversal produces, so no reload and no cache drop.</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
         </property>
        </widget>
       </item>

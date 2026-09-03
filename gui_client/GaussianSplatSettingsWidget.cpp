@@ -69,14 +69,11 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->maxLayerDensityDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->maxTreeDepthSpinBox,              SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->splitPipelineCheckBox,            SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was frustumCullCheckBox, split from "cull" below.
-	connect(this->saturationFilterCheckBox,         SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was the Sat pre-filter row's combo box.
 	connect(this->satPrefilterThresholdDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION079
 	connect(this->satGridSubdivDoubleSpinBox,       SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION076 CALIBRATION
 	connect(this->satRegionRadiusDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION078
 	connect(this->satBiasCeilingDoubleSpinBox,      SIGNAL(valueChanged(double)),  this, SLOT(settingsChanged())); // SESSION085 ETAP 3 LoD bias.
-	connect(this->satMinRatioDoubleSpinBox,         SIGNAL(valueChanged(double)),  this, SLOT(settingsChanged())); // SESSION085 depth margin.
 	connect(this->satRegionClosingTilesSpinBox,     SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged())); // SESSION081
-	connect(this->drawUnprunedFrontierCheckBox,     SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION081
 	connect(this->frontierReuseSplitDoubleSpinBox,  SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION080 STEP B
 	connect(this->satDiagCheckBox,                  SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION076 DIAGNOSTIC
 	connect(this->cullCheckBox,                     SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was filterFrustumPlanesCheckBox, relocated+relabelled.
@@ -218,7 +215,6 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->profLogCheckBox->setChecked(false);
 	// SESSION074/075: not persisted, same reasoning as the log checkboxes just above - a session should always start
 	// with the stage off, not silently resume mid-measurement from a previous session's state.
-	this->saturationFilterCheckBox->setChecked(false); // off.
 	this->satPrefilterThresholdDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_prefilter_threshold", 0.98).toDouble()); // SESSION079: this stage's own threshold, persisted independently of the gate's below.
 	this->satDiagCheckBox->setChecked(false); // off. SESSION076 - measurement mode, deliberately not persisted (same reason as the row's own checkbox above).
 	this->satGridSubdivDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_grid_subdiv", 0.3).toDouble()); // SESSION076 CALIBRATION, SESSION078: persisted, unlike the toggles above - losing a half-found working point on every restart would make the search useless.
@@ -229,9 +225,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// time on it. Paired with saturation_threshold's 0.99 default below - 0.96 visibly strengthens this grid's artifacts.
 	this->satRegionRadiusDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_region_radius", 0.0).toDouble()); // SESSION078: persisted like sub - 0 is the point-anchored baseline, non-zero is the region assertion.
 	this->satRegionClosingTilesSpinBox->setValue(settings_->value("gaussian_splats/sat_region_closing_tiles", 0).toInt()); // SESSION081: persisted like R - 0 is the pre-closing baseline.
-	this->satMinRatioDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_min_ratio", 1.0).toDouble()); // SESSION085: persisted like R/close - 1 is the no-margin baseline.
 	this->satBiasCeilingDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_bias_ceiling", 1.0).toDouble()); // SESSION085 ETAP 3: 1 = bias off.
-	this->drawUnprunedFrontierCheckBox->setChecked(settings_->value("gaussian_splats/draw_unpruned_frontier", true).toBool()); // SESSION081: persisted, defaulting to the session076 publish-early behaviour.
 	this->frontierReuseSplitDoubleSpinBox->setValue(settings_->value("gaussian_splats/frontier_reuse_split_dist", 0.0).toDouble()); // SESSION080 STEP B: persisted like R - 0 is the walk-everything baseline.
 	this->debugModeComboBox->setCurrentIndex(0); // Overdraw. Not persisted either, for the same reason - it only says which measure the view above shows.
 	// Not persisted, like the other A/B switches: both reduce modes have to start a session in the same place or one
@@ -386,9 +380,7 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/sat_grid_subdiv", this->satGridSubdivDoubleSpinBox->value()); // SESSION076 CALIBRATION
 		settings->setValue("gaussian_splats/sat_region_radius", this->satRegionRadiusDoubleSpinBox->value()); // SESSION078
 		settings->setValue("gaussian_splats/sat_region_closing_tiles", this->satRegionClosingTilesSpinBox->value()); // SESSION081
-		settings->setValue("gaussian_splats/sat_min_ratio", this->satMinRatioDoubleSpinBox->value()); // SESSION085
 		settings->setValue("gaussian_splats/sat_bias_ceiling", this->satBiasCeilingDoubleSpinBox->value()); // SESSION085 ETAP 3
-		settings->setValue("gaussian_splats/draw_unpruned_frontier", this->drawUnprunedFrontierCheckBox->isChecked()); // SESSION081
 		settings->setValue("gaussian_splats/frontier_reuse_split_dist", this->frontierReuseSplitDoubleSpinBox->value()); // SESSION080 STEP B
 		settings->setValue("gaussian_splats/sat_prefilter_threshold", this->satPrefilterThresholdDoubleSpinBox->value()); // SESSION079
 		settings->setValue("gaussian_splats/coarse_dilation_latency", this->coarseDilationLatencyDoubleSpinBox->value());
@@ -516,15 +508,12 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->filterLogCheckBox->setChecked(false);
 	this->kickLogCheckBox->setChecked(false);
 	this->profLogCheckBox->setChecked(false);
-	this->saturationFilterCheckBox->setChecked(false); // off. SESSION074/075 - see load()'s comment.
 	this->satPrefilterThresholdDoubleSpinBox->setValue(0.98); // SESSION079 - see load()'s comment.
 	this->satDiagCheckBox->setChecked(false); // off. SESSION076 - see load()'s comment.
 	this->satGridSubdivDoubleSpinBox->setValue(0.3); // SESSION076 CALIBRATION, SESSION078: see load()'s comment.
 	this->satRegionRadiusDoubleSpinBox->setValue(0.0); // SESSION078: 0 = point-anchored, the pre-region behaviour.
 	this->satRegionClosingTilesSpinBox->setValue(0); // SESSION081: 0 = off, the pre-closing behaviour.
-	this->satMinRatioDoubleSpinBox->setValue(1.0); // SESSION085: 1 = off, no depth margin.
 	this->satBiasCeilingDoubleSpinBox->setValue(1.0); // SESSION085 ETAP 3: 1 = off, no LoD bias.
-	this->drawUnprunedFrontierCheckBox->setChecked(true); // SESSION081: on = the session076 publish-early behaviour.
 	this->frontierReuseSplitDoubleSpinBox->setValue(0.0); // SESSION080 STEP B: 0 = walk the whole tree, the pre-reuse behaviour.
 	this->debugModeComboBox->setCurrentIndex(0);
 	this->coverageReduceModeComboBox->setCurrentIndex(1);

@@ -4192,19 +4192,12 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setCoarsePixelScale((float)ui->gaussianSplatSettingsWidget->coarsePixelScaleDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setFilterCoarseDilationLatency((float)ui->gaussianSplatSettingsWidget->coarseDilationLatencyDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setCoarseLayerDebug(ui->gaussianSplatSettingsWidget->coarseLayerDebugCheckBox->isChecked()); // SESSION063 K4 debug
-	// SESSION075: dropdown (off/count/drop) replaced by a plain on/off checkbox - "count" (Stage A ceiling measurement)
-	// and the "aggressive" ceiling diagnostic are no longer exposed in the UI; setSatPrefilterMode() itself still
-	// accepts Count if ever needed again from code. Checked -> Drop, unchecked -> Off.
-	opengl_engine->getSplatRenderer().setSatPrefilterMode(ui->gaussianSplatSettingsWidget->saturationFilterCheckBox->isChecked() ?
-		GaussianSplatSatPrefilterMode_Drop : GaussianSplatSatPrefilterMode_Off);
 	opengl_engine->getSplatRenderer().setSatPrefilterThreshold((float)ui->gaussianSplatSettingsWidget->satPrefilterThresholdDoubleSpinBox->value()); // SESSION079: this stage's own threshold, independent of the gate's below.
 	opengl_engine->getSplatRenderer().setSatDiagLog(ui->gaussianSplatSettingsWidget->satDiagCheckBox->isChecked()); // SESSION076 DIAGNOSTIC - console [gsr-sat-diag] counting only, see getSatDiagLog()'s comment. The overlay itself is set above, from "Show debug" + the mode dropdown.
 	opengl_engine->getSplatRenderer().setSatGridSubdiv((float)ui->gaussianSplatSettingsWidget->satGridSubdivDoubleSpinBox->value()); // SESSION076 CALIBRATION
 	opengl_engine->getSplatRenderer().setSatRegionRadius((float)ui->gaussianSplatSettingsWidget->satRegionRadiusDoubleSpinBox->value()); // SESSION078
 	opengl_engine->getSplatRenderer().setSatRegionClosingTiles(ui->gaussianSplatSettingsWidget->satRegionClosingTilesSpinBox->value()); // SESSION081
-	opengl_engine->getSplatRenderer().setSatMinRatio((float)ui->gaussianSplatSettingsWidget->satMinRatioDoubleSpinBox->value()); // SESSION085 depth margin.
 	opengl_engine->getSplatRenderer().setSatBiasCeiling((float)ui->gaussianSplatSettingsWidget->satBiasCeilingDoubleSpinBox->value()); // SESSION085 ETAP 3 LoD bias.
-	opengl_engine->getSplatRenderer().setDrawUnprunedFrontier(ui->gaussianSplatSettingsWidget->drawUnprunedFrontierCheckBox->isChecked()); // SESSION081
 	opengl_engine->getSplatRenderer().setFrontierReuseSplitDist((float)ui->gaussianSplatSettingsWidget->frontierReuseSplitDoubleSpinBox->value()); // SESSION080 STEP B
 	// SESSION072: live console log toggles - see GaussianSplatRenderer::getFilterDebugLog()'s comment. Off by default: measured to cost real frame time while firing every frame during motion.
 	opengl_engine->getSplatRenderer().setFilterDebugLog(ui->gaussianSplatSettingsWidget->filterLogCheckBox->isChecked());
@@ -4293,10 +4286,10 @@ void MainWindow::countSplatsInFrustumRequested()
 	// SESSION072: explicit line break rather than relying on QLabel word-wrap width, which didn't track countInFrustumResultLabel's
 	// maximumSize predictably (widening the cap 470px->830px only shifted the wrap point 38->48 chars) - likely something else
 	// in the layout/DPI scaling governs the rendered width. This split happens to land at ~65-67 chars per line either way.
-	// SESSION085: three lines now rather than two - the chain gained a stage and no longer fits in two at that width.
+	// SESSION085 ETAP 6: back to two lines. The chain briefly had a separate "saturation" stage; the barrier is applied
+	// as an LoD bias during the walk now, so "LoD frontier" already is the saturated figure.
 	const std::string msg = "raw:" + toString(counts.total) + " (in frustum " + doubleToStringNDecimalPlaces(pct, 1) + "%) ->\n" +
 		"LoD frontier:" + toString(counts.frontier) + " -> " +
-		"saturation:" + toString(counts.after_sat) + " ->\n" +
 		"frustum:" + toString(counts.drawn) + " -> " +
 		"final frame:" + toString(counts.visible) + " (simulated GPU-filters)";
 	ui->gaussianSplatSettingsWidget->countInFrustumResultLabel->setText(QtUtils::toQString(msg));
