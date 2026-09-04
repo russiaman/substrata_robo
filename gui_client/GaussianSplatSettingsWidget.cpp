@@ -223,10 +223,10 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// table). A coarser grid than this does show small artifacts under close visual inspection - there is more headroom
 	// here for someone willing to keep tuning - but the owner judged it a good stopping point and chose not to spend more
 	// time on it. Paired with saturation_threshold's 0.99 default below - 0.96 visibly strengthens this grid's artifacts.
-	this->satRegionRadiusDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_region_radius", 0.0).toDouble()); // SESSION078: persisted like sub - 0 is the point-anchored baseline, non-zero is the region assertion.
+	this->satRegionRadiusDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_region_radius", 0.5).toDouble()); // SESSION078: persisted like sub. SESSION086: default frozen at 0.5 - R now also sets the barrier rebuild cadence, see GaussianSplatRenderer::getSatRegionRadius().
 	this->satRegionClosingTilesSpinBox->setValue(settings_->value("gaussian_splats/sat_region_closing_tiles", 0).toInt()); // SESSION081: persisted like R - 0 is the pre-closing baseline.
 	this->satBiasCeilingDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_bias_ceiling", 1.0).toDouble()); // SESSION085 ETAP 3: 1 = bias off.
-	this->frontierReuseSplitDoubleSpinBox->setValue(settings_->value("gaussian_splats/frontier_reuse_split_dist", 0.0).toDouble()); // SESSION080 STEP B: persisted like R - 0 is the walk-everything baseline.
+	this->frontierReuseSplitDoubleSpinBox->setValue(settings_->value("gaussian_splats/frontier_reuse_split_dist", 0.0).toDouble()); // SESSION080 STEP B: persisted like R - 0 is the walk-everything baseline. SESSION086: measured on and turned back off, see GaussianSplatRenderer::getFrontierReuseSplitDist().
 	this->debugModeComboBox->setCurrentIndex(0); // Overdraw. Not persisted either, for the same reason - it only says which measure the view above shows.
 	// Not persisted, like the other A/B switches: both reduce modes have to start a session in the same place or one
 	// session's numbers cannot be set beside another's. Min rather than the original mean: mean answers a splat that
@@ -511,7 +511,7 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->satPrefilterThresholdDoubleSpinBox->setValue(0.98); // SESSION079 - see load()'s comment.
 	this->satDiagCheckBox->setChecked(false); // off. SESSION076 - see load()'s comment.
 	this->satGridSubdivDoubleSpinBox->setValue(0.3); // SESSION076 CALIBRATION, SESSION078: see load()'s comment.
-	this->satRegionRadiusDoubleSpinBox->setValue(0.0); // SESSION078: 0 = point-anchored, the pre-region behaviour.
+	this->satRegionRadiusDoubleSpinBox->setValue(0.5); // SESSION086: matches the frozen default above (0 = point-anchored, the pre-region behaviour).
 	this->satRegionClosingTilesSpinBox->setValue(0); // SESSION081: 0 = off, the pre-closing behaviour.
 	this->satBiasCeilingDoubleSpinBox->setValue(1.0); // SESSION085 ETAP 3: 1 = off, no LoD bias.
 	this->frontierReuseSplitDoubleSpinBox->setValue(0.0); // SESSION080 STEP B: 0 = walk the whole tree, the pre-reuse behaviour.

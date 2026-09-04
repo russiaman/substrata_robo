@@ -760,7 +760,7 @@
          <string>R </string>
         </property>
         <property name="toolTip">
-         <string>SESSION078 REGION PRUNING. Radius, in world units, of the ball of camera positions the saturation barrier is made valid for. 0 = the old behaviour: the barrier describes the single point it was built from, so it goes stale the instant the camera moves, showing as shadow-shaped holes. SESSION080: the "0.01-0.03 working range, no artifacts above ~0.03" figure once quoted here was measured under a since-reworked saturation pipeline and is NOT a current constraint - do not anchor decisions on it. This stage is under continued heavy rework; re-measure fresh each time R actually matters, do not carry forward an old number. Strictly weakens the cull: both sides widen their conservatism, so it can only ever drop fewer nodes than 0 does - watch dropped= in [gsr-sat] for what it costs. The penalty is R/d in angle, so it is nearly free far away and expensive up close, which is the useful shape here (this stage drops distant geometry; the occluders doing the work are near).</string>
+         <string>SESSION078 REGION ANCHORING. Radius, in world units, of the ball of camera positions the saturation barrier is made valid for. 0 = point-anchored: the barrier describes the single point it was built from and is thrown away the instant the camera moves. SESSION086: frozen at 0.5. R is no longer only a conservatism knob - it bounds how far the camera may travel before the barrier is rebuilt, so it sets the rebuild CADENCE, and that rebuild competes with the traversal for the same threads (measured session085: R=0 gives 158 barrier rebuilds in 8.7s, ~49ms each - roughly a core permanently occupied; R=0.5 gives 50 rebuilds against 24 traversals). Under the LoD bias R can only weaken the stage - sat_depth is pushed out by +R at build time, so the barrier is more conservative and the bias gentler - and it cannot open a hole, because the read side deliberately does not dilate by R. The numbers once quoted here (the "0.01-0.03 working range", and dropped=) were measured under the since-deleted saturation prune and are not current constraints.</string>
         </property>
         <property name="decimals">
          <number>3</number>
@@ -775,7 +775,7 @@
          <double>0.010000000000000</double>
         </property>
         <property name="value">
-         <double>0.000000000000000</double>
+         <double>0.500000000000000</double>
         </property>
        </widget>
       </item>
