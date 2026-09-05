@@ -792,6 +792,19 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QCheckBox" name="satProbeCheckBox">
+        <property name="text">
+         <string>probe</string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION088 DIAGNOSTIC. Prints a [gsr-sat-probe] console line twice a second, off the FRAME rather than off a barrier build - which is the point: a build only happens once the camera leaves the R-ball, so every other saturation trace goes silent exactly when you hold still and look at something. Read-only; it samples the same barrier the LoD bias reads and touches nothing, so it cannot perturb what it measures. Three blocks per line. "depth p10/med/p90/max" is the distribution of the barrier's saturation depths in metres. "adj" is the contrast between neighbouring tiles - the ratio of their depths - with &gt;2x/&gt;4x the share of neighbour pairs that disagree by more than that factor, and "flat" the share at EXACTLY equal depth (high flat = the R erosion's max-window has ironed the field into plateaus; near-zero flat = you are seeing raw per-tile measurement). "edge" is the share of pairs where one side is saturated and the other is not. The last block is what the camera is aimed at: the tile under the forward vector, its saturation depth, the bias multiplier a node would get at 50/100/200/400m straight ahead, and the 3x3 neighbourhood of depths around that tile - aim at far geometry that looks wrong and read what the barrier claims about that direction. Not saved between sessions.</string>
+        </property>
+        <property name="checked">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
@@ -889,6 +902,81 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="satPredictGainDoubleSpinBox">
+        <property name="prefix">
+         <string>predict </string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION088 - PREDICTIVE SATURATION ANCHOR. Multiplier on how far AHEAD of the camera the saturation barrier is built. 0 = off, the barrier is anchored where the camera is at kick time, bit-for-bit the previous behaviour. 1 = anchored where the camera is predicted to be when this build lands, i.e. cam_pos + velocity_ema * (measured barrier round trip).&#10;&#10;It removes no work and saves no milliseconds - the build costs exactly what it did. What it removes is the standing offset: a barrier anchored at kick time describes a viewpoint the camera has already left by the time it arrives, so the LoD bias reading it is always answering a question about the recent past. That lag is 91-172ms of build per kick (measured session088), and it is what &quot;the shadow behind an object stops following it&quot; actually is - a spatial offset, not a slow stage.&#10;&#10;The lead is taken from the stage's own MEASURED kick-to-drain round trip, never a constant, so it adapts to scene and machine on its own. It is 0 until the first build has been drained (a cold start anchors at the camera, which is the safe direction), and 0 whenever the camera is not moving - both read as lead=0.00m in the log.&#10;&#10;It does not change how often the barrier rebuilds: the ball guarantee is re-tested from the same predicted point the anchor was placed at, so under steady motion anchor and test point move together and the barrier is still discarded after exactly R of travel. The one extra rebuild it causes is on hard DECELERATION, where the prediction collapses back onto the camera and leaves the standing anchor a lead away - self-correcting, and it fires exactly when the camera has stopped and the pipeline is idle.&#10;&#10;Watch [gsr-sat-build] for lat_meas= (the measured round trip the lead is built from), lead= (metres actually aimed) and the (..R) ratio against &quot;R&quot; - above ~1R the anchor is a whole validity ball ahead of the camera, which is the point to watch if the far field starts LEADING instead of lagging. Requires &quot;bias&quot; above 1 or the overlay on, since otherwise no barrier is built at all.</string>
+        </property>
+        <property name="decimals">
+         <number>2</number>
+        </property>
+        <property name="minimum">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>4.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.250000000000000</double>
+        </property>
+        <property name="value">
+         <double>0.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="satBarrierAgreeTolDoubleSpinBox">
+        <property name="prefix">
+         <string>btol </string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION088 - THE LoD HALF OF THE REUSE BOUND. How much of the saturation barrier may have moved, as a FRACTION OF GRID TILES, before a frozen far block is thrown away and the tree is walked in full. 1 = accept any change = exactly the pre-session088 behaviour.&#10;&#10;Why this is not just another value of the drift fraction. That bound is a DISTANCE, and session080 derived it as an ordering error budget - which is what a distance can express, since an ordering error of size E among nodes at range D matters as E/D. Session085's LoD bias then gave the block a second dependence: the bias reads the barrier, the barrier is a statement about occlusion, and a frozen walk never re-asks it below the cut. Both were left to the same number. Session086 calibrated it and found NO value that worked - 0.10 and 0.05 visibly lagged, and the 0.02 that did not was no cheaper than never reusing. That is a proxy failing. "The occlusion in that direction changed" is not a distance.&#10;&#10;So now the distance clause bounds ORDER and this bounds DETAIL, by comparing the barrier the block's selection was made under against the live one, tile by tile. A tile counts as changed if its saturation state flipped, or if both are blocked but the depth moved by more than 10%. A block is discarded when the evidence under it moved - whether that took five metres or one - and kept when it did not, however far the camera walked.&#10;&#10;IT TIGHTENS BEFORE IT LOOSENS, and in that order on purpose. On its own it makes reuse MORE conservative: a barrier change inside the distance bound now discards a block that used to survive. That is the "shadow stops following the object" staleness being paid for instead of ignored. The speed comes second - raising the drift fraction is only safe once detail has its own guard.&#10;&#10;MEASURE FIRST: barrier_dis= is printed on every [gsr-traversal] whatever this is set to. Watch it against reuse_drift= on the same line - they are the two independent reasons a block can be too old, and the whole point is how differently they move. Pick a threshold off that distribution, do not guess one. Needs "bias" above 1 to do anything at all.</string>
+        </property>
+        <property name="decimals">
+         <number>3</number>
+        </property>
+        <property name="minimum">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.010000000000000</double>
+        </property>
+        <property name="value">
+         <double>1.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="frontierReuseDriftDoubleSpinBox">
+        <property name="prefix">
+         <string>rdrift </string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION080/086/088 - THE ORDERING HALF OF THE REUSE BOUND. How far the camera may drift from a frozen far block's anchor, AS A FRACTION OF the reuse split distance, before the block is discarded and the tree walked in full. 0.25 (the default, and session080's original hard-coded value) means 5 metres at reuse 20.&#10;&#10;Session080 derived this purely as an ORDERING error budget, which is what a distance can express: the far segment keeps the front-to-back order it was sorted into at its anchor, and an ordering error of size E among nodes at range D matters in proportion to E/D - so a fixed fraction of the split distance caps the relative error at any scene scale.&#10;&#10;It then spent two sessions doing a second job it cannot do. Session085's LoD bias made the block's DETAIL depend on the barrier as well, and session086 could find no setting that served both: 0.10 and 0.05 visibly lagged, and the 0.02 that did not was no cheaper than never reusing at all.&#10;&#10;Session088 gave detail its own guard ("btol", to the left), which is what makes this safe to RAISE. Ordering error is genuinely gentle - it costs blend order among distant nodes, never a hole - and it was never the reason a block had to die every five metres. That was the LoD staleness, and btol now bounds that directly.&#10;&#10;So the intended use is: set btol first, off its measured bd_flip distribution, then raise this and watch reuse_n go up and expand_ms/sort_ms/soa_ms come down. Watch for blend-order artifacts among far geometry as the cost - that is what this bound buys, and the front-to-back compositor is not forgiving of large order errors.</string>
+        </property>
+        <property name="decimals">
+         <number>3</number>
+        </property>
+        <property name="minimum">
+         <double>0.010000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>4.000000000000000</double>
+        </property>
+        <property name="singleStep">
+         <double>0.050000000000000</double>
+        </property>
+        <property name="value">
+         <double>0.250000000000000</double>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
@@ -952,6 +1040,19 @@
         </property>
         <property name="value">
          <double>0.170000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="filterLatencyMeasuredCheckBox">
+        <property name="text">
+         <string>lat auto</string>
+        </property>
+        <property name="toolTip">
+         <string>SESSION088 (techdebt #14, standing since session079). Use the split filter's OWN measured kick-to-drain round trip as the dilation window, instead of the fixed &quot;lat&quot; spinbox to the left. Off = the constant, bit-for-bit as before.&#10;&#10;The window used is TWICE the measured round trip, because what has to be covered is how long a list stays ON SCREEN - from its own kick until the next drain replaces it - not how long it takes to arrive. That doubling is the same reasoning session079 used to raise the constant to 0.3.&#10;&#10;This does NOT make the window smaller, and it is not a claim that 0.3 was wrong. Measured session088 on one interior walk, age= read med 127ms / p90 257ms / max 307ms - a 4.5x spread inside a single capture. The EMA lands at 165ms interior and 163ms exterior, so the doubled window is ~330ms: within 10% of the 0.3 arrived at by hand. What the measurement adds is that the number now follows the machine, the scene and the draw-list size instead of being frozen at the one pair it was found on - the round trip is dominated by issuing and uploading the survivor list, ~2.8M entries on the low exterior pass against ~6.5M at altitude.&#10;&#10;The measurement is taken and printed whether or not this is ticked, so it can be checked before it is trusted: [gsr-filter-drain] prints age= (this drain's raw round trip), lat_meas= (the EMA over it) and lat_used= (the window kickOffFilters() actually used, already doubled). Tick this and lat_used= switches from the spinbox value to 2x lat_meas=; nothing else about the filter changes.&#10;&#10;To judge it you have to ROTATE - a capture that only translates leaves stale= and band= at ~0 and says nothing about band adequacy. Watch deficit= (stale minus band): a hole is exactly deficit &gt; 0.&#10;&#10;The EMA rises fast and falls slow, so a stage that suddenly gets slower widens its window on the first sample that says so - aiming short is what an edge hole looks like, while over-predicting only costs a little over-inclusion.</string>
+        </property>
+        <property name="checked">
+         <bool>false</bool>
         </property>
        </widget>
       </item>

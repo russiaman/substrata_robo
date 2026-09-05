@@ -4193,12 +4193,17 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setFilterCoarseDilationLatency((float)ui->gaussianSplatSettingsWidget->coarseDilationLatencyDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setCoarseLayerDebug(ui->gaussianSplatSettingsWidget->coarseLayerDebugCheckBox->isChecked()); // SESSION063 K4 debug
 	opengl_engine->getSplatRenderer().setSatPrefilterThreshold((float)ui->gaussianSplatSettingsWidget->satPrefilterThresholdDoubleSpinBox->value()); // SESSION079: this stage's own threshold, independent of the gate's below.
+	opengl_engine->getSplatRenderer().setSatProbeLog(ui->gaussianSplatSettingsWidget->satProbeCheckBox->isChecked()); // SESSION088 DIAGNOSTIC - [gsr-sat-probe], see getSatProbeLog(). Independent of the filter log: the probe exists to be read while standing still, which is when the build-tied traces have nothing to say.
 	opengl_engine->getSplatRenderer().setSatDiagLog(ui->gaussianSplatSettingsWidget->satDiagCheckBox->isChecked()); // SESSION076 DIAGNOSTIC - console [gsr-sat-diag] counting only, see getSatDiagLog()'s comment. The overlay itself is set above, from "Show debug" + the mode dropdown.
 	opengl_engine->getSplatRenderer().setSatGridSubdiv((float)ui->gaussianSplatSettingsWidget->satGridSubdivDoubleSpinBox->value()); // SESSION076 CALIBRATION
 	opengl_engine->getSplatRenderer().setSatRegionRadius((float)ui->gaussianSplatSettingsWidget->satRegionRadiusDoubleSpinBox->value()); // SESSION078
 	opengl_engine->getSplatRenderer().setSatRegionClosingTiles(ui->gaussianSplatSettingsWidget->satRegionClosingTilesSpinBox->value()); // SESSION081
 	opengl_engine->getSplatRenderer().setSatBiasCeiling((float)ui->gaussianSplatSettingsWidget->satBiasCeilingDoubleSpinBox->value()); // SESSION085 ETAP 3 LoD bias.
 	opengl_engine->getSplatRenderer().setFrontierReuseSplitDist((float)ui->gaussianSplatSettingsWidget->frontierReuseSplitDoubleSpinBox->value()); // SESSION080 STEP B
+	opengl_engine->getSplatRenderer().setSatPredictGain((float)ui->gaussianSplatSettingsWidget->satPredictGainDoubleSpinBox->value()); // SESSION088 predictive saturation anchor
+	opengl_engine->getSplatRenderer().setSatBarrierAgreeTol((float)ui->gaussianSplatSettingsWidget->satBarrierAgreeTolDoubleSpinBox->value()); // SESSION088 barrier-agreement reuse bound
+	opengl_engine->getSplatRenderer().setFrontierReuseDriftFraction((float)ui->gaussianSplatSettingsWidget->frontierReuseDriftDoubleSpinBox->value()); // SESSION088: the ordering half - see getFrontierReuseDriftFraction().
+	opengl_engine->getSplatRenderer().setFilterLatencyMeasuredEnabled(ui->gaussianSplatSettingsWidget->filterLatencyMeasuredCheckBox->isChecked()); // SESSION088 measured filter dilation window
 	// SESSION072: live console log toggles - see GaussianSplatRenderer::getFilterDebugLog()'s comment. Off by default: measured to cost real frame time while firing every frame during motion.
 	opengl_engine->getSplatRenderer().setFilterDebugLog(ui->gaussianSplatSettingsWidget->filterLogCheckBox->isChecked());
 	opengl_engine->getSplatRenderer().setKickDebugLog(ui->gaussianSplatSettingsWidget->kickLogCheckBox->isChecked());

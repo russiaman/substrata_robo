@@ -75,9 +75,14 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->satBiasCeilingDoubleSpinBox,      SIGNAL(valueChanged(double)),  this, SLOT(settingsChanged())); // SESSION085 ETAP 3 LoD bias.
 	connect(this->satRegionClosingTilesSpinBox,     SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged())); // SESSION081
 	connect(this->frontierReuseSplitDoubleSpinBox,  SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION080 STEP B
+	connect(this->satPredictGainDoubleSpinBox,      SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION088 predictive anchor
+	connect(this->satBarrierAgreeTolDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION088 barrier-agreement reuse bound
+	connect(this->frontierReuseDriftDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION088: the ordering half, exposed now that btol guards detail separately.
 	connect(this->satDiagCheckBox,                  SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION076 DIAGNOSTIC
+	connect(this->satProbeCheckBox,                 SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION088 DIAGNOSTIC
 	connect(this->cullCheckBox,                     SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was filterFrustumPlanesCheckBox, relocated+relabelled.
 	connect(this->filterDilationLatencyDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
+	connect(this->filterLatencyMeasuredCheckBox,    SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION088 measured filter latency
 	connect(this->filterMinRotRateDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
 	connect(this->filterMaxRotRateDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION071
 	connect(this->filterMinTransRateDoubleSpinBox,  SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
@@ -217,6 +222,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	// with the stage off, not silently resume mid-measurement from a previous session's state.
 	this->satPrefilterThresholdDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_prefilter_threshold", 0.98).toDouble()); // SESSION079: this stage's own threshold, persisted independently of the gate's below.
 	this->satDiagCheckBox->setChecked(false); // off. SESSION076 - measurement mode, deliberately not persisted (same reason as the row's own checkbox above).
+	this->satProbeCheckBox->setChecked(false); // off. SESSION088 - same reason as satDiagCheckBox above.
 	this->satGridSubdivDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_grid_subdiv", 0.3).toDouble()); // SESSION076 CALIBRATION, SESSION078: persisted, unlike the toggles above - losing a half-found working point on every restart would make the search useless.
 	// SESSION078: 0.3 is the owner's own aggressive pick after visually verifying the fix in GaussianSplatSaturationGrid.cpp
 	// (the octahedral local-tile-angle correction, see that file) on the session's problem scene (chair back, glasses on
@@ -227,6 +233,9 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->satRegionClosingTilesSpinBox->setValue(settings_->value("gaussian_splats/sat_region_closing_tiles", 0).toInt()); // SESSION081: persisted like R - 0 is the pre-closing baseline.
 	this->satBiasCeilingDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_bias_ceiling", 1.0).toDouble()); // SESSION085 ETAP 3: 1 = bias off.
 	this->frontierReuseSplitDoubleSpinBox->setValue(settings_->value("gaussian_splats/frontier_reuse_split_dist", 0.0).toDouble()); // SESSION080 STEP B: persisted like R - 0 is the walk-everything baseline. SESSION086: measured on and turned back off, see GaussianSplatRenderer::getFrontierReuseSplitDist().
+	this->satPredictGainDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_predict_gain", 0.0).toDouble()); // SESSION088: 0 = anchor at the camera, the pre-session088 behaviour - see GaussianSplatRenderer::getSatPredictGain().
+	this->satBarrierAgreeTolDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_barrier_agree_tol", 1.0).toDouble()); // SESSION088: 1 = accept any barrier change, the pre-session088 behaviour - see GaussianSplatRenderer::getSatBarrierAgreeTol().
+	this->frontierReuseDriftDoubleSpinBox->setValue(settings_->value("gaussian_splats/frontier_reuse_drift_fraction", 0.25).toDouble()); // SESSION080's original hard-coded value - see GaussianSplatRenderer::getFrontierReuseDriftFraction().
 	this->debugModeComboBox->setCurrentIndex(0); // Overdraw. Not persisted either, for the same reason - it only says which measure the view above shows.
 	// Not persisted, like the other A/B switches: both reduce modes have to start a session in the same place or one
 	// session's numbers cannot be set beside another's. Min rather than the original mean: mean answers a splat that
@@ -243,6 +252,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->cullCheckBox->setChecked(settings_->value("gaussian_splats/frustum_cull", true).toBool());
 	this->splitPipelineCheckBox->setChecked(settings_->value("gaussian_splats/split_pipeline", true).toBool());
 	this->filterDilationLatencyDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_dilation_latency", 0.2).toDouble()); // SESSION063 K3, SESSION072: matches measured kick-to-drain round trip; SESSION079: 0.17->0.2, a list is on screen from its own kick until the NEXT drain, so the envelope is ~2x the 85ms round trip measured over the forest.
+	this->filterLatencyMeasuredCheckBox->setChecked(settings_->value("gaussian_splats/filter_latency_measured", false).toBool()); // SESSION088: off = the constant above, as before - see GaussianSplatRenderer::getFilterLatencyMeasuredEnabled().
 	this->filterMinRotRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_rot_rate", 50.0).toDouble()); // SESSION072; SESSION079: 10->50, the band a STANDING camera carries, which is what a sharp turn tears through before the first rotating kick lands.
 	this->filterMaxRotRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_max_rot_rate", 200.0).toDouble()); // SESSION071; SESSION079: 40->200. At 40 the band pins to 8deg while the camera turns at 350, and over the forest the applied list went 31deg stale against a 16deg band - a visible hole along the frustum edge. The old default was confirmed on the interior, the one scene where this knob never binds.
 	this->filterMinTransRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_trans_rate", 10.0).toDouble()); // SESSION072
@@ -370,6 +380,7 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/frustum_cull", this->cullCheckBox->isChecked()); // SESSION075: was frustumCullCheckBox.
 		settings->setValue("gaussian_splats/split_pipeline", this->splitPipelineCheckBox->isChecked()); // SESSION075
 		settings->setValue("gaussian_splats/filter_dilation_latency", this->filterDilationLatencyDoubleSpinBox->value()); // SESSION063 K3
+		settings->setValue("gaussian_splats/filter_latency_measured", this->filterLatencyMeasuredCheckBox->isChecked()); // SESSION088
 		settings->setValue("gaussian_splats/filter_min_rot_rate", this->filterMinRotRateDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/filter_max_rot_rate", this->filterMaxRotRateDoubleSpinBox->value()); // SESSION071
 		settings->setValue("gaussian_splats/filter_min_trans_rate", this->filterMinTransRateDoubleSpinBox->value());
@@ -382,6 +393,9 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/sat_region_closing_tiles", this->satRegionClosingTilesSpinBox->value()); // SESSION081
 		settings->setValue("gaussian_splats/sat_bias_ceiling", this->satBiasCeilingDoubleSpinBox->value()); // SESSION085 ETAP 3
 		settings->setValue("gaussian_splats/frontier_reuse_split_dist", this->frontierReuseSplitDoubleSpinBox->value()); // SESSION080 STEP B
+		settings->setValue("gaussian_splats/sat_predict_gain", this->satPredictGainDoubleSpinBox->value()); // SESSION088
+		settings->setValue("gaussian_splats/sat_barrier_agree_tol", this->satBarrierAgreeTolDoubleSpinBox->value()); // SESSION088
+		settings->setValue("gaussian_splats/frontier_reuse_drift_fraction", this->frontierReuseDriftDoubleSpinBox->value()); // SESSION088
 		settings->setValue("gaussian_splats/sat_prefilter_threshold", this->satPrefilterThresholdDoubleSpinBox->value()); // SESSION079
 		settings->setValue("gaussian_splats/coarse_dilation_latency", this->coarseDilationLatencyDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/num_draw_slices", this->numDrawSlicesSpinBox->value());
@@ -510,11 +524,15 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->profLogCheckBox->setChecked(false);
 	this->satPrefilterThresholdDoubleSpinBox->setValue(0.98); // SESSION079 - see load()'s comment.
 	this->satDiagCheckBox->setChecked(false); // off. SESSION076 - see load()'s comment.
+	this->satProbeCheckBox->setChecked(false); // off. SESSION088 - see load()'s comment.
 	this->satGridSubdivDoubleSpinBox->setValue(0.3); // SESSION076 CALIBRATION, SESSION078: see load()'s comment.
 	this->satRegionRadiusDoubleSpinBox->setValue(0.5); // SESSION086: matches the frozen default above (0 = point-anchored, the pre-region behaviour).
 	this->satRegionClosingTilesSpinBox->setValue(0); // SESSION081: 0 = off, the pre-closing behaviour.
 	this->satBiasCeilingDoubleSpinBox->setValue(1.0); // SESSION085 ETAP 3: 1 = off, no LoD bias.
 	this->frontierReuseSplitDoubleSpinBox->setValue(0.0); // SESSION080 STEP B: 0 = walk the whole tree, the pre-reuse behaviour.
+	this->satPredictGainDoubleSpinBox->setValue(0.0); // SESSION088: 0 = barrier anchored at the camera, the pre-prediction behaviour.
+	this->satBarrierAgreeTolDoubleSpinBox->setValue(1.0); // SESSION088: 1 = accept any barrier change, the pre-session088 reuse bound.
+	this->frontierReuseDriftDoubleSpinBox->setValue(0.25); // SESSION080's original value.
 	this->debugModeComboBox->setCurrentIndex(0);
 	this->coverageReduceModeComboBox->setCurrentIndex(1);
 	this->overdrawRangeMinDoubleSpinBox->setValue(2.0);
@@ -524,6 +542,7 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->cullCheckBox->setChecked(true); // SESSION075: was frustumCullCheckBox.
 	this->splitPipelineCheckBox->setChecked(true); // SESSION075
 	this->filterDilationLatencyDoubleSpinBox->setValue(0.2); // SESSION079
+	this->filterLatencyMeasuredCheckBox->setChecked(false); // SESSION088: off = use the constant above.
 	this->filterMinRotRateDoubleSpinBox->setValue(50.0); // SESSION079
 	this->filterMaxRotRateDoubleSpinBox->setValue(200.0); // SESSION079
 	this->filterMinTransRateDoubleSpinBox->setValue(10.0);
