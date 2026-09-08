@@ -4195,7 +4195,7 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setSatPrefilterThreshold((float)ui->gaussianSplatSettingsWidget->satPrefilterThresholdDoubleSpinBox->value()); // SESSION079: this stage's own threshold, independent of the gate's below.
 	opengl_engine->getSplatRenderer().setSatProbeLog(ui->gaussianSplatSettingsWidget->satProbeCheckBox->isChecked()); // SESSION088 DIAGNOSTIC - [gsr-sat-probe], see getSatProbeLog(). Independent of the filter log: the probe exists to be read while standing still, which is when the build-tied traces have nothing to say.
 	opengl_engine->getSplatRenderer().setSatDiagLog(ui->gaussianSplatSettingsWidget->satDiagCheckBox->isChecked()); // SESSION076 DIAGNOSTIC - console [gsr-sat-diag] counting only, see getSatDiagLog()'s comment. The overlay itself is set above, from "Show debug" + the mode dropdown.
-	opengl_engine->getSplatRenderer().setSatGridSubdiv((float)ui->gaussianSplatSettingsWidget->satGridSubdivDoubleSpinBox->value()); // SESSION076 CALIBRATION
+	opengl_engine->getSplatRenderer().setSatTilePx((float)ui->gaussianSplatSettingsWidget->satTilePxDoubleSpinBox->value()); // SESSION088: screen pixels per saturation-grid tile - see getSatTilePx().
 	opengl_engine->getSplatRenderer().setSatRegionRadius((float)ui->gaussianSplatSettingsWidget->satRegionRadiusDoubleSpinBox->value()); // SESSION078
 	opengl_engine->getSplatRenderer().setSatRegionClosingTiles(ui->gaussianSplatSettingsWidget->satRegionClosingTilesSpinBox->value()); // SESSION081
 	opengl_engine->getSplatRenderer().setSatBiasCeiling((float)ui->gaussianSplatSettingsWidget->satBiasCeilingDoubleSpinBox->value()); // SESSION085 ETAP 3 LoD bias.

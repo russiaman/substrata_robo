@@ -70,7 +70,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->maxTreeDepthSpinBox,              SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
 	connect(this->splitPipelineCheckBox,            SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was frustumCullCheckBox, split from "cull" below.
 	connect(this->satPrefilterThresholdDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION079
-	connect(this->satGridSubdivDoubleSpinBox,       SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION076 CALIBRATION
+	connect(this->satTilePxDoubleSpinBox,           SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION088: screen pixels per saturation-grid tile.
 	connect(this->satRegionRadiusDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION078
 	connect(this->satBiasCeilingDoubleSpinBox,      SIGNAL(valueChanged(double)),  this, SLOT(settingsChanged())); // SESSION085 ETAP 3 LoD bias.
 	connect(this->satBiasExponentDoubleSpinBox,     SIGNAL(valueChanged(double)),  this, SLOT(settingsChanged())); // SESSION088: the bias curve's exponent.
@@ -224,7 +224,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->satPrefilterThresholdDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_prefilter_threshold", 0.98).toDouble()); // SESSION079: this stage's own threshold, persisted independently of the gate's below.
 	this->satDiagCheckBox->setChecked(false); // off. SESSION076 - measurement mode, deliberately not persisted (same reason as the row's own checkbox above).
 	this->satProbeCheckBox->setChecked(false); // off. SESSION088 - same reason as satDiagCheckBox above.
-	this->satGridSubdivDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_grid_subdiv", 0.3).toDouble()); // SESSION076 CALIBRATION, SESSION078: persisted, unlike the toggles above - losing a half-found working point on every restart would make the search useless.
+	this->satTilePxDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_tile_px", 100.0).toDouble()); // SESSION088: a NEW key - the old sat_grid_subdiv held a value in different units (0.3), which read as 0.3 px per tile here and would peg the grid at its resolution ceiling. Persisted, like the working point it replaces.
 	// SESSION078: 0.3 is the owner's own aggressive pick after visually verifying the fix in GaussianSplatSaturationGrid.cpp
 	// (the octahedral local-tile-angle correction, see that file) on the session's problem scene (chair back, glasses on
 	// table). A coarser grid than this does show small artifacts under close visual inspection - there is more headroom
@@ -266,7 +266,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->numDrawSlicesSpinBox->setValue(settings_->value("gaussian_splats/num_draw_slices", 6).toInt()); // SESSION072
 	this->sliceGrowthDoubleSpinBox->setValue(settings_->value("gaussian_splats/slice_growth", 1.3).toDouble()); // SESSION072
 	this->saturationGateCheckBox->setChecked(settings_->value("gaussian_splats/saturation_gate", true).toBool()); // SESSION072
-	this->saturationThresholdDoubleSpinBox->setValue(settings_->value("gaussian_splats/saturation_threshold", 0.99).toDouble()); // SESSION078: raised from 0.96 - see sat_grid_subdiv's comment above, paired with its 0.3 default.
+	this->saturationThresholdDoubleSpinBox->setValue(settings_->value("gaussian_splats/saturation_threshold", 0.99).toDouble()); // SESSION078: raised from 0.96 - see sat_tile_px's comment above, paired with its calibrated default.
 	// A threshold of 0 would mark every pixel as finished the moment the gate ran, so it cannot be a value anyone chose.
 	// It is what the bug described above wrote into existing settings stores before it was fixed; treat it as unset.
 	if(this->saturationThresholdDoubleSpinBox->value() <= 0.0)
@@ -390,7 +390,7 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/merge_spread_widen", this->mergeSpreadWidenDoubleSpinBox->value()); // SESSION071
 		settings->setValue("gaussian_splats/coarse_floor", this->coarseFloorCheckBox->isChecked()); // SESSION063 K4
 		settings->setValue("gaussian_splats/coarse_pixel_scale", this->coarsePixelScaleDoubleSpinBox->value());
-		settings->setValue("gaussian_splats/sat_grid_subdiv", this->satGridSubdivDoubleSpinBox->value()); // SESSION076 CALIBRATION
+		settings->setValue("gaussian_splats/sat_tile_px", this->satTilePxDoubleSpinBox->value()); // SESSION088
 		settings->setValue("gaussian_splats/sat_region_radius", this->satRegionRadiusDoubleSpinBox->value()); // SESSION078
 		settings->setValue("gaussian_splats/sat_region_closing_tiles", this->satRegionClosingTilesSpinBox->value()); // SESSION081
 		settings->setValue("gaussian_splats/sat_bias_ceiling", this->satBiasCeilingDoubleSpinBox->value()); // SESSION085 ETAP 3
@@ -528,7 +528,7 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->satPrefilterThresholdDoubleSpinBox->setValue(0.98); // SESSION079 - see load()'s comment.
 	this->satDiagCheckBox->setChecked(false); // off. SESSION076 - see load()'s comment.
 	this->satProbeCheckBox->setChecked(false); // off. SESSION088 - see load()'s comment.
-	this->satGridSubdivDoubleSpinBox->setValue(0.3); // SESSION076 CALIBRATION, SESSION078: see load()'s comment.
+	this->satTilePxDoubleSpinBox->setValue(100.0); // SESSION088: see load()'s comment.
 	this->satRegionRadiusDoubleSpinBox->setValue(0.5); // SESSION086: matches the frozen default above (0 = point-anchored, the pre-region behaviour).
 	this->satRegionClosingTilesSpinBox->setValue(0); // SESSION081: 0 = off, the pre-closing behaviour.
 	this->satBiasCeilingDoubleSpinBox->setValue(1.0); // SESSION085 ETAP 3: 1 = off, no LoD bias.
