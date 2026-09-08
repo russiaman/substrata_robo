@@ -87,10 +87,6 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->filterMinRotRateDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
 	connect(this->filterMaxRotRateDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION071
 	connect(this->filterMinTransRateDoubleSpinBox,  SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K3
-	connect(this->coarseFloorCheckBox,              SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION063 K4
-	connect(this->coarsePixelScaleDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K4
-	connect(this->coarseDilationLatencyDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION063 K4
-	connect(this->coarseLayerDebugCheckBox,         SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION063 K4
 	connect(this->energyMergeColourCheckBox,        SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION071
 	connect(this->mergeSpreadWidenDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION071
 	connect(this->numDrawSlicesSpinBox,             SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
@@ -260,9 +256,6 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->filterMinTransRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_trans_rate", 10.0).toDouble()); // SESSION072
 	this->energyMergeColourCheckBox->setChecked(settings_->value("gaussian_splats/energy_merge_colour", true).toBool()); // SESSION071
 	this->mergeSpreadWidenDoubleSpinBox->setValue(settings_->value("gaussian_splats/merge_spread_widen", 3.0).toDouble()); // SESSION071
-	this->coarseFloorCheckBox->setChecked(settings_->value("gaussian_splats/coarse_floor", true).toBool()); // SESSION063 K4
-	this->coarsePixelScaleDoubleSpinBox->setValue(settings_->value("gaussian_splats/coarse_pixel_scale", 25.0).toDouble()); // SESSION072
-	this->coarseDilationLatencyDoubleSpinBox->setValue(settings_->value("gaussian_splats/coarse_dilation_latency", 0.9).toDouble());
 	this->numDrawSlicesSpinBox->setValue(settings_->value("gaussian_splats/num_draw_slices", 6).toInt()); // SESSION072
 	this->sliceGrowthDoubleSpinBox->setValue(settings_->value("gaussian_splats/slice_growth", 1.3).toDouble()); // SESSION072
 	this->saturationGateCheckBox->setChecked(settings_->value("gaussian_splats/saturation_gate", true).toBool()); // SESSION072
@@ -388,8 +381,6 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/filter_min_trans_rate", this->filterMinTransRateDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/energy_merge_colour", this->energyMergeColourCheckBox->isChecked()); // SESSION071
 		settings->setValue("gaussian_splats/merge_spread_widen", this->mergeSpreadWidenDoubleSpinBox->value()); // SESSION071
-		settings->setValue("gaussian_splats/coarse_floor", this->coarseFloorCheckBox->isChecked()); // SESSION063 K4
-		settings->setValue("gaussian_splats/coarse_pixel_scale", this->coarsePixelScaleDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/sat_tile_px", this->satTilePxDoubleSpinBox->value()); // SESSION088
 		settings->setValue("gaussian_splats/sat_region_radius", this->satRegionRadiusDoubleSpinBox->value()); // SESSION078
 		settings->setValue("gaussian_splats/sat_region_closing_tiles", this->satRegionClosingTilesSpinBox->value()); // SESSION081
@@ -400,7 +391,6 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/sat_barrier_agree_tol", this->satBarrierAgreeTolDoubleSpinBox->value()); // SESSION088
 		settings->setValue("gaussian_splats/frontier_reuse_drift_fraction", this->frontierReuseDriftDoubleSpinBox->value()); // SESSION088
 		settings->setValue("gaussian_splats/sat_prefilter_threshold", this->satPrefilterThresholdDoubleSpinBox->value()); // SESSION079
-		settings->setValue("gaussian_splats/coarse_dilation_latency", this->coarseDilationLatencyDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/num_draw_slices", this->numDrawSlicesSpinBox->value());
 		settings->setValue("gaussian_splats/slice_growth", this->sliceGrowthDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/saturation_gate", this->saturationGateCheckBox->isChecked());
@@ -552,9 +542,6 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->filterMinTransRateDoubleSpinBox->setValue(10.0);
 	this->energyMergeColourCheckBox->setChecked(true);
 	this->mergeSpreadWidenDoubleSpinBox->setValue(3.0);
-	this->coarseFloorCheckBox->setChecked(true);
-	this->coarsePixelScaleDoubleSpinBox->setValue(25.0);
-	this->coarseDilationLatencyDoubleSpinBox->setValue(0.9);
 	this->numDrawSlicesSpinBox->setValue(6);
 	this->sliceGrowthDoubleSpinBox->setValue(1.3);
 	this->saturationGateCheckBox->setChecked(true);

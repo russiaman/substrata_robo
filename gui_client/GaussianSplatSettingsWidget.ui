@@ -705,31 +705,6 @@
        </widget>
       </item>
       <item>
-       <widget class="QDoubleSpinBox" name="coarsePixelScaleDoubleSpinBox">
-        <property name="prefix">
-         <string>px </string>
-        </property>
-        <property name="toolTip">
-         <string>SESSION063 K4: pixel scale threshold for the coarse floor cut. The first node on each branch whose projected size falls to this many pixels is taken as the coarse patch (bigger = coarser, fewer, cheaper). SESSION076: also sets the saturation grid's resolution (moved here from Frustum settings2 since both consumers share this one value). Applies live.</string>
-        </property>
-        <property name="decimals">
-         <number>1</number>
-        </property>
-        <property name="minimum">
-         <double>2.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>500.000000000000000</double>
-        </property>
-        <property name="singleStep">
-         <double>5.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>25.000000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item>
        <widget class="QDoubleSpinBox" name="satTilePxDoubleSpinBox">
         <property name="prefix">
          <string>tile </string>
@@ -1214,62 +1189,6 @@ SESSION071/072: cap on the angular rate the split-filter dilation uses for its d
       <property name="bottomMargin">
        <number>0</number>
       </property>
-      <item>
-       <widget class="QCheckBox" name="coarseFloorCheckBox">
-        <property name="text">
-         <string>coarse</string>
-        </property>
-        <property name="toolTip">
-         <string>SESSION063 K4: the traversal also captures a low-detail cut (first node per branch at the coarse pixel scale), globally depth-sorted with the fine set. Confined to the dilation band beyond the frustum edge, its big cheap splats plug motion-revealed gaps/edges - dilated wider than the fine set (coarse dil latency below), which lets the fine set run at a tight, cheap dilation without holes. On by default. SESSION075: controls only whether this layer is drawn - Saturation filter (above) captures the same underlying data on its own whenever it's on, whether or not this is. SESSION076: the pixel scale threshold ("px") now lives on the Saturation filter row above, since it also sets that stage's grid resolution.</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QDoubleSpinBox" name="coarseDilationLatencyDoubleSpinBox">
-        <property name="prefix">
-         <string>dil </string>
-        </property>
-        <property name="suffix">
-         <string> s</string>
-        </property>
-        <property name="toolTip">
-         <string>REQUIRED: must be greater than "latency" (Frustum settings1) - if not, the coarse band collapses to zero or negative width and coarse stops covering anything fine doesn't already reach, defeating its whole purpose as a cheap wide safety net.
-
-SESSION063 K4: dilation window (seconds) for the coarse floor - how far ahead of the camera's motion the coarse patches are kept. Applies live.</string>
-        </property>
-        <property name="decimals">
-         <number>3</number>
-        </property>
-        <property name="minimum">
-         <double>0.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>5.000000000000000</double>
-        </property>
-        <property name="singleStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.900000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="coarseLayerDebugCheckBox">
-        <property name="text">
-         <string>debug</string>
-        </property>
-        <property name="toolTip">
-         <string>SESSION063 K4 debug: draw ONLY the coarse floor, hiding the fine set, so its screen coverage can be checked in isolation (should fill the frame with no edge gaps under motion). Visual debug only - turn off for normal rendering.</string>
-        </property>
-        <property name="checked">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
      </layout>
     </widget>
    </item>

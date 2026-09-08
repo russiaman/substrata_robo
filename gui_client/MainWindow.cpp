@@ -4188,10 +4188,6 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setFilterMinRotRateDegPerS((float)ui->gaussianSplatSettingsWidget->filterMinRotRateDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setFilterMaxRotRateDegPerS((float)ui->gaussianSplatSettingsWidget->filterMaxRotRateDoubleSpinBox->value()); // SESSION071
 	opengl_engine->getSplatRenderer().setFilterMinTransRateMPerS((float)ui->gaussianSplatSettingsWidget->filterMinTransRateDoubleSpinBox->value());
-	opengl_engine->getSplatRenderer().setCoarseFloorEnabled(ui->gaussianSplatSettingsWidget->coarseFloorCheckBox->isChecked()); // SESSION063 K4
-	opengl_engine->getSplatRenderer().setCoarsePixelScale((float)ui->gaussianSplatSettingsWidget->coarsePixelScaleDoubleSpinBox->value());
-	opengl_engine->getSplatRenderer().setFilterCoarseDilationLatency((float)ui->gaussianSplatSettingsWidget->coarseDilationLatencyDoubleSpinBox->value());
-	opengl_engine->getSplatRenderer().setCoarseLayerDebug(ui->gaussianSplatSettingsWidget->coarseLayerDebugCheckBox->isChecked()); // SESSION063 K4 debug
 	opengl_engine->getSplatRenderer().setSatPrefilterThreshold((float)ui->gaussianSplatSettingsWidget->satPrefilterThresholdDoubleSpinBox->value()); // SESSION079: this stage's own threshold, independent of the gate's below.
 	opengl_engine->getSplatRenderer().setSatProbeLog(ui->gaussianSplatSettingsWidget->satProbeCheckBox->isChecked()); // SESSION088 DIAGNOSTIC - [gsr-sat-probe], see getSatProbeLog(). Independent of the filter log: the probe exists to be read while standing still, which is when the build-tied traces have nothing to say.
 	opengl_engine->getSplatRenderer().setSatDiagLog(ui->gaussianSplatSettingsWidget->satDiagCheckBox->isChecked()); // SESSION076 DIAGNOSTIC - console [gsr-sat-diag] counting only, see getSatDiagLog()'s comment. The overlay itself is set above, from "Show debug" + the mode dropdown.
