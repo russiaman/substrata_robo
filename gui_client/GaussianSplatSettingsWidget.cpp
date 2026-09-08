@@ -73,6 +73,7 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->satGridSubdivDoubleSpinBox,       SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION076 CALIBRATION
 	connect(this->satRegionRadiusDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION078
 	connect(this->satBiasCeilingDoubleSpinBox,      SIGNAL(valueChanged(double)),  this, SLOT(settingsChanged())); // SESSION085 ETAP 3 LoD bias.
+	connect(this->satBiasExponentDoubleSpinBox,     SIGNAL(valueChanged(double)),  this, SLOT(settingsChanged())); // SESSION088: the bias curve's exponent.
 	connect(this->satRegionClosingTilesSpinBox,     SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged())); // SESSION081
 	connect(this->frontierReuseSplitDoubleSpinBox,  SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION080 STEP B
 	connect(this->satPredictGainDoubleSpinBox,      SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION088 predictive anchor
@@ -232,6 +233,7 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->satRegionRadiusDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_region_radius", 0.5).toDouble()); // SESSION078: persisted like sub. SESSION086: default frozen at 0.5 - R now also sets the barrier rebuild cadence, see GaussianSplatRenderer::getSatRegionRadius().
 	this->satRegionClosingTilesSpinBox->setValue(settings_->value("gaussian_splats/sat_region_closing_tiles", 0).toInt()); // SESSION081: persisted like R - 0 is the pre-closing baseline.
 	this->satBiasCeilingDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_bias_ceiling", 1.0).toDouble()); // SESSION085 ETAP 3: 1 = bias off.
+	this->satBiasExponentDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_bias_exponent", 0.2).toDouble()); // SESSION088: persisted like the ceiling above - this is a calibrated working value, not a measurement toggle. 0.2 is the owner's pick; 1 restores session085's original curve.
 	this->frontierReuseSplitDoubleSpinBox->setValue(settings_->value("gaussian_splats/frontier_reuse_split_dist", 0.0).toDouble()); // SESSION080 STEP B: persisted like R - 0 is the walk-everything baseline. SESSION086: measured on and turned back off, see GaussianSplatRenderer::getFrontierReuseSplitDist().
 	this->satPredictGainDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_predict_gain", 0.0).toDouble()); // SESSION088: 0 = anchor at the camera, the pre-session088 behaviour - see GaussianSplatRenderer::getSatPredictGain().
 	this->satBarrierAgreeTolDoubleSpinBox->setValue(settings_->value("gaussian_splats/sat_barrier_agree_tol", 1.0).toDouble()); // SESSION088: 1 = accept any barrier change, the pre-session088 behaviour - see GaussianSplatRenderer::getSatBarrierAgreeTol().
@@ -392,6 +394,7 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/sat_region_radius", this->satRegionRadiusDoubleSpinBox->value()); // SESSION078
 		settings->setValue("gaussian_splats/sat_region_closing_tiles", this->satRegionClosingTilesSpinBox->value()); // SESSION081
 		settings->setValue("gaussian_splats/sat_bias_ceiling", this->satBiasCeilingDoubleSpinBox->value()); // SESSION085 ETAP 3
+		settings->setValue("gaussian_splats/sat_bias_exponent", this->satBiasExponentDoubleSpinBox->value()); // SESSION088
 		settings->setValue("gaussian_splats/frontier_reuse_split_dist", this->frontierReuseSplitDoubleSpinBox->value()); // SESSION080 STEP B
 		settings->setValue("gaussian_splats/sat_predict_gain", this->satPredictGainDoubleSpinBox->value()); // SESSION088
 		settings->setValue("gaussian_splats/sat_barrier_agree_tol", this->satBarrierAgreeTolDoubleSpinBox->value()); // SESSION088
@@ -529,6 +532,7 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->satRegionRadiusDoubleSpinBox->setValue(0.5); // SESSION086: matches the frozen default above (0 = point-anchored, the pre-region behaviour).
 	this->satRegionClosingTilesSpinBox->setValue(0); // SESSION081: 0 = off, the pre-closing behaviour.
 	this->satBiasCeilingDoubleSpinBox->setValue(1.0); // SESSION085 ETAP 3: 1 = off, no LoD bias.
+	this->satBiasExponentDoubleSpinBox->setValue(0.2); // SESSION088: the calibrated default - see load()'s comment.
 	this->frontierReuseSplitDoubleSpinBox->setValue(0.0); // SESSION080 STEP B: 0 = walk the whole tree, the pre-reuse behaviour.
 	this->satPredictGainDoubleSpinBox->setValue(0.0); // SESSION088: 0 = barrier anchored at the camera, the pre-prediction behaviour.
 	this->satBarrierAgreeTolDoubleSpinBox->setValue(1.0); // SESSION088: 1 = accept any barrier change, the pre-session088 reuse bound.

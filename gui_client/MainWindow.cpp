@@ -4199,6 +4199,7 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setSatRegionRadius((float)ui->gaussianSplatSettingsWidget->satRegionRadiusDoubleSpinBox->value()); // SESSION078
 	opengl_engine->getSplatRenderer().setSatRegionClosingTiles(ui->gaussianSplatSettingsWidget->satRegionClosingTilesSpinBox->value()); // SESSION081
 	opengl_engine->getSplatRenderer().setSatBiasCeiling((float)ui->gaussianSplatSettingsWidget->satBiasCeilingDoubleSpinBox->value()); // SESSION085 ETAP 3 LoD bias.
+	opengl_engine->getSplatRenderer().setSatBiasExponent((float)ui->gaussianSplatSettingsWidget->satBiasExponentDoubleSpinBox->value()); // SESSION088: how fast that bias climbs to its ceiling - see getSatBiasExponent().
 	opengl_engine->getSplatRenderer().setFrontierReuseSplitDist((float)ui->gaussianSplatSettingsWidget->frontierReuseSplitDoubleSpinBox->value()); // SESSION080 STEP B
 	opengl_engine->getSplatRenderer().setSatPredictGain((float)ui->gaussianSplatSettingsWidget->satPredictGainDoubleSpinBox->value()); // SESSION088 predictive saturation anchor
 	opengl_engine->getSplatRenderer().setSatBarrierAgreeTol((float)ui->gaussianSplatSettingsWidget->satBarrierAgreeTolDoubleSpinBox->value()); // SESSION088 barrier-agreement reuse bound
