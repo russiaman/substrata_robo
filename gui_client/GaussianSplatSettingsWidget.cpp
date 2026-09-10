@@ -68,7 +68,6 @@ GaussianSplatSettingsWidget::GaussianSplatSettingsWidget(
 	connect(this->overdrawRangeMaxDoubleSpinBox,    SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->maxLayerDensityDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged()));
 	connect(this->maxTreeDepthSpinBox,              SIGNAL(valueChanged(int)),    this, SLOT(settingsChanged()));
-	connect(this->splitPipelineCheckBox,            SIGNAL(toggled(bool)),        this, SLOT(settingsChanged())); // SESSION075: was frustumCullCheckBox, split from "cull" below.
 	connect(this->satPrefilterThresholdDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION079
 	connect(this->satTilePxDoubleSpinBox,           SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION088: screen pixels per saturation-grid tile.
 	connect(this->satRegionRadiusDoubleSpinBox,     SIGNAL(valueChanged(double)), this, SLOT(settingsChanged())); // SESSION078
@@ -244,11 +243,9 @@ void GaussianSplatSettingsWidget::init(QSettings* settings_)
 	this->overdrawRangeMaxDoubleSpinBox->setValue(settings_->value("gaussian_splats/overdraw_range_max", 100.0).toDouble());
 	this->maxLayerDensityDoubleSpinBox->setValue(settings_->value("gaussian_splats/max_layer_density", 0.0).toDouble());
 	this->maxTreeDepthSpinBox->setValue(settings_->value("gaussian_splats/max_tree_depth", 0).toInt());
-	// SESSION075: previously one checkbox drove both flags identically (see MainWindow.cpp's session055/063 comments,
-	// now superseded) - split into two independent settings. The old "frustum_cull" key is kept for the "cull"
-	// checkbox, the setting it's the closer continuation of; "split_pipeline" is new, with its own default (true).
+	// SESSION075 split "frustum_cull" into two settings, one per pipeline. SESSION090: there is one pipeline, so this key
+	// is back to driving the one cull switch that exists - see MainWindow.cpp.
 	this->cullCheckBox->setChecked(settings_->value("gaussian_splats/frustum_cull", true).toBool());
-	this->splitPipelineCheckBox->setChecked(settings_->value("gaussian_splats/split_pipeline", true).toBool());
 	this->filterDilationLatencyDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_dilation_latency", 0.2).toDouble()); // SESSION063 K3, SESSION072: matches measured kick-to-drain round trip; SESSION079: 0.17->0.2, a list is on screen from its own kick until the NEXT drain, so the envelope is ~2x the 85ms round trip measured over the forest.
 	this->filterLatencyMeasuredCheckBox->setChecked(settings_->value("gaussian_splats/filter_latency_measured", false).toBool()); // SESSION088: off = the constant above, as before - see GaussianSplatRenderer::getFilterLatencyMeasuredEnabled().
 	this->filterMinRotRateDoubleSpinBox->setValue(settings_->value("gaussian_splats/filter_min_rot_rate", 50.0).toDouble()); // SESSION072; SESSION079: 10->50, the band a STANDING camera carries, which is what a sharp turn tears through before the first rotating kick lands.
@@ -372,8 +369,7 @@ void GaussianSplatSettingsWidget::settingsChanged()
 		settings->setValue("gaussian_splats/overdraw_range_max", this->overdrawRangeMaxDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/max_layer_density", this->maxLayerDensityDoubleSpinBox->value());
 		settings->setValue("gaussian_splats/max_tree_depth", this->maxTreeDepthSpinBox->value());
-		settings->setValue("gaussian_splats/frustum_cull", this->cullCheckBox->isChecked()); // SESSION075: was frustumCullCheckBox.
-		settings->setValue("gaussian_splats/split_pipeline", this->splitPipelineCheckBox->isChecked()); // SESSION075
+		settings->setValue("gaussian_splats/frustum_cull", this->cullCheckBox->isChecked()); // SESSION075: was frustumCullCheckBox. SESSION090: the "split_pipeline" key written beside this one is retired - there is only one pipeline now. Any value left in an existing settings file is simply never read.
 		settings->setValue("gaussian_splats/filter_dilation_latency", this->filterDilationLatencyDoubleSpinBox->value()); // SESSION063 K3
 		settings->setValue("gaussian_splats/filter_latency_measured", this->filterLatencyMeasuredCheckBox->isChecked()); // SESSION088
 		settings->setValue("gaussian_splats/filter_min_rot_rate", this->filterMinRotRateDoubleSpinBox->value());
@@ -534,7 +530,6 @@ void GaussianSplatSettingsWidget::resetToDefaultsClicked()
 	this->maxLayerDensityDoubleSpinBox->setValue(0.0);
 	this->maxTreeDepthSpinBox->setValue(0);
 	this->cullCheckBox->setChecked(true); // SESSION075: was frustumCullCheckBox.
-	this->splitPipelineCheckBox->setChecked(true); // SESSION075
 	this->filterDilationLatencyDoubleSpinBox->setValue(0.2); // SESSION079
 	this->filterLatencyMeasuredCheckBox->setChecked(false); // SESSION088: off = use the constant above.
 	this->filterMinRotRateDoubleSpinBox->setValue(50.0); // SESSION079

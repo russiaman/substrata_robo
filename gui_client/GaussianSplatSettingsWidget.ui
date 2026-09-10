@@ -631,29 +631,6 @@
      </layout>
     </widget>
    </item>
-   <item row="13" column="0">
-    <widget class="QLabel" name="splitPipelineLabel">
-     <property name="text">
-      <string>Split pipeline</string>
-     </property>
-     <property name="toolTip">
-      <string>SESSION063 split-filter pipeline (SESSION075: separated from "cull" below, previously the same checkbox). On (default): traversal runs cull-off and builds an orientation-independent frontier U(P) once per camera move; a cheap per-frame filter then derives the actual draw list from it, so turning in place costs nothing extra. Off: reverts to the pre-SESSION063 single-pass pipeline - no U(P), no per-frame filter, no coarse floor, no saturation pre-filter; each significant camera move re-walks and re-draws the selection directly, with "cull" below then controlling the traversal's own in-loop frustum test instead of the filter's.</string>
-     </property>
-    </widget>
-   </item>
-   <item row="13" column="1">
-    <widget class="QCheckBox" name="splitPipelineCheckBox">
-     <property name="text">
-      <string></string>
-     </property>
-     <property name="toolTip">
-      <string>See this row's own tooltip.</string>
-     </property>
-     <property name="checked">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
    <item row="14" column="0">
     <widget class="QLabel" name="saturationFilterLabel">
      <property name="text">
@@ -1039,7 +1016,7 @@
          <string>cull</string>
         </property>
         <property name="toolTip">
-         <string>SESSION075: cull by the camera frustum. Which mechanism actually does the work depends on Split pipeline (CPU side, above): with it on, this drives the per-orientation filter's frustum test (SESSION074) over the cached U(P) - cheap, reruns every rotating frame. With it off, this drives the traversal's own in-loop cull instead (SESSION055) - nodes outside the frustum are neither drawn nor expanded, pruning whole subtrees, at the cost of a fresh traversal on every ~5deg turn. On by default.</string>
+         <string>Cull by the camera frustum. Drives the per-orientation filter's frustum test (SESSION074) over the cached U(P) - cheap, and rerun on every rotating frame. Off keeps the whole pipeline running but rejects nothing for being outside the view, which is what makes the frustum and saturation mechanisms separable for A/B. On by default. (SESSION090: this used to select between two cull mechanisms depending on the "Split pipeline" checkbox; that pipeline, and the traversal-level cull it carried, are gone.)</string>
         </property>
         <property name="checked">
          <bool>true</bool>
@@ -2783,7 +2760,7 @@ Measured at matched draw time against raising the alpha cutoff on its own: a qua
          <string>kick</string>
         </property>
         <property name="toolTip">
-         <string>[gsr-kick] / [gsr-rot-blocked] - kickOffTraversals(). Same cost caveat as "filter" - off by default.</string>
+         <string>[gsr-kick] - kickOffTraversals(). Same cost caveat as "filter" - off by default.</string>
         </property>
        </widget>
       </item>

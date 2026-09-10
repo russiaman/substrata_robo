@@ -4174,16 +4174,10 @@ void MainWindow::gaussianSplatSettingsChanged()
 	opengl_engine->getSplatRenderer().setOverdrawRangeMax((float)ui->gaussianSplatSettingsWidget->overdrawRangeMaxDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setMaxLayerDensity((float)ui->gaussianSplatSettingsWidget->maxLayerDensityDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setMaxTreeDepth(ui->gaussianSplatSettingsWidget->maxTreeDepthSpinBox->value());
-	// SESSION075: "cull" and "Split pipeline" are now two independent checkboxes (previously one checkbox drove both
-	// flags identically - see getFrustumCullEnabled()/getSplitFilterEnabled()'s own comments, now superseded). "cull"
-	// drives whichever cull mechanism is actually live for the current pipeline: the traversal-level cull (SESSION055)
-	// while Split pipeline is off, the filter-stage frustum test (SESSION074, ex-getFilterFrustumPlanesEnabled()) while
-	// it's on - so unchecking Split pipeline alone now reproduces the pre-SESSION063 pipeline exactly, cull included,
-	// instead of always landing on cull_active = X && !X = false regardless of either checkbox's state.
-	const bool cull_checked = ui->gaussianSplatSettingsWidget->cullCheckBox->isChecked();
-	opengl_engine->getSplatRenderer().setFrustumCullEnabled(cull_checked); // SESSION055 - only takes effect while Split pipeline is off.
-	opengl_engine->getSplatRenderer().setFilterFrustumPlanesEnabled(cull_checked); // SESSION074 - only takes effect while Split pipeline is on.
-	opengl_engine->getSplatRenderer().setSplitFilterEnabled(ui->gaussianSplatSettingsWidget->splitPipelineCheckBox->isChecked()); // SESSION063
+	// SESSION090: "cull" now drives the one cull mechanism there is - the filter-stage frustum test (SESSION074). Its
+	// former companion, the traversal-level cull (SESSION055), belonged to the pre-SESSION063 pipeline and is gone along
+	// with the "Split pipeline" checkbox that used to select between the two.
+	opengl_engine->getSplatRenderer().setFilterFrustumPlanesEnabled(ui->gaussianSplatSettingsWidget->cullCheckBox->isChecked());
 	opengl_engine->getSplatRenderer().setFilterDilationLatency((float)ui->gaussianSplatSettingsWidget->filterDilationLatencyDoubleSpinBox->value()); // SESSION063 K3
 	opengl_engine->getSplatRenderer().setFilterMinRotRateDegPerS((float)ui->gaussianSplatSettingsWidget->filterMinRotRateDoubleSpinBox->value());
 	opengl_engine->getSplatRenderer().setFilterMaxRotRateDegPerS((float)ui->gaussianSplatSettingsWidget->filterMaxRotRateDoubleSpinBox->value()); // SESSION071
