@@ -195,6 +195,12 @@ inline static Vec4f transformSkinnedVertex(const Vec4f vert_pos, size_t joint_of
 }
 
 
+static BatchedMeshRef simplerMesh(BatchedMeshRef a, BatchedMeshRef b)
+{
+	return a->numIndices() < b->numIndices() ? a : b;
+}
+
+
 // May return null mesh if there were no voxels or mesh was simplified away.
 // May also return mesh with zero indices.
 BatchedMeshRef loadAndSimplifyGeometry(const ObInfo& ob_info, LRUCache<std::string, BatchedMeshRef>& mesh_cache, Matrix4f& voxel_scale_matrix_out)
@@ -210,7 +216,7 @@ BatchedMeshRef loadAndSimplifyGeometry(const ObInfo& ob_info, LRUCache<std::stri
 			auto res = mesh_cache.find(ob_info.model_path);
 			if(res == mesh_cache.end())
 			{
-				conPrint("Loading '" + ob_info.model_path + "'...");
+				conPrint("ChunkGenThread: Loading '" + ob_info.model_path + "'...");
 				mesh = LODGeneration::loadModel(ob_info.model_path);
 
 				mesh_cache.insert(std::make_pair(ob_info.model_path, mesh), mesh->getTotalMemUsage());
@@ -258,34 +264,54 @@ BatchedMeshRef loadAndSimplifyGeometry(const ObInfo& ob_info, LRUCache<std::stri
 	// Simplify mesh
 	if(mesh)
 	{
-		// conPrint("Simplifying mesh..");
+		//conPrint("ChunkGenThread: Simplifying mesh..");
 
-		const size_t original_num_verts = mesh->numVerts();
+		//const size_t original_num_tris = mesh->numIndices()/3;
 
-		const float error_threshold_ws = 0.4f;
-		const float relative_err = 0.08f;
-		const float global_error_threshold_os = error_threshold_ws / (ob_info.ob_to_world_scale * voxel_scale);
-		const float per_ob_error_threshold_os = mesh->aabb_os.longestLength() * relative_err;
+		// NOTE: This code is pretty similar to LODGeneration::computeLODModel(), with a slightly more world-space focus.
 
-		const float error_threshold_os = myMax(global_error_threshold_os, per_ob_error_threshold_os);
-		//printVar(error_threshold_ws);
-		//printVar(error_threshold_os);
+		// Chunks are displayed >= 150 m away from the camera.
+		// For a render resolution of 2560 x 1282 pixels,
+		// pixel/h = 2560 / (w/l) = 1828.571428 pixels/projected_len_h
+		// So a world-space error of 0.4 m gives a projected length of 0.4 m / 150 m = 0.002666
+		// So this corresponds to an error of 0.002666 * pixel/h = 0.002666 * 1828.57142 = 4.87 pixels.
 
-		mesh = MeshSimplification::removeSmallComponents(mesh, error_threshold_os);
+		const float error_threshold_ws = 0.4f; // absolute error threshold in world space
+		const float error_threshold_os_abs = error_threshold_ws / (ob_info.ob_to_world_scale * voxel_scale); // absolute error threshold in object space
+		const size_t sloppy_tri_threshold = 1500; // Number of tris in the non-sloppy simplified mesh at which we should also try using sloppy simplification.
+
+		mesh = MeshSimplification::removeSmallComponents(mesh, error_threshold_os_abs);
 		if(mesh->numIndices() == 0)
-			return mesh;
-
-		mesh = MeshSimplification::buildSimplifiedMesh(*mesh, /*target_reduction_ratio=*/1000.f, /*target_error=*/error_threshold_os, /*sloppy=*/false);
-		
-		// If we achieved less than a 4x reduction in the number of vertices (and this is a med/large mesh), try again with sloppy simplification
-		if((mesh->numVerts() > 1024) && // if this is a med/large mesh
-			((float)mesh->numVerts() > (original_num_verts / 4.f)))
 		{
-			mesh = MeshSimplification::buildSimplifiedMesh(*mesh, /*target_reduction_ratio=*/1000.f, 
-				/*target_error (relative)=*/relative_err, /*sloppy=*/true);
+			//conPrint("\tChunkGenThread: removeSmallComponents() removed all tris.");
+			return mesh;
+		}
+
+		// NOTE: compute the relative error threshold after removeSmallComponents() as removeSmallComponents() may change the mesh AABB.
+		const float error_threshold_os_rel = error_threshold_os_abs / mesh->aabb_os.longestLength(); // final relative error threshold, in object space.
+
+		// conPrint("\tChunkGenThread: error_threshold_os_abs: " + doubleToStringNDecimalPlaces(error_threshold_os_abs, 3) + ", error_threshold_os_rel: " + doubleToStringNDecimalPlaces(error_threshold_os_rel, 3));
+
+		BatchedMeshRef simplified_mesh = MeshSimplification::buildSimplifiedMesh(*mesh, /*target_reduction_ratio=*/100000.f, /*target_error=*/error_threshold_os_abs, /*sloppy=*/false);
+		
+		//conPrint("\tChunkGenThread: simplified_mesh num tris: " + uInt64ToStringCommaSeparated(simplified_mesh->numIndices() / 3) + " (original_num_tris: " + uInt64ToStringCommaSeparated(original_num_tris) + ")");
+
+		// If the simplified mesh is still quite complex, try again with sloppy simplification.
+		if((simplified_mesh->numIndices()/3) > sloppy_tri_threshold)
+		{
+			BatchedMeshRef sloppy_mesh = MeshSimplification::buildSimplifiedMesh(*mesh, /*target_reduction_ratio=*/100000.f, /*target_error (relative)=*/error_threshold_os_rel, /*sloppy=*/true);
+
+			//conPrint("\tChunkGenThread: Tried sloppy simplification, sloppy_mesh num tris: " + uInt64ToStringCommaSeparated(sloppy_mesh->numIndices() / 3) + " (original_num_tris: " + uInt64ToStringCommaSeparated(original_num_tris) + ")");
+
+			return simplerMesh(sloppy_mesh, simplerMesh(simplified_mesh, mesh)); // Return the mesh that actually ended up the most simple.
+		}
+		else
+		{
+			return simplerMesh(simplified_mesh, mesh);  // Return the mesh that actually ended up the most simple.
 		}
 	}
-	return mesh;
+	else
+		return nullptr;
 }
 
 
@@ -303,7 +329,7 @@ static void buildAndSaveArrayTexture(const std::vector<std::string>& used_tex_pa
 			{
 				const std::string tex_path = *it;
 
-				conPrint("Loading '" + tex_path + "'...");
+				conPrint("ChunkGenThread: Loading '" + tex_path + "'...");
 				Reference<Map2D> map;
 				if(hasExtension(tex_path, "gif"))
 					map = GIFDecoder::decodeImageSequence(tex_path);
@@ -356,7 +382,7 @@ static void buildAndSaveArrayTexture(const std::vector<std::string>& used_tex_pa
 			}
 			catch(glare::Exception& e)
 			{
-				conPrint("Error while loading image: " + e.what());
+				conPrint("ChunkGenThread: Error while loading image: " + e.what());
 			}
 		}
 
@@ -396,7 +422,7 @@ static void buildAndSaveArrayTexture(const std::vector<std::string>& used_tex_pa
 			if(result != basisu::basis_compressor::cECSuccess)
 				throw glare::Exception("basisCompressor.process() failed.");
 
-			conPrint("Basisu compression and writing of file to '" + params.m_out_filename + "' took " + timer.elapsedStringNSigFigs(3));
+			conPrint("ChunkGenThread: Basisu compression and writing of file to '" + params.m_out_filename + "' took " + timer.elapsedStringNSigFigs(3));
 
 			// Compute hash over it
 			const uint64 hash = FileChecksum::fileChecksum(params.m_out_filename);
@@ -405,10 +431,10 @@ static void buildAndSaveArrayTexture(const std::vector<std::string>& used_tex_pa
 			combined_texture_hash_out = hash;
 		}
 		else
-			conPrint("Not writing texture array, no textures to process.");
+			conPrint("ChunkGenThread: Not writing texture array, no textures to process.");
 	}
 	else
-		conPrint("Not writing texture array, no textures to process.");
+		conPrint("ChunkGenThread: Not writing texture array, no textures to process.");
 }
 
 
@@ -561,7 +587,7 @@ static ChunkBuildResults buildChunkForObInfo(std::vector<ObInfo>& ob_infos, int 
 				const bool invertible = ob_to_world.getUpperLeftInverseTranspose(ob_normals_to_world);
 				if(!invertible)
 				{
-					conPrint("Warning: ob_to_world not invertible.");
+					conPrint("ChunkGenThread: Warning: ob_to_world not invertible.");
 					ob_normals_to_world = ob_to_world;
 				}
 
@@ -808,7 +834,7 @@ static ChunkBuildResults buildChunkForObInfo(std::vector<ObInfo>& ob_infos, int 
 		}
 		catch(glare::Exception& e)
 		{
-			conPrint("ChunkGenThread error while processing ob: " + e.what());
+			conPrint("ChunkGenThread: error while processing ob: " + e.what());
 
 			// If an exception was thrown after space was allocated for the mesh verts, we want to trim that off.
 			combined_mesh->vertex_data.resize(initial_combined_mesh_vert_data_size);
@@ -886,7 +912,7 @@ static ChunkBuildResults buildChunkForObInfo(std::vector<ObInfo>& ob_infos, int 
 			//-------------------------------------- Remove unused materials --------------------------------------
 			std::vector<MatInfo> new_mat_infos;
 			{
-				conPrint("Raw combined mesh num materials: " + toString(combined_mat_infos.size()));
+				conPrint("ChunkGenThread: Raw combined mesh num materials: " + toString(combined_mat_infos.size()));
 
 				const size_t num_verts = combined_mesh->numVerts();
 
@@ -908,7 +934,7 @@ static ChunkBuildResults buildChunkForObInfo(std::vector<ObInfo>& ob_infos, int 
 					std::memcpy(combined_mesh->vertex_data.data() + combined_mesh_vert_size * v + combined_mesh_mat_index_offset_B, &new_mat_i_val, sizeof(uint32)); // Copy new value back to combined_mesh
 				}
 
-				conPrint("Used combined mesh num materials: " + toString(new_mat_infos.size()));
+				conPrint("ChunkGenThread: Used combined mesh num materials: " + toString(new_mat_infos.size()));
 			}
 
 			//-------------------------------------- Build list of used textures --------------------------------------
@@ -974,7 +1000,7 @@ static ChunkBuildResults buildChunkForObInfo(std::vector<ObInfo>& ob_infos, int 
 			runtimeCheck(combined_mesh->numVerts() > 0);
 
 			// Write combined mesh to disk
-			conPrint("Writing combined mesh to disk...");
+			conPrint("ChunkGenThread: Writing combined mesh to disk... (num indices: " + toString(combined_mesh->numIndices()) + ", num verts: " + toString(combined_mesh->numVerts()) + ")");
 			// NOTE: naming scheme needs to start with "chunk_", see if(hasPrefix(lod_model_url, "chunk_")) check in GUIClient::handleUploadedMeshData().
 			const std::string path = PlatformUtils::getTempDirPath() + "/chunk_128_" + toString(chunk_x) + "_" + toString(chunk_y) + ".bmesh";
 			//const std::string path = "d:/tempfiles/main_world/chunk_128_" + toString(chunk_x) + "_" + toString(chunk_y) + ".bmesh";
@@ -991,9 +1017,9 @@ static ChunkBuildResults buildChunkForObInfo(std::vector<ObInfo>& ob_infos, int 
 
 			// FormatDecoderGLTF::writeBatchedMeshToGLBFile(*combined_mesh, "d:/tempfiles/main_world/chunk_128_" + toString(chunk_x) + "_" + toString(chunk_y) + ".glb", GLTFWriteOptions());
 
-			printVar(num_obs_combined);
-			printVar(num_batches_combined);
-			conPrint("Wrote chunk mesh to '" + path + "'.");
+			conPrint("ChunkGenThread: num_obs_combined: " + toString(num_obs_combined));
+			conPrint("ChunkGenThread: num_batches_combined: " + toString(num_batches_combined));
+			conPrint("ChunkGenThread: Wrote chunk mesh to '" + path + "'.");
 
 			// Compute hash over it
 			const uint64 hash = FileChecksum::fileChecksum(path);
@@ -1017,7 +1043,7 @@ static ChunkBuildResults buildChunkForObInfo(std::vector<ObInfo>& ob_infos, int 
 				combined_mesh->writeToFile(opt_mesh_path, options);
 			}
 
-			conPrint("Wrote optimised chunk mesh to '" + opt_mesh_path + "'.");
+			conPrint("ChunkGenThread: Wrote optimised chunk mesh to '" + opt_mesh_path + "'.");
 			//---------------------------------------------------------------------------------
 
 
@@ -1149,7 +1175,24 @@ inline static bool shouldExcludeObjectFromLODChunkMesh(const WorldObject* ob)
 {
 	// Objects with scripts are likely to be moving, so don't bake into chunk.
 	if(!ob->script.empty())
+	{
+		// Scripts like
+		// def evalTranslation(float time, WinterEnv env) vec3 : vec3(0.28, 0.2, 1.65)
+		// Where the object transform is static (independent of time) are compatible with chunk baking, so don't need to be excluded.
+		if(StringUtils::containsString(ob->script, "evalTranslation") && (StringUtils::countOccurrences(ob->script, "time") == 1))
+			return false;
+
+		// Allow dynamic_texture_update script objects to be baked into chunks.  Chunks can be rebuilt when the object's texture maps are updated.
+		if(StringUtils::containsString(ob->script, "dynamic_texture_update"))
+			return false; // Don't exclude from chunk baking
+
+		// Lua scripts tend to be more about onTouchEvents, less about moving around.
+		if(StringUtils::containsString(ob->script, "--lua"))
+			if(!(StringUtils::containsString(ob->script, "moveTo") || StringUtils::containsString(ob->script, "rotateTo"))) // If the script doesn't contain moveTo or rotateTo calls:
+				return false; // Don't exclude from chunk baking
+
 		return true;
+	}
 
 	// Objects that have the park biome are used for computing grass and tree scattering coverage.  This won't work if they are baked into the chunk.
 	// So keep separate.
@@ -1171,7 +1214,7 @@ inline static bool shouldExcludeObjectFromLODChunkMesh(const WorldObject* ob)
 
 		const js::AABBox ob_aabb_ws = ob->getAABBWS();
 		const float extension = myMax(horizontalMax((ob_aabb_ws.max_ - chunk_aabb.max_).v), horizontalMax((chunk_aabb.min_ - ob_aabb_ws.min_).v)); // Distance the object extends out of chunk AABB
-		if(extension > 6.f)
+		if(extension > (chunk_w / 4.0f))
 			return true;
 	}
 
@@ -1204,7 +1247,7 @@ static void updateObjectExcludeFlagsAndUpdateChunks(ServerAllWorldsState* all_wo
 		const bool exclusion_changed = cur_excluded != should_exclude;
 		if(exclusion_changed)
 		{
-			conPrint("Updating EXCLUDE_FROM_LOD_CHUNK_MESH flag for ob to " + toString(should_exclude));
+			conPrint("ChunkGenThread: Updating EXCLUDE_FROM_LOD_CHUNK_MESH flag for ob to " + toString(should_exclude));
 			BitUtils::setOrZeroBit(ob->flags, WorldObject::EXCLUDE_FROM_LOD_CHUNK_MESH, should_exclude);
 
 			// Mark as db-dirty so gets saved to disk.
@@ -1224,7 +1267,7 @@ static void updateObjectExcludeFlagsAndUpdateChunks(ServerAllWorldsState* all_wo
 			if(!should_exclude && (chunk_res == lod_chunks.end()))
 			{
 				// Need new chunk
-				conPrint("Adding new LODChunk with coords " + chunk_coords.toString());
+				conPrint("ChunkGenThread: Adding new LODChunk with coords " + chunk_coords.toString());
 
 				LODChunkRef chunk = new LODChunk();
 				chunk->coords = chunk_coords;
@@ -1241,7 +1284,7 @@ static void updateObjectExcludeFlagsAndUpdateChunks(ServerAllWorldsState* all_wo
 			// If exclusion changed for this object, and there is a chunk object containing it, mark the chunk as needs-rebuild.
 			if(exclusion_changed && (chunk_res != lod_chunks.end()))
 			{
-				conPrint("Object " + ob->uid.toString() + " exclude-from-chunk changed to " + boolToString(should_exclude) + ", marking chunk " + chunk_coords.toString() + " as needs-rebuild.");
+				conPrint("ChunkGenThread: Object " + ob->uid.toString() + " exclude-from-chunk changed to " + boolToString(should_exclude) + ", marking chunk " + chunk_coords.toString() + " as needs-rebuild.");
 				chunk_res->second->needs_rebuild = true;
 			}
 
@@ -1345,11 +1388,11 @@ void ChunkGenThread::doRun()
 					Vec4f((x + 1) * chunk_w, (y + 1) * chunk_w,  500.f, 1.f) // max
 				);
 
-				conPrint("================================= Building chunk " + toString(x) + ", " + toString(y) + " (" + toString(i) + "/" + toString(dirty_chunks.size()) + " dirty chunks) =================================");
+				conPrint("================================= ChunkGenThread: Building chunk " + toString(x) + ", " + toString(y) + " (" + toString(i) + "/" + toString(dirty_chunks.size()) + " dirty chunks) =================================");
 
 				const ChunkBuildResults results = buildChunk(all_worlds_state, dirty_chunks[i].world_state, chunk_aabb, x, y, task_manager);
 
-				conPrint("====== chunk " + toString(x) + ", " + toString(y) + " built. ======");
+				conPrint("====== ChunkGenThread: chunk " + toString(x) + ", " + toString(y) + " built. ======");
 
 				//------------ Build compressed mat_info ------------
 				js::Vector<uint8> compressed_data(ZSTD_compressBound(results.output_mat_infos.dataSizeBytes()));
@@ -1456,7 +1499,7 @@ void ChunkGenThread::doRun()
 			}
 
 			if(!dirty_chunks.empty())
-				conPrint("---------Finished building " + toString(dirty_chunks.size()) + " dirty chunks.---------");
+				conPrint("---------ChunkGenThread: Finished building " + toString(dirty_chunks.size()) + " dirty chunks.---------");
 
 			bool keep_running = true;
 			waitForPeriod(30.0, keep_running);

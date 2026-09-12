@@ -96,26 +96,91 @@ BatchedMeshRef loadModel(const std::string& model_path)
 }
 
 
+static BatchedMeshRef simplerMesh(BatchedMeshRef a, BatchedMeshRef b)
+{
+	return a->numIndices() < b->numIndices() ? a : b;
+}
+
+
+/*
+	 |\        /|
+	 | \     /  |
+	w|  \  /    |
+	 |   /      |h
+	 | /  \     |
+	 /      \   |
+	          \ |
+	     |
+	 < l ><-- 1 ->
+
+
+	w = sensor width
+	l = lens-sensor dist
+	h = projected length = object length at distance 1.
+	w/l = h/1 = h
+
+	For a render resolution of 2560 x 1282 pixels,
+
+	pixel/h = 2560 / (w/l) = 1828.571428 pixels/projected_len_h
+
+	Consider the projected length at the lod 0 / lod 1 transition: 0.16.  (See WorldObject::getLODLevel() for the 0.16 threshold)
+	projected length h = 0.16 gives 0.16 * pixel/h = 0.16 * 1828.57142 = 292.57 pixels
+
+	So a relative error (error relative to size of object) of 0.004 corresponds to 
+	0.004 * 292.57 = 1.17 pixel error
+
+	For the sloppy case, a relative error of 0.034 corresponds to
+	0.034 * 292.571 = 9.947 pixel error
+
+	Note that for the sloppy case, the algorithm is completely different, and the error thresholds are not really comparable in terms of visual error.
+	The error thresholds for sloppy need to be *much* larger to look similar to the non-sloppy result.
+
+
+	At lod -1 / lod 0 transition, projected length = 0.4 (See WorldObject::getLODLevel())
+	projected length h = 0.4 gives 0.4 * pixel/h = 0.4 * 1828.57142 = 731 pixels
+
+	So a relative error (error relative to size of object) of 0.0008 corresponds to 
+	0.0008 * 731  = 0.58 pixel error
+*/
 BatchedMeshRef computeLODModel(BatchedMeshRef batched_mesh, int lod_level)
 {
-	BatchedMeshRef simplified_mesh;
-	if(lod_level == 1)
+	float target_error_rel;
+	float target_error_rel_sloppy;
+	size_t sloppy_tri_threshold; // Number of tris in the non-sloppy simplified mesh at which we should also try using sloppy simplification.
+	
+	if(lod_level == 0)
 	{
-		simplified_mesh = MeshSimplification::buildSimplifiedMesh(*batched_mesh, /*target_reduction_ratio=*/10.f, /*target_error=*/0.02f, /*sloppy=*/false);
-		
-		// If we achieved less than a 4x reduction in the number of vertices (and this is a med/large mesh), try again with sloppy simplification
-		if((batched_mesh->numVerts() > 1024) && // if this is a med/large mesh
-			((float)simplified_mesh->numVerts() > (batched_mesh->numVerts() / 4.f)))
-		{
-			simplified_mesh = MeshSimplification::buildSimplifiedMesh(*batched_mesh, /*target_reduction_ratio=*/10.f, /*target_error=*/0.02f, /*sloppy=*/true);
-		}
+		target_error_rel        = 0.0008f; // Eyeballed as about right for the lod-1/lod0 transition, gives ~0.58 pixel error at 2560 pixel resolution.
+		target_error_rel_sloppy = 0.01f;
+		sloppy_tri_threshold    = 100000;
+	}
+	else if(lod_level == 1)
+	{
+		target_error_rel        = 0.004f; // Eyeballed as about right for the lod0/lod1 transition, gives ~1.17 pixel error at 2560 pixel resolution.
+		target_error_rel_sloppy = 0.034f;
+		sloppy_tri_threshold    = 20000;
 	}
 	else
 	{
 		assert(lod_level == 2);
-		simplified_mesh = MeshSimplification::buildSimplifiedMesh(*batched_mesh, /*target_reduction_ratio=*/100.f, /*target_error=*/0.08f, /*sloppy=*/true);
+		target_error_rel        = 0.004f * 5.33f; // = 0.021.   lod2/lod1 threshold is 5.33 times further away than lod0/lod1 threshold.
+		target_error_rel_sloppy = 0.08f;
+		sloppy_tri_threshold    = 1500;
 	}
-	return simplified_mesh;
+
+	const float target_error_abs = batched_mesh->aabb_os.longestLength() * target_error_rel;
+	BatchedMeshRef simplified_mesh = MeshSimplification::buildSimplifiedMesh(*batched_mesh, /*target_reduction_ratio=*/100000.f, /*target_error=*/target_error_abs, /*sloppy=*/false);
+
+	// If the simplified mesh is still quite complex, try again with sloppy simplification.
+	if((simplified_mesh->numIndices()/3) > sloppy_tri_threshold)
+	{
+		// Note that since sloppy is true here, the target error we need to pass in is relative to the object extents.
+		BatchedMeshRef sloppy_mesh = MeshSimplification::buildSimplifiedMesh(*batched_mesh, /*target_reduction_ratio=*/100000.f, /*target_error=*/target_error_rel_sloppy, /*sloppy=*/true);
+
+		return simplerMesh(sloppy_mesh, simplerMesh(simplified_mesh, batched_mesh)); // Return the mesh that actually ended up the most simple.
+	}
+	else
+		return simplerMesh(simplified_mesh, batched_mesh);  // Return the mesh that actually ended up the most simple.
 }
 
 
@@ -134,17 +199,30 @@ void generateLODModel(const std::string& model_path, int lod_level, const std::s
 }
 
 
-void generateOptimisedMesh(const std::string& source_mesh_abs_path, int lod_level, const std::string& optimised_mesh_path)
+bool isMeshQuantised(BatchedMeshRef batched_mesh)
 {
+	const BatchedMesh::VertAttribute& pos_attr = batched_mesh->getAttribute(BatchedMesh::VertAttribute_Position);
+	return pos_attr.component_type != BatchedMesh::ComponentType_Float;
+}
+
+
+void generateOptimisedMesh(const std::string& source_mesh_abs_path, int min_lod_level, int lod_level, const std::string& optimised_mesh_path)
+{
+	assert(min_lod_level == -1 || min_lod_level == 0);
+	assert(min_lod_level <= lod_level);
+
 	BatchedMeshRef batched_mesh = LODGeneration::loadModel(source_mesh_abs_path);
 
-	if(lod_level > 0)
+	if(lod_level > min_lod_level)
 		batched_mesh = LODGeneration::computeLODModel(batched_mesh, lod_level);
 
-	BatchedMesh::QuantiseOptions quantise_options;
-	quantise_options.pos_bits = (lod_level == 0) ? 16 : 12;
-	quantise_options.uv_bits  = (lod_level == 0) ? 16 : 10;
-	batched_mesh = batched_mesh->buildQuantisedMesh(quantise_options);
+	if(!isMeshQuantised(batched_mesh))
+	{
+		BatchedMesh::QuantiseOptions quantise_options;
+		quantise_options.pos_bits = (lod_level == min_lod_level) ? 16 : 12;
+		quantise_options.uv_bits  = (lod_level == min_lod_level) ? 16 : 10;
+		batched_mesh = batched_mesh->buildQuantisedMesh(quantise_options);
+	}
 
 	batched_mesh->doMeshOptimizerOptimisations();
 

@@ -208,7 +208,8 @@ GUIClient::GUIClient(const std::string& base_dir_path_, const std::string& appda
 	only_load_most_important_obs(false),
 	last_ping_send_time(-1000),
 	gear_item_update_sender(/*send period=*/2.0),
-	active_move_to_controllers(/*empty val=*/nullptr)
+	active_move_to_controllers(/*empty val=*/nullptr),
+	draw_chunks(true)
 {
 	ZoneScoped; // Tracy profiler
 
@@ -2236,9 +2237,9 @@ void GUIClient::loadModelForObject(WorldObject* ob, WorldStateLock& world_state_
 	ob->loading_or_loaded_lod_level = ob_lod_level;
 
 	// Object LOD level is in [-1, 2].
-	// model LOD level is in [0, ob->max_model_lod_level], which is {0} or [0, 2].
+	// model LOD level is in [ob->minModelLODLevel(), ob->max_model_lod_level], which is {0} or [-1, 2] or [0, 2].
 
-	const int ob_model_lod_level = myClamp(ob_lod_level, 0, ob->max_model_lod_level);
+	const int ob_model_lod_level = myClamp(ob_lod_level, ob->minModelLODLevel(), ob->max_model_lod_level);
 
 	// Compute the maximum distance from the camera at which the object LOD level will remain what it currently is.
 	const float max_dist_for_ob_lod_level = ob->getMaxDistForLODLevel(ob_lod_level);
@@ -2802,7 +2803,7 @@ void GUIClient::loadModelForObject(WorldObject* ob, WorldStateLock& world_state_
 
 				WorldObject::GetLODModelURLOptions options(/*get_optimised_mesh=*/this->server_has_optimised_meshes, this->server_opt_mesh_version);
 				options.get_optimised_mesh = this->server_has_optimised_meshes;
-				const URLString lod_model_url = WorldObject::getLODModelURLForLevel(ob->model_url, ob_model_lod_level, options);
+				const URLString lod_model_url = WorldObject::getLODModelURLForLevel(ob->model_url, ob->minModelLODLevel(), ob_model_lod_level, options);
 
 				// print("Loading model for ob: UID: " + ob->uid.toString() + ", type: " + WorldObject::objectTypeString((WorldObject::ObjectType)ob->object_type) + ", lod_model_url: " + lod_model_url);
 
@@ -3359,7 +3360,7 @@ void GUIClient::loadModelForAvatar(Avatar* avatar)
 			bool added_opengl_ob = false;
 
 			WorldObject::GetLODModelURLOptions options(/*get_optimised_mesh=*/this->server_has_optimised_meshes, this->server_opt_mesh_version);
-			const URLString lod_model_url = avatar_is_default_model ? DEFAULT_AVATAR_MODEL_URL : WorldObject::getLODModelURLForLevel(avatar->avatar_settings.model_url, ob_model_lod_level, options);
+			const URLString lod_model_url = avatar_is_default_model ? DEFAULT_AVATAR_MODEL_URL : WorldObject::getLODModelURLForLevel(avatar->avatar_settings.model_url, /*model min LOD lvl=*/0, ob_model_lod_level, options);
 
 			avatar->graphics.loaded_lod_level = ob_lod_level;
 
@@ -3434,7 +3435,7 @@ void GUIClient::loadModelForAvatar(Avatar* avatar)
 			bool added_opengl_ob = false;
 
 			WorldObject::GetLODModelURLOptions options(/*get_optimised_mesh=*/this->server_has_optimised_meshes, this->server_opt_mesh_version);
-			const URLString lod_model_url = WorldObject::getLODModelURLForLevel(gear_item->model_url, ob_model_lod_level, options);
+			const URLString lod_model_url = WorldObject::getLODModelURLForLevel(gear_item->model_url, /*model min LOD lvl=*/0, ob_model_lod_level, options);
 
 			Reference<MeshData> mesh_data = mesh_manager.getMeshData(lod_model_url);
 			if(mesh_data.nonNull())
@@ -4604,11 +4605,13 @@ void GUIClient::handleUploadedMeshData(const URLString& lod_model_url, int loade
 				if(ob->in_proximity)
 				{
 					const int ob_lod_level = ob->getLODLevel(cam_controller.getPosition());
-					const int ob_model_lod_level = myClamp(ob_lod_level, 0, ob->max_model_lod_level);
-								
+					const int ob_model_lod_level = myClamp(ob_lod_level, ob->minModelLODLevel(), ob->max_model_lod_level);
+
+					// loaded_model_lod_level may be -1 just because the model URL had no _lodN suffix, in which case the model is at the minimum LOD level for this object.
+					const int loaded_level = myMax(loaded_model_lod_level, ob->minModelLODLevel());
+
 					// Check the object wants this particular LOD level model right now:
-					//const std::string current_desired_model_LOD_URL = ob->getLODModelURLForLevel(ob->model_url, ob_model_lod_level);
-					if(/*(current_desired_model_LOD_URL == lod_model_url)*/(ob_model_lod_level == loaded_model_lod_level) && (ob->isDynamic() == dynamic_physics_shape))
+					if((ob_model_lod_level == loaded_level) && (ob->isDynamic() == dynamic_physics_shape))
 					{
 						try
 						{
@@ -6534,7 +6537,8 @@ void GUIClient::timerEvent(const MouseCursorState& mouse_cursor_state)
 
 	// Force player above terrain surface.
 	// Useful to prevent player falling down to infinity if they fall below the terrain surface before it is loaded.
-	if(terrain_system.nonNull())
+	// Skipped in noclip mode, where the player is allowed to move below the terrain surface.
+	if(terrain_system.nonNull() && !player_physics.noClipEnabled())
 	{
 		const Vec3d player_pos = player_physics.getCapsuleBottomPosition();
 
@@ -7973,7 +7977,8 @@ void GUIClient::updateLODChunkGraphics()
 				// Show the chunk graphics object
 				if(!chunk->graphics_ob_in_engine)
 				{
-					opengl_engine->addObject(chunk->graphics_ob);
+					if(this->draw_chunks)
+						opengl_engine->addObject(chunk->graphics_ob);
 
 					if(chunk->diagnostics_gl_ob)
 						opengl_engine->addObject(chunk->diagnostics_gl_ob);
@@ -9991,9 +9996,6 @@ void GUIClient::handleMessages(double global_time, double cur_time)
 				{
 					const std::string path = resource_manager->pathForURL(m->URL);
 
-					const std::string username = ui_interface->getUsernameForDomain(server_hostname);
-					const std::string password = ui_interface->getDecryptedPasswordForDomain(server_hostname);
-
 					this->num_resources_uploading++;
 #if EMSCRIPTEN
 					const size_t max_num_upload_threads = 1;
@@ -10003,7 +10005,7 @@ void GUIClient::handleMessages(double global_time, double cur_time)
 					if(resource_upload_thread_manager.getNumThreads() == 0)
 					{
 						for(size_t q=0; q<max_num_upload_threads; ++q)
-							resource_upload_thread_manager.addThread(new UploadResourceThread(&this->msg_queue, &upload_queue, server_hostname, server_port, username, password, this->client_tls_config, 
+							resource_upload_thread_manager.addThread(new UploadResourceThread(&this->msg_queue, &upload_queue, server_hostname, server_port, ui_interface->getCredentialManager(), this->client_tls_config,
 								&this->num_resources_uploading));
 					}
 
@@ -10359,8 +10361,9 @@ std::string GUIClient::getDiagnosticsString(bool do_graphics_diagnostics, bool d
 		msg += "aabb ws: " + selected_ob->getAABBWS().toStringMaxNDecimalPlaces(3) + "\n";
 		msg += "aabb_ws_longest_len: " + doubleToStringMaxNDecimalPlaces(selected_ob->getAABBWSLongestLength(), 2) + "\n";
 		msg += "biased aabb longest len: " + doubleToStringMaxNDecimalPlaces(selected_ob->getBiasedAABBLength(), 2) + "\n";
-
-		msg += "max_model_lod_level: " + toString(selected_ob->max_model_lod_level) + "\n";
+		msg += "biased projected len: " + doubleToStringMaxNDecimalPlaces(selected_ob->getBiasedProjectedLength(cam_controller.getPosition()), 3) + "\n";
+		msg += "min model LOD level: " + toString(selected_ob->minModelLODLevel()) + "\n";
+		msg += "max model LOD level: " + toString(selected_ob->max_model_lod_level) + "\n";
 		msg += "current_lod_level: " + toString(selected_ob->current_lod_level) + "\n";
 		msg += "loading_or_loaded_model_lod_level: " + toString(selected_ob->loading_or_loaded_model_lod_level) + "\n";
 		msg += "loading_or_loaded_lod_level: " + toString(selected_ob->loading_or_loaded_lod_level) + "\n";
@@ -10368,8 +10371,8 @@ std::string GUIClient::getDiagnosticsString(bool do_graphics_diagnostics, bool d
 		if(selected_ob->opengl_engine_ob.nonNull())
 		{
 			msg += 
-				"num tris: " + toString(selected_ob->opengl_engine_ob->mesh_data->getNumTris()) + " (" + getNiceByteSize(selected_ob->opengl_engine_ob->mesh_data->GPUIndicesMemUsage()) + ")\n" + 
-				"num verts: " + toString(selected_ob->opengl_engine_ob->mesh_data->getNumVerts()) + " (" + getNiceByteSize(selected_ob->opengl_engine_ob->mesh_data->GPUVertMemUsage()) + ")\n" +
+				"num tris: " + uInt64ToStringCommaSeparated(selected_ob->opengl_engine_ob->mesh_data->getNumTris()) + " (" + getNiceByteSize(selected_ob->opengl_engine_ob->mesh_data->GPUIndicesMemUsage()) + ")\n" + 
+				"num verts: " + uInt64ToStringCommaSeparated(selected_ob->opengl_engine_ob->mesh_data->getNumVerts()) + " (" + getNiceByteSize(selected_ob->opengl_engine_ob->mesh_data->GPUVertMemUsage()) + ")\n" +
 				"num batches (draw calls): " + toString(selected_ob->opengl_engine_ob->mesh_data->batches.size()) + "\n" +
 				"num materials: " + toString(selected_ob->opengl_engine_ob->materials.size()) + "\n" +
 				"shading normals: " + boolToString(selected_ob->opengl_engine_ob->mesh_data->has_shading_normals) + "\n" + 
@@ -11266,6 +11269,8 @@ void GUIClient::createObject(const std::string& mesh_path, BatchedMeshRef loaded
 		aabb_os = loaded_mesh->aabb_os;
 
 		new_world_object->max_model_lod_level = (loaded_mesh->numVerts() <= 4 * 6) ? 0 : 2; // If this is a very small model (e.g. a cuboid), don't generate LOD versions of it.
+
+		BitUtils::setOrZeroBit(new_world_object->flags, WorldObject::MIN_MODEL_LOD_LEVEL_IS_NEGATIVE_1, (loaded_mesh->numIndices()/3) > WorldObject::MIN_MODEL_LOD_LEVEL_NEG_1_TRI_THRESHOLD);
 	}
 	else
 	{
@@ -11430,6 +11435,7 @@ void GUIClient::createObjectLoadedFromXML(WorldObjectRef new_world_object, Print
 
 		new_world_object->setAABBOS(batched_mesh->aabb_os);
 		new_world_object->max_model_lod_level = (batched_mesh->numVerts() <= 4 * 6) ? 0 : 2; // If this is a very small model (e.g. a cuboid), don't generate LOD versions of it.
+		BitUtils::setOrZeroBit(new_world_object->flags, WorldObject::MIN_MODEL_LOD_LEVEL_IS_NEGATIVE_1, (batched_mesh->numIndices()/3) > WorldObject::MIN_MODEL_LOD_LEVEL_NEG_1_TRI_THRESHOLD);
 	}
 
 	// Search for an existing object with the same model url or voxel group and transform.
@@ -12789,10 +12795,21 @@ void GUIClient::objectEdited()
 			{
 				removeAndDeleteGLAndPhysicsObjectsForOb(*this->selected_ob); // Remove old opengl and physics objects
 
-				const std::string mesh_path = FileUtils::fileExists(this->selected_ob->model_url) ? toStdString(this->selected_ob->model_url) : resource_manager->pathForURL(this->selected_ob->model_url);
+				const bool URL_is_local_path = FileUtils::fileExists(this->selected_ob->model_url);
+
+				// Load the model at the object's minimum (= highest detail) LOD level, since the loaded mesh is used to rebuild the physics shape,
+				// and (if the model URL changed) to compute the object space AABB.
+				// NOTE: the resulting URL is the same for min LOD level -1 and 0, so it doesn't matter that MIN_MODEL_LOD_LEVEL_IS_NEGATIVE_1 still
+				// describes the old mesh at this point (it's updated for the new mesh below).
+				const WorldObject::GetLODModelURLOptions url_options(/*get_optimised_mesh=*/this->server_has_optimised_meshes, this->server_opt_mesh_version);
+
+				const URLString base_lod_mesh_URL = WorldObject::getLODModelURLForLevel(this->selected_ob->model_url,
+					/*model min LOD level=*/this->selected_ob->minModelLODLevel(), /*model LOD level=*/this->selected_ob->minModelLODLevel(), url_options);
+
+				const std::string local_abs_mesh_path = URL_is_local_path ? toStdString(this->selected_ob->model_url) : resource_manager->pathForURL(base_lod_mesh_URL);
 
 				ModelLoading::MakeGLObjectResults results;
-				ModelLoading::makeGLObjectForModelFile(*opengl_engine, *opengl_engine->vert_buf_allocator, worker_allocator.ptr(), mesh_path,
+				ModelLoading::makeGLObjectForModelFile(*opengl_engine, *opengl_engine->vert_buf_allocator, worker_allocator.ptr(), local_abs_mesh_path,
 					/*do_opengl_stuff=*/true,
 					results
 				);
@@ -12806,34 +12823,39 @@ void GUIClient::objectEdited()
 
 				if(BitUtils::isBitSet(this->selected_ob->changed_flags, WorldObject::MODEL_URL_CHANGED))
 				{
-					// If the user selected a mesh that is not a bmesh, convert it to bmesh.
-					std::string bmesh_disk_path;
-					if(!hasExtension(mesh_path, "bmesh")) 
+					if(URL_is_local_path)
 					{
-						// Save as bmesh in temp location
-						bmesh_disk_path = PlatformUtils::getTempDirPath() + "/temp.bmesh";
+						// If the user selected a mesh that is not a bmesh, convert it to bmesh.
+						std::string bmesh_disk_path;
+						if(!hasExtension(local_abs_mesh_path, "bmesh")) 
+						{
+							// Save as bmesh in temp location
+							bmesh_disk_path = PlatformUtils::getTempDirPath() + "/temp.bmesh";
 
-						BatchedMesh::WriteOptions write_options;
-						write_options.compression_level = 9; // Use a somewhat high compression level, as this mesh is likely to be read many times, and only encoded here.
-						// TODO: show 'processing...' dialog while it compresses and saves?
-						results.batched_mesh->writeToFile(bmesh_disk_path, write_options);
+							BatchedMesh::WriteOptions write_options;
+							write_options.compression_level = 9; // Use a somewhat high compression level, as this mesh is likely to be read many times, and only encoded here.
+							// TODO: show 'processing...' dialog while it compresses and saves?
+							results.batched_mesh->writeToFile(bmesh_disk_path, write_options);
+						}
+						else
+							bmesh_disk_path = local_abs_mesh_path;
+
+						// Compute hash over model
+						const uint64 model_hash = FileChecksum::fileChecksum(bmesh_disk_path);
+
+						const std::string original_filename = FileUtils::getFilename(toStdString(this->selected_ob->model_url)); // Use the original filename, not 'temp.bmesh'.
+						const URLString mesh_URL = ResourceManager::URLForNameAndExtensionAndHash(original_filename, ::getExtension(bmesh_disk_path), model_hash); // Make a URL like "projectdog_png_5624080605163579508.png"
+
+						// Copy model to local resources dir if not already there.  UploadResourceThread will read from here.
+						if(!this->resource_manager->isFileForURLPresent(mesh_URL))
+							this->resource_manager->copyLocalFileToResourceDir(bmesh_disk_path, mesh_URL);
+
+						this->selected_ob->model_url = mesh_URL;
 					}
-					else
-						bmesh_disk_path = mesh_path;
 
-					// Compute hash over model
-					const uint64 model_hash = FileChecksum::fileChecksum(bmesh_disk_path);
-
-					const std::string original_filename = FileUtils::getFilename(mesh_path); // Use the original filename, not 'temp.bmesh'.
-					const URLString mesh_URL = ResourceManager::URLForNameAndExtensionAndHash(original_filename, ::getExtension(bmesh_disk_path), model_hash); // Make a URL like "projectdog_png_5624080605163579508.png"
-
-					// Copy model to local resources dir if not already there.  UploadResourceThread will read from here.
-					if(!this->resource_manager->isFileForURLPresent(mesh_URL))
-						this->resource_manager->copyLocalFileToResourceDir(bmesh_disk_path, mesh_URL);
-
-					this->selected_ob->model_url = mesh_URL;
 					this->selected_ob->max_model_lod_level = (results.batched_mesh->numVerts() <= 4 * 6) ? 0 : 2; // If this is a very small model (e.g. a cuboid), don't generate LOD versions of it.
 					this->selected_ob->setAABBOS(results.batched_mesh->aabb_os);
+					BitUtils::setOrZeroBit(this->selected_ob->flags, WorldObject::MIN_MODEL_LOD_LEVEL_IS_NEGATIVE_1, (results.batched_mesh->numIndices()/3) > WorldObject::MIN_MODEL_LOD_LEVEL_NEG_1_TRI_THRESHOLD);
 				}
 				else
 				{
@@ -12918,7 +12940,7 @@ void GUIClient::objectEdited()
 
 		startDownloadingResourcesForObject(this->selected_ob.ptr(), ob_lod_level);
 
-		if(selected_ob->model_url.empty() || resource_manager->isFileForURLPresent(selected_ob->model_url))
+		//if(selected_ob->model_url.empty())// || resource_manager->isFileForURLPresent(selected_ob->model_url))
 		{
 			Matrix4f new_ob_to_world_matrix = obToWorldMatrix(*this->selected_ob);
 
